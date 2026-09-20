@@ -1,0 +1,826 @@
+{
+  "id": "evaluation-1789897743605",
+  "evaluator": {
+    "version": "eval-2026-09-20.2",
+    "missingOutputPolicy": "A missing assessment fails all label checks and cannot count as a correct abstention."
+  },
+  "datasetVersion": "2026-09-19.1",
+  "iteration": {
+    "id": "few-shot-v3",
+    "version": "local-2026-09-20.2",
+    "label": "Few-shot v3",
+    "status": "frozen",
+    "summary": "Frozen after passing the development split; this exact prompt is ready for one held-out run.",
+    "changes": [
+      "Replaced three one-video examples with one coherent four-video batch containing four outputs.",
+      "Added an explicit rule that assessment count must equal input video count and order.",
+      "Restored the response schema to model context.",
+      "Retained explicit exception, soundscape, release-news, and vague-metadata definitions."
+    ],
+    "finding": "Development: 100% coverage, 93.75% exact match, zero feed-decision errors, and 3m17s wall time. One supporting-vs-direct relevance boundary remains."
+  },
+  "testSet": [
+    {
+      "id": "heldout-marathon",
+      "split": "heldout",
+      "name": "Marathon training",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Train safely for my first marathon with workouts, recovery, and injury-prevention guidance.",
+        "usefulTopics": [
+          "running workouts",
+          "marathon plans",
+          "recovery",
+          "injury prevention"
+        ],
+        "unwantedTopics": [
+          "crash diets",
+          "celebrity fitness gossip",
+          "extreme challenges"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-run-intervals",
+            "title": "10K Interval Workout for Marathon Runners",
+            "channel": "Run Strong",
+            "duration": "18:00",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The workout explicitly targets marathon runners.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-run-injury",
+            "title": "Runner's Knee: Strength Exercises and Prevention",
+            "channel": "Sports Physio",
+            "duration": "13:24",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title directly addresses injury prevention and recovery.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-run-diet",
+            "title": "Celebrity Crash Diet Secrets Revealed",
+            "channel": "Fame Fitness",
+            "duration": "9:32",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Both celebrity gossip and crash diets are explicitly unwanted.",
+          "tags": [
+            "clear-negative"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-run-vague",
+            "title": "A Big Announcement Tomorrow",
+            "channel": "Life Update",
+            "duration": "4:18",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "unclear",
+            "goalRelevance": "unclear",
+            "unwantedMatch": "unclear",
+            "evidenceSufficiency": "insufficient"
+          },
+          "labelNote": "No supplied metadata establishes the subject or relevance.",
+          "tags": [
+            "abstention",
+            "vague-title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heldout-finance",
+      "split": "heldout",
+      "name": "Personal finance fundamentals",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-finance-index",
+            "title": "Index Funds Explained for Complete Beginners",
+            "channel": "Steady Money",
+            "duration": "15:50",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly teaches a requested long-term finance topic.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-budget",
+            "title": "Why Most Budget Advice Fails — A Practical Framework",
+            "channel": "Money Methods",
+            "duration": "12:16",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title signals substantive budgeting guidance despite its commentary format.",
+          "tags": [
+            "purpose-vs-topic"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-pump",
+            "title": "LIVE: This Crypto Can 100X Tonight — Buy Signal",
+            "channel": "Moon Calls",
+            "duration": null,
+            "isShort": false,
+            "isLive": true,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly promotes a crypto pump and trading signal.",
+          "tags": [
+            "clear-negative",
+            "live"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-loss",
+            "title": "How I Lost Everything Day Trading",
+            "channel": "Market Lessons",
+            "duration": "19:05",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The cautionary title can support risk awareness and does not promote a signal or quick-profit scheme.",
+          "tags": [
+            "hard-negative",
+            "purpose-vs-topic"
+          ]
+        }
+      ]
+    }
+  ],
+  "split": "heldout",
+  "repeats": 1,
+  "startedAt": "2026-09-20T09:47:21.708Z",
+  "completedAt": "2026-09-20T09:49:03.605Z",
+  "classifier": {
+    "provider": "chrome-built-in-ai",
+    "model": "chrome-gemini-nano",
+    "promptVersion": "local-2026-09-20.2",
+    "promptVariant": "few-shot-v3"
+  },
+  "scenarioCalls": [
+    {
+      "scenarioId": "heldout-marathon",
+      "scenarioName": "Marathon training",
+      "split": "heldout",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 57219,
+        "availabilityMs": 2,
+        "sessionCreateMs": 18214,
+        "inferenceMs": 39000,
+        "parsingMs": 0,
+        "validationMs": 1
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1505,
+        "contextWindow": 9216
+      }
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "heldout",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 44671,
+        "availabilityMs": 5,
+        "sessionCreateMs": 5087,
+        "inferenceMs": 39578,
+        "parsingMs": 0,
+        "validationMs": 0
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1529,
+        "contextWindow": 9216
+      }
+    }
+  ],
+  "timing": {
+    "wallClockMs": 101897,
+    "pipelineMs": 101890,
+    "overheadMs": 7,
+    "inferenceShareOfWall": 0.7711512605866708,
+    "sessionShareOfWall": 0.22867209044427217,
+    "stages": {
+      "availabilityMs": {
+        "totalMs": 7,
+        "averageMs": 4,
+        "shareOfWall": 0.00006869682129994013
+      },
+      "sessionCreateMs": {
+        "totalMs": 23301,
+        "averageMs": 11651,
+        "shareOfWall": 0.22867209044427217
+      },
+      "inferenceMs": {
+        "totalMs": 78578,
+        "averageMs": 39289,
+        "shareOfWall": 0.7711512605866708
+      },
+      "parsingMs": {
+        "totalMs": 0,
+        "averageMs": 0,
+        "shareOfWall": 0
+      },
+      "validationMs": {
+        "totalMs": 1,
+        "averageMs": 1,
+        "shareOfWall": 0.000009813831614277162
+      }
+    },
+    "calls": [
+      {
+        "scenarioId": "heldout-marathon",
+        "scenarioName": "Marathon training",
+        "repeat": 1,
+        "totalMs": 57219,
+        "sessionMs": 18214,
+        "inferenceMs": 39000,
+        "otherMs": 5
+      },
+      {
+        "scenarioId": "heldout-finance",
+        "scenarioName": "Personal finance fundamentals",
+        "repeat": 1,
+        "totalMs": 44671,
+        "sessionMs": 5087,
+        "inferenceMs": 39578,
+        "otherMs": 6
+      }
+    ]
+  },
+  "reliability": {
+    "requested": 8,
+    "returned": 8,
+    "accepted": 8,
+    "missing": 0,
+    "duplicates": 0,
+    "unexpected": 0,
+    "coverage": 1
+  },
+  "metrics": {
+    "predictions": 8,
+    "uniqueCases": 8,
+    "exactMatchAccuracy": 0.375,
+    "purposeAccuracy": 0.5,
+    "relevanceAccuracy": 0.875,
+    "unwantedAccuracy": 0.875,
+    "evidenceAccuracy": 1,
+    "unwanted": {
+      "truePositive": 2,
+      "falsePositive": 1,
+      "falseNegative": 0,
+      "precision": 0.6666666666666666,
+      "recall": 1,
+      "f1": 0.8
+    },
+    "falseHideRate": 0.16666666666666666,
+    "falseShowRate": 0,
+    "falseHideCount": 1,
+    "falseShowCount": 0,
+    "abstentionRecall": 1,
+    "unnecessaryAbstentionRate": 0,
+    "consistencyRate": null,
+    "latency": {
+      "calls": 2,
+      "p50Ms": 44671,
+      "p95Ms": 57219,
+      "averageMs": 50945
+    },
+    "confusion": {
+      "goalRelevance": {
+        "labels": [
+          "directly_useful",
+          "supporting",
+          "unrelated",
+          "unclear"
+        ],
+        "values": {
+          "directly_useful": {
+            "directly_useful": 4,
+            "supporting": 0,
+            "unrelated": 0,
+            "unclear": 0
+          },
+          "supporting": {
+            "directly_useful": 0,
+            "supporting": 0,
+            "unrelated": 1,
+            "unclear": 0
+          },
+          "unrelated": {
+            "directly_useful": 0,
+            "supporting": 0,
+            "unrelated": 2,
+            "unclear": 0
+          },
+          "unclear": {
+            "directly_useful": 0,
+            "supporting": 0,
+            "unrelated": 0,
+            "unclear": 1
+          }
+        }
+      },
+      "unwantedMatch": {
+        "labels": [
+          "yes",
+          "no",
+          "unclear"
+        ],
+        "values": {
+          "yes": {
+            "yes": 2,
+            "no": 0,
+            "unclear": 0
+          },
+          "no": {
+            "yes": 1,
+            "no": 4,
+            "unclear": 0
+          },
+          "unclear": {
+            "yes": 0,
+            "no": 0,
+            "unclear": 1
+          }
+        }
+      }
+    }
+  },
+  "records": [
+    {
+      "scenarioId": "heldout-marathon",
+      "scenarioName": "Marathon training",
+      "split": "heldout",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-run-intervals",
+      "video": {
+        "videoId": "eval-run-intervals",
+        "title": "10K Interval Workout for Marathon Runners",
+        "channel": "Run Strong",
+        "duration": "18:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The workout explicitly targets marathon runners.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-run-intervals",
+        "topics": [
+          "running workouts"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "10K Interval Workout"
+        ],
+        "reason": "The video provides a direct workout for marathon training."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "heldout-marathon",
+      "scenarioName": "Marathon training",
+      "split": "heldout",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-run-injury",
+      "video": {
+        "videoId": "eval-run-injury",
+        "title": "Runner's Knee: Strength Exercises and Prevention",
+        "channel": "Sports Physio",
+        "duration": "13:24",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title directly addresses injury prevention and recovery.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-run-injury",
+        "topics": [
+          "injury prevention",
+          "strength exercises"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Runner's Knee: Strength Exercises"
+        ],
+        "reason": "The video offers exercises for injury prevention, directly relevant to marathon training."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "heldout-marathon",
+      "scenarioName": "Marathon training",
+      "split": "heldout",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-run-diet",
+      "video": {
+        "videoId": "eval-run-diet",
+        "title": "Celebrity Crash Diet Secrets Revealed",
+        "channel": "Fame Fitness",
+        "duration": "9:32",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative"
+      ],
+      "labelNote": "Both celebrity gossip and crash diets are explicitly unwanted.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-run-diet",
+        "topics": [
+          "crash diets"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Celebrity Crash Diet Secrets"
+        ],
+        "reason": "The video discusses crash diets, which are explicitly unwanted."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "heldout-marathon",
+      "scenarioName": "Marathon training",
+      "split": "heldout",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-run-vague",
+      "video": {
+        "videoId": "eval-run-vague",
+        "title": "A Big Announcement Tomorrow",
+        "channel": "Life Update",
+        "duration": "4:18",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "abstention",
+        "vague-title"
+      ],
+      "labelNote": "No supplied metadata establishes the subject or relevance.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "unclear",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient"
+      },
+      "actual": {
+        "videoId": "eval-run-vague",
+        "topics": [],
+        "contentPurpose": "other",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient",
+        "evidence": [],
+        "reason": "The title suggests an announcement, but the content/topic is unclear."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "heldout",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-finance-index",
+      "video": {
+        "videoId": "eval-finance-index",
+        "title": "Index Funds Explained for Complete Beginners",
+        "channel": "Steady Money",
+        "duration": "15:50",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title explicitly teaches a requested long-term finance topic.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-finance-index",
+        "topics": [
+          "index funds"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Index Funds Explained for Complete Beginners"
+        ],
+        "reason": "The video directly teaches about index funds, a useful topic."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "heldout",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-finance-budget",
+      "video": {
+        "videoId": "eval-finance-budget",
+        "title": "Why Most Budget Advice Fails — A Practical Framework",
+        "channel": "Money Methods",
+        "duration": "12:16",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "purpose-vs-topic"
+      ],
+      "labelNote": "The title signals substantive budgeting guidance despite its commentary format.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-finance-budget",
+        "topics": [
+          "budgeting"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Why Most Budget Advice Fails — A Practical Framework"
+        ],
+        "reason": "The video provides practical budgeting advice, directly relevant."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "heldout",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-finance-pump",
+      "video": {
+        "videoId": "eval-finance-pump",
+        "title": "LIVE: This Crypto Can 100X Tonight — Buy Signal",
+        "channel": "Moon Calls",
+        "duration": null,
+        "isShort": false,
+        "isLive": true,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative",
+        "live"
+      ],
+      "labelNote": "The title explicitly promotes a crypto pump and trading signal.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-finance-pump",
+        "topics": [
+          "crypto pumps"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "LIVE: This Crypto Can 100X Tonight — Buy Signal"
+        ],
+        "reason": "The video promotes crypto pumps, which is an explicitly unwanted topic."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "heldout",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-finance-loss",
+      "video": {
+        "videoId": "eval-finance-loss",
+        "title": "How I Lost Everything Day Trading",
+        "channel": "Market Lessons",
+        "duration": "19:05",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "hard-negative",
+        "purpose-vs-topic"
+      ],
+      "labelNote": "The cautionary title can support risk awareness and does not promote a signal or quick-profit scheme.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-finance-loss",
+        "topics": [
+          "day trading"
+        ],
+        "contentPurpose": "commentary",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "How I Lost Everything Day Trading"
+        ],
+        "reason": "The video discusses a personal experience with day trading losses, an explicitly unwanted topic."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "hide"
+    }
+  ]
+}

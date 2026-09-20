@@ -1,0 +1,1496 @@
+{
+  "id": "evaluation-1789897231586",
+  "evaluator": {
+    "version": "eval-2026-09-20.2",
+    "missingOutputPolicy": "A missing assessment fails all label checks and cannot count as a correct abstention."
+  },
+  "datasetVersion": "2026-09-19.1",
+  "iteration": {
+    "id": "few-shot-v3",
+    "version": "local-2026-09-20.2",
+    "label": "Few-shot v3",
+    "status": "candidate",
+    "summary": "Current candidate fixes batch cardinality while retaining the exception and abstention rubric.",
+    "changes": [
+      "Replaced three one-video examples with one coherent four-video batch containing four outputs.",
+      "Added an explicit rule that assessment count must equal input video count and order.",
+      "Restored the response schema to model context.",
+      "Retained explicit exception, soundscape, release-news, and vague-metadata definitions."
+    ],
+    "finding": "Not evaluated yet. It must reach 100% output coverage before its quality or speed can be compared with baseline."
+  },
+  "testSet": [
+    {
+      "id": "dev-interview-focus",
+      "split": "development",
+      "name": "Coding interview focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-interview-dsa",
+            "title": "Sliding Window: Solve These 5 Interview Problems",
+            "channel": "Algorithm Academy",
+            "duration": "12:30",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly describes interview problem instruction.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-gta",
+            "title": "I Played GTA 6 Early — Here's What Happened",
+            "channel": "Game Drop",
+            "duration": "18:42",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title clearly identifies gaming entertainment, which the profile rejects.",
+          "tags": [
+            "clear-negative"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-music",
+            "title": "Deep Focus Music for Coding — 90 Minutes",
+            "channel": "Quiet Keys",
+            "duration": "1:30:00",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "music",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Background music is an explicit exception and can support the session.",
+          "tags": [
+            "exception"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-vague",
+            "title": "We Need to Talk",
+            "channel": "Daily Notes",
+            "duration": "8:05",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "unclear",
+            "goalRelevance": "unclear",
+            "unwantedMatch": "unclear",
+            "evidenceSufficiency": "insufficient"
+          },
+          "labelNote": "The supplied metadata does not identify a subject or relationship to the goal.",
+          "tags": [
+            "abstention",
+            "vague-title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dev-upsc-focus",
+      "split": "development",
+      "name": "UPSC study session",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for the UPSC civil services examination with conceptual lessons and current affairs analysis.",
+        "usefulTopics": [
+          "Indian polity",
+          "history",
+          "geography",
+          "economics",
+          "current affairs"
+        ],
+        "unwantedTopics": [
+          "film gossip",
+          "gaming",
+          "prank videos"
+        ],
+        "exceptions": [
+          "instrumental study music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-upsc-rights",
+            "title": "Fundamental Rights Explained for UPSC",
+            "channel": "Civil Service Classroom",
+            "duration": "22:10",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Both the topic and intended exam are explicit.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-upsc-energy",
+            "title": "India's New Energy Policy: Context and Analysis",
+            "channel": "Policy Desk",
+            "duration": "16:20",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "news",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Policy analysis directly matches the requested current affairs preparation.",
+          "tags": [
+            "current-affairs"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-upsc-gossip",
+            "title": "Biggest Bollywood Breakups This Year",
+            "channel": "Star Flash",
+            "duration": "9:11",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title is clearly film gossip, an explicit unwanted topic.",
+          "tags": [
+            "clear-negative"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-upsc-music",
+            "title": "Instrumental Music for a Two-Hour Study Session",
+            "channel": "Study Sound",
+            "duration": "2:00:00",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "music",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Instrumental study music is explicitly allowed.",
+          "tags": [
+            "exception"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dev-product-design",
+      "split": "development",
+      "name": "Product design learning",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-design-research",
+            "title": "How to Plan a Usability Study",
+            "channel": "Research Practice",
+            "duration": "15:12",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title directly teaches a requested research method.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-figma",
+            "title": "Figma's New Prototyping Features Explained",
+            "channel": "Design Tool News",
+            "duration": "10:33",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "news",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Design-tool release news is an explicit exception and supports the broader goal.",
+          "tags": [
+            "exception"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-stream",
+            "title": "Late Night Ranked Gaming Stream",
+            "channel": "Level Up Live",
+            "duration": "2:04:10",
+            "isShort": false,
+            "isLive": true,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "A gaming livestream explicitly matches the unwanted preference.",
+          "tags": [
+            "clear-negative",
+            "live"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-hud",
+            "title": "Design a Readable Game HUD: Accessibility and Layout",
+            "channel": "Interface Workshop",
+            "duration": "17:40",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The purpose is interface and accessibility instruction despite the gaming context.",
+          "tags": [
+            "keyword-trap",
+            "purpose-vs-topic"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dev-english-learning",
+      "split": "development",
+      "name": "English learning session",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve spoken English vocabulary and listening comprehension.",
+        "usefulTopics": [
+          "English lessons",
+          "conversation practice",
+          "pronunciation",
+          "vocabulary"
+        ],
+        "unwantedTopics": [
+          "cricket highlights",
+          "celebrity gossip",
+          "gaming"
+        ],
+        "exceptions": [
+          "rain sounds during vocabulary review"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-english-verbs",
+            "title": "20 Phrasal Verbs for Everyday English",
+            "channel": "Speak Clearly",
+            "duration": "14:06",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly promises English vocabulary instruction.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-english-practice",
+            "title": "Beginner English Conversation Practice at a Restaurant",
+            "channel": "Everyday English",
+            "duration": "11:48",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "practice",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title is explicit conversation practice.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-english-cricket",
+            "title": "India vs Australia Final — Match Highlights",
+            "channel": "Cricket Central",
+            "duration": "12:01",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Cricket highlights are explicitly unwanted.",
+          "tags": [
+            "clear-negative"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-english-rain",
+            "title": "Gentle Rain Sounds for Studying",
+            "channel": "Calm Room",
+            "duration": "1:00:00",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "music",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Rain sounds are an explicit exception for this study activity.",
+          "tags": [
+            "exception"
+          ]
+        }
+      ]
+    }
+  ],
+  "split": "development",
+  "repeats": 1,
+  "startedAt": "2026-09-20T09:37:14.582Z",
+  "completedAt": "2026-09-20T09:40:31.585Z",
+  "classifier": {
+    "provider": "chrome-built-in-ai",
+    "model": "chrome-gemini-nano",
+    "promptVersion": "local-2026-09-20.2",
+    "promptVariant": "few-shot-v3"
+  },
+  "scenarioCalls": [
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 61451,
+        "availabilityMs": 4,
+        "sessionCreateMs": 21596,
+        "inferenceMs": 39848,
+        "parsingMs": 0,
+        "validationMs": 1
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1520,
+        "contextWindow": 9216
+      }
+    },
+    {
+      "scenarioId": "dev-upsc-focus",
+      "scenarioName": "UPSC study session",
+      "split": "development",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 45915,
+        "availabilityMs": 5,
+        "sessionCreateMs": 5200,
+        "inferenceMs": 40708,
+        "parsingMs": 0,
+        "validationMs": 1
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1535,
+        "contextWindow": 9216
+      }
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 46909,
+        "availabilityMs": 4,
+        "sessionCreateMs": 5067,
+        "inferenceMs": 41837,
+        "parsingMs": 0,
+        "validationMs": 0
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1540,
+        "contextWindow": 9216
+      }
+    },
+    {
+      "scenarioId": "dev-english-learning",
+      "scenarioName": "English learning session",
+      "split": "development",
+      "repeat": 1,
+      "timing": {
+        "totalMs": 42720,
+        "availabilityMs": 5,
+        "sessionCreateMs": 5219,
+        "inferenceMs": 37494,
+        "parsingMs": 0,
+        "validationMs": 0
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "contextBeforePrompt": 713,
+        "contextAfterPrompt": 1500,
+        "contextWindow": 9216
+      }
+    }
+  ],
+  "timing": {
+    "wallClockMs": 197003,
+    "pipelineMs": 196995,
+    "overheadMs": 8,
+    "inferenceShareOfWall": 0.8115967777140449,
+    "sessionShareOfWall": 0.18823063608168403,
+    "stages": {
+      "availabilityMs": {
+        "totalMs": 18,
+        "averageMs": 5,
+        "shareOfWall": 0.0000913691669670005
+      },
+      "sessionCreateMs": {
+        "totalMs": 37082,
+        "averageMs": 9271,
+        "shareOfWall": 0.18823063608168403
+      },
+      "inferenceMs": {
+        "totalMs": 159887,
+        "averageMs": 39972,
+        "shareOfWall": 0.8115967777140449
+      },
+      "parsingMs": {
+        "totalMs": 0,
+        "averageMs": 0,
+        "shareOfWall": 0
+      },
+      "validationMs": {
+        "totalMs": 2,
+        "averageMs": 1,
+        "shareOfWall": 0.000010152129663000055
+      }
+    },
+    "calls": [
+      {
+        "scenarioId": "dev-interview-focus",
+        "scenarioName": "Coding interview focus",
+        "repeat": 1,
+        "totalMs": 61451,
+        "sessionMs": 21596,
+        "inferenceMs": 39848,
+        "otherMs": 7
+      },
+      {
+        "scenarioId": "dev-upsc-focus",
+        "scenarioName": "UPSC study session",
+        "repeat": 1,
+        "totalMs": 45915,
+        "sessionMs": 5200,
+        "inferenceMs": 40708,
+        "otherMs": 7
+      },
+      {
+        "scenarioId": "dev-product-design",
+        "scenarioName": "Product design learning",
+        "repeat": 1,
+        "totalMs": 46909,
+        "sessionMs": 5067,
+        "inferenceMs": 41837,
+        "otherMs": 5
+      },
+      {
+        "scenarioId": "dev-english-learning",
+        "scenarioName": "English learning session",
+        "repeat": 1,
+        "totalMs": 42720,
+        "sessionMs": 5219,
+        "inferenceMs": 37494,
+        "otherMs": 7
+      }
+    ]
+  },
+  "reliability": {
+    "requested": 16,
+    "returned": 16,
+    "accepted": 16,
+    "missing": 0,
+    "duplicates": 0,
+    "unexpected": 0,
+    "coverage": 1
+  },
+  "metrics": {
+    "predictions": 16,
+    "uniqueCases": 16,
+    "exactMatchAccuracy": 0.9375,
+    "purposeAccuracy": 1,
+    "relevanceAccuracy": 0.9375,
+    "unwantedAccuracy": 1,
+    "evidenceAccuracy": 1,
+    "unwanted": {
+      "truePositive": 4,
+      "falsePositive": 0,
+      "falseNegative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "falseHideRate": 0,
+    "falseShowRate": 0,
+    "falseHideCount": 0,
+    "falseShowCount": 0,
+    "abstentionRecall": 1,
+    "unnecessaryAbstentionRate": 0,
+    "consistencyRate": null,
+    "latency": {
+      "calls": 4,
+      "p50Ms": 45915,
+      "p95Ms": 61451,
+      "averageMs": 49249
+    },
+    "confusion": {
+      "goalRelevance": {
+        "labels": [
+          "directly_useful",
+          "supporting",
+          "unrelated",
+          "unclear"
+        ],
+        "values": {
+          "directly_useful": {
+            "directly_useful": 7,
+            "supporting": 0,
+            "unrelated": 0,
+            "unclear": 0
+          },
+          "supporting": {
+            "directly_useful": 1,
+            "supporting": 3,
+            "unrelated": 0,
+            "unclear": 0
+          },
+          "unrelated": {
+            "directly_useful": 0,
+            "supporting": 0,
+            "unrelated": 4,
+            "unclear": 0
+          },
+          "unclear": {
+            "directly_useful": 0,
+            "supporting": 0,
+            "unrelated": 0,
+            "unclear": 1
+          }
+        }
+      },
+      "unwantedMatch": {
+        "labels": [
+          "yes",
+          "no",
+          "unclear"
+        ],
+        "values": {
+          "yes": {
+            "yes": 4,
+            "no": 0,
+            "unclear": 0
+          },
+          "no": {
+            "yes": 0,
+            "no": 11,
+            "unclear": 0
+          },
+          "unclear": {
+            "yes": 0,
+            "no": 0,
+            "unclear": 1
+          }
+        }
+      }
+    }
+  },
+  "records": [
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-interview-dsa",
+      "video": {
+        "videoId": "eval-interview-dsa",
+        "title": "Sliding Window: Solve These 5 Interview Problems",
+        "channel": "Algorithm Academy",
+        "duration": "12:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title explicitly describes interview problem instruction.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-interview-dsa",
+        "topics": [
+          "data structures",
+          "algorithms"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Sliding Window: Solve These 5 Interview Problems"
+        ],
+        "reason": "This video teaches a relevant data structures algorithm skill for interviews."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-interview-gta",
+      "video": {
+        "videoId": "eval-interview-gta",
+        "title": "I Played GTA 6 Early — Here's What Happened",
+        "channel": "Game Drop",
+        "duration": "18:42",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative"
+      ],
+      "labelNote": "The title clearly identifies gaming entertainment, which the profile rejects.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-interview-gta",
+        "topics": [
+          "gaming"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "I Played GTA 6 Early"
+        ],
+        "reason": "The content is gaming-related, which is an explicitly unwanted topic."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-interview-music",
+      "video": {
+        "videoId": "eval-interview-music",
+        "title": "Deep Focus Music for Coding — 90 Minutes",
+        "channel": "Quiet Keys",
+        "duration": "1:30:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "exception"
+      ],
+      "labelNote": "Background music is an explicit exception and can support the session.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-interview-music",
+        "topics": [
+          "music"
+        ],
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Deep Focus Music for Coding"
+        ],
+        "reason": "Background music is an allowed exception that supports the coding session."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-interview-vague",
+      "video": {
+        "videoId": "eval-interview-vague",
+        "title": "We Need to Talk",
+        "channel": "Daily Notes",
+        "duration": "8:05",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "abstention",
+        "vague-title"
+      ],
+      "labelNote": "The supplied metadata does not identify a subject or relationship to the goal.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "unclear",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient"
+      },
+      "actual": {
+        "videoId": "eval-interview-vague",
+        "topics": [],
+        "contentPurpose": "unclear",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient",
+        "evidence": [],
+        "reason": "The metadata doesn't identify the video's subject or if it relates to the goal."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-upsc-focus",
+      "scenarioName": "UPSC study session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-upsc-rights",
+      "video": {
+        "videoId": "eval-upsc-rights",
+        "title": "Fundamental Rights Explained for UPSC",
+        "channel": "Civil Service Classroom",
+        "duration": "22:10",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "Both the topic and intended exam are explicit.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-upsc-rights",
+        "topics": [
+          "Fundamental Rights"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Fundamental Rights Explained for UPSC"
+        ],
+        "reason": "The video directly teaches Fundamentals Rights for UPSC exam."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-upsc-focus",
+      "scenarioName": "UPSC study session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-upsc-energy",
+      "video": {
+        "videoId": "eval-upsc-energy",
+        "title": "India's New Energy Policy: Context and Analysis",
+        "channel": "Policy Desk",
+        "duration": "16:20",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "current-affairs"
+      ],
+      "labelNote": "Policy analysis directly matches the requested current affairs preparation.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "news",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-upsc-energy",
+        "topics": [
+          "Energy Policy",
+          "India's Energy policy"
+        ],
+        "contentPurpose": "news",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "India's New Energy Policy"
+        ],
+        "reason": "The video provides analysis about India's New Energy Policy which is relevant."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-upsc-focus",
+      "scenarioName": "UPSC study session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-upsc-gossip",
+      "video": {
+        "videoId": "eval-upsc-gossip",
+        "title": "Biggest Bollywood Breakups This Year",
+        "channel": "Star Flash",
+        "duration": "9:11",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative"
+      ],
+      "labelNote": "The title is clearly film gossip, an explicit unwanted topic.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-upsc-gossip",
+        "topics": [
+          "Bollywood",
+          "gossip"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Biggest Bollywood Breakups This Year"
+        ],
+        "reason": "Bollywood gossip is an unwanted topic and unrelated."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "dev-upsc-focus",
+      "scenarioName": "UPSC study session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-upsc-music",
+      "video": {
+        "videoId": "eval-upsc-music",
+        "title": "Instrumental Music for a Two-Hour Study Session",
+        "channel": "Study Sound",
+        "duration": "2:00:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "exception"
+      ],
+      "labelNote": "Instrumental study music is explicitly allowed.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-upsc-music",
+        "topics": [
+          "instrumental music",
+          "study music"
+        ],
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Instrumental Music for a Two-Hour Study Session"
+        ],
+        "reason": "Instrumental music supports study sessions as per the profile exception."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-design-research",
+      "video": {
+        "videoId": "eval-design-research",
+        "title": "How to Plan a Usability Study",
+        "channel": "Research Practice",
+        "duration": "15:12",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title directly teaches a requested research method.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-design-research",
+        "topics": [
+          "usability study",
+          "ux research"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "How to Plan a Usability Study"
+        ],
+        "reason": "Explicitly teaches usability study planning, a research method."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-design-figma",
+      "video": {
+        "videoId": "eval-design-figma",
+        "title": "Figma's New Prototyping Features Explained",
+        "channel": "Design Tool News",
+        "duration": "10:33",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "exception"
+      ],
+      "labelNote": "Design-tool release news is an explicit exception and supports the broader goal.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "news",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-design-figma",
+        "topics": [
+          "figma",
+          "prototyping",
+          "design tools"
+        ],
+        "contentPurpose": "news",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Figma's New Prototyping Features"
+        ],
+        "reason": "Covers a software release for design tools, matching a useful topic."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-design-stream",
+      "video": {
+        "videoId": "eval-design-stream",
+        "title": "Late Night Ranked Gaming Stream",
+        "channel": "Level Up Live",
+        "duration": "2:04:10",
+        "isShort": false,
+        "isLive": true,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative",
+        "live"
+      ],
+      "labelNote": "A gaming livestream explicitly matches the unwanted preference.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-design-stream",
+        "topics": [
+          "gaming",
+          "stream"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Late Night Ranked Gaming Stream"
+        ],
+        "reason": "This is gaming content, explicitly unwanted."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "repeat": 1,
+      "caseId": "eval-design-hud",
+      "video": {
+        "videoId": "eval-design-hud",
+        "title": "Design a Readable Game HUD: Accessibility and Layout",
+        "channel": "Interface Workshop",
+        "duration": "17:40",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "keyword-trap",
+        "purpose-vs-topic"
+      ],
+      "labelNote": "The purpose is interface and accessibility instruction despite the gaming context.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-design-hud",
+        "topics": [
+          "game hud",
+          "accessibility",
+          "layout"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Design a Readable Game HUD"
+        ],
+        "reason": "The video directly teaches about designing accessible game interfaces."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-english-learning",
+      "scenarioName": "English learning session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-english-verbs",
+      "video": {
+        "videoId": "eval-english-verbs",
+        "title": "20 Phrasal Verbs for Everyday English",
+        "channel": "Speak Clearly",
+        "duration": "14:06",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title explicitly promises English vocabulary instruction.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-english-verbs",
+        "topics": [
+          "English lessons",
+          "vocabulary"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "20 Phrasal Verbs for Everyday English"
+        ],
+        "reason": "The video directly teaches new English vocabulary."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-english-learning",
+      "scenarioName": "English learning session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-english-practice",
+      "video": {
+        "videoId": "eval-english-practice",
+        "title": "Beginner English Conversation Practice at a Restaurant",
+        "channel": "Everyday English",
+        "duration": "11:48",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-positive"
+      ],
+      "labelNote": "The title is explicit conversation practice.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "practice",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-english-practice",
+        "topics": [
+          "conversation practice",
+          "English lessons"
+        ],
+        "contentPurpose": "practice",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Beginner English Conversation Practice"
+        ],
+        "reason": "Video offers practical English conversation practice."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    },
+    {
+      "scenarioId": "dev-english-learning",
+      "scenarioName": "English learning session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-english-cricket",
+      "video": {
+        "videoId": "eval-english-cricket",
+        "title": "India vs Australia Final — Match Highlights",
+        "channel": "Cricket Central",
+        "duration": "12:01",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "clear-negative"
+      ],
+      "labelNote": "Cricket highlights are explicitly unwanted.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-english-cricket",
+        "topics": [
+          "cricket"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "India vs Australia Final — Match Highlights"
+        ],
+        "reason": "Cricket highlights are an unwanted topic."
+      },
+      "expectedDecision": "hide",
+      "actualDecision": "hide"
+    },
+    {
+      "scenarioId": "dev-english-learning",
+      "scenarioName": "English learning session",
+      "split": "development",
+      "mode": "focus",
+      "repeat": 1,
+      "caseId": "eval-english-rain",
+      "video": {
+        "videoId": "eval-english-rain",
+        "title": "Gentle Rain Sounds for Studying",
+        "channel": "Calm Room",
+        "duration": "1:00:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "tags": [
+        "exception"
+      ],
+      "labelNote": "Rain sounds are an explicit exception for this study activity.",
+      "assessmentStatus": "returned",
+      "expected": {
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "actual": {
+        "videoId": "eval-english-rain",
+        "topics": [
+          "rain sounds"
+        ],
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Gentle Rain Sounds for Studying"
+        ],
+        "reason": "Rain sounds are an allowed exception for studying."
+      },
+      "expectedDecision": "show",
+      "actualDecision": "show"
+    }
+  ]
+}

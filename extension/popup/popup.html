@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 380px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      font-size: 13px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #272727;
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #444;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: #3ea6ff; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #272727;
+    }
+
+    .stat {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      background: #222;
+      border-radius: 8px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #3ea6ff;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .section {
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e1e1e;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 10px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      accent-color: #3ea6ff;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    .checkbox-row label { cursor: pointer; color: #ccc; }
+
+    /* Duration row */
+    .duration-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .duration-row label { color: #888; font-size: 12px; }
+
+    .duration-input {
+      width: 64px;
+      padding: 6px 8px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a1a;
+      color: #e8e8e8;
+      font-size: 13px;
+      outline: none;
+      text-align: center;
+    }
+
+    .duration-input:focus { border-color: #3ea6ff; }
+    .duration-unit { color: #555; font-size: 12px; }
+
+    /* Input + button */
+    .input-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .input-group input {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1px solid #333;
+      border-radius: 6px;
+      background: #1a1a1a;
+      color: #e8e8e8;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .input-group input:focus { border-color: #3ea6ff; }
+    .input-group input::placeholder { color: #444; }
+
+    .btn {
+      padding: 7px 13px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .btn-add { background: #3ea6ff; color: #000; }
+    .btn-add:hover { background: #65b8ff; }
+
+    .btn-add-green { background: #2d9e5f; color: #fff; }
+    .btn-add-green:hover { background: #37b870; }
+
+    .goal-card {
+      padding: 12px;
+      border: 1px solid #2f4252;
+      border-radius: 10px;
+      background: #151c22;
+    }
+
+    .field-label {
+      display: block;
+      margin: 10px 0 5px;
+      color: #aaa;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .field-label:first-child { margin-top: 0; }
+
+    .text-field,
+    .select-field,
+    .goal-textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #354553;
+      border-radius: 7px;
+      background: #0f1418;
+      color: #eee;
+      font: inherit;
+      outline: none;
+    }
+
+    .goal-textarea {
+      min-height: 64px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .text-field:focus,
+    .select-field:focus,
+    .goal-textarea:focus { border-color: #3ea6ff; }
+
+    .field-hint {
+      margin-top: 4px;
+      color: #65727c;
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .goal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .goal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .goal-actions .btn { flex: 1; }
+    .classifier-lab-button { width: 100%; margin-top: 8px; }
+    .btn-primary { background: #3ea6ff; color: #06131d; }
+    .btn-primary:hover { background: #69baff; }
+    .btn-secondary { background: #29343c; color: #ddd; }
+    .btn-secondary:hover { background: #35434d; }
+    .btn-session-active { background: #b94949; color: #fff; }
+
+    .profile-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 10px;
+      color: #76848e;
+      font-size: 10px;
+    }
+
+    .profile-feedback {
+      min-height: 14px;
+      margin-top: 8px;
+      color: #66b9ff;
+      font-size: 11px;
+    }
+
+    .profile-feedback.error { color: #ef7777; }
+
+    .session-badge {
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #23303a;
+      color: #8b9aa5;
+    }
+
+    .session-badge.active {
+      background: #173625;
+      color: #65ce91;
+    }
+
+    .connection-result {
+      display: none;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 7px;
+      background: #11171c;
+      color: #9ba9b3;
+      font-size: 11px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .connection-result.visible { display: block; }
+    .connection-result.success { color: #72d69b; }
+    .connection-result.error { color: #ef7777; }
+
+    /* Tags */
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      background: #272727;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #ccc;
+    }
+
+    .tag.tag-whitelist {
+      background: #1a2e22;
+      border: 1px solid #2d9e5f44;
+      color: #5dba87;
+    }
+
+    .tag.tag-signal-up {
+      background: #1a2e22;
+      border: 1px solid #2d9e5f44;
+      color: #5dba87;
+    }
+
+    .tag.tag-signal-down {
+      background: #2e1a1a;
+      border: 1px solid #c3333344;
+      color: #d97474;
+    }
+
+    .signal-group { margin-bottom: 8px; }
+    .signal-group:last-child { margin-bottom: 0; }
+    .signal-label {
+      color: #888;
+      font-size: 11px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .signal-count {
+      background: #272727;
+      color: #aaa;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-size: 10px;
+    }
+    .signal-score {
+      color: #888;
+      font-size: 10px;
+      margin-left: 3px;
+      opacity: 0.7;
+    }
+
+    .tag-remove {
+      cursor: pointer;
+      color: #666;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .tag-remove:hover { color: #ff4444; }
+    .tag.tag-whitelist .tag-remove:hover { color: #ff8888; }
+
+    .empty-msg { color: #444; font-size: 12px; font-style: italic; }
+
+    .status-bar {
+      padding: 10px 16px;
+      font-size: 11px;
+      color: #555;
+      text-align: center;
+    }
+
+    .status-active { color: #4caf50; }
+    .status-inactive { color: #888; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>FocusFeed</h1>
+    <label class="toggle">
+      <input type="checkbox" id="enableToggle" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="hiddenCount">0</div>
+      <div class="stat-label">Hidden</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="totalCount">0</div>
+      <div class="stat-label">Scanned</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="trackedCount">0</div>
+      <div class="stat-label">Tracked</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Active Goal</div>
+    <div class="goal-card">
+      <label class="field-label" for="goalInput">What are you trying to accomplish?</label>
+      <textarea class="goal-textarea" id="goalInput" maxlength="500" placeholder="Prepare for coding interviews over the next two weeks"></textarea>
+
+      <label class="field-label" for="usefulTopicsInput">Useful topics or content</label>
+      <input class="text-field" type="text" id="usefulTopicsInput" placeholder="DSA tutorials, practice problems, mock interviews">
+      <div class="field-hint">Separate multiple entries with commas.</div>
+
+      <label class="field-label" for="unwantedTopicsInput">Topics or content to avoid</label>
+      <input class="text-field" type="text" id="unwantedTopicsInput" placeholder="gaming, creator drama, motivation">
+
+      <label class="field-label" for="exceptionsInput">Exceptions</label>
+      <input class="text-field" type="text" id="exceptionsInput" placeholder="background music">
+
+      <div class="goal-grid">
+        <div>
+          <label class="field-label" for="filterMode">Filtering mode</label>
+          <select class="select-field" id="filterMode">
+            <option value="focus">Focus</option>
+            <option value="balanced">Balanced</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label" for="sessionDuration">Session minutes</label>
+          <input class="text-field" type="number" id="sessionDuration" min="0" max="480" value="45">
+        </div>
+      </div>
+
+      <div class="goal-actions">
+        <button class="btn btn-primary" id="saveGoal">Save goal</button>
+        <button class="btn btn-secondary" id="toggleSession">Start session</button>
+      </div>
+
+      <div class="profile-feedback" id="profileFeedback" aria-live="polite"></div>
+      <div class="profile-meta">
+        <span id="profileVersion">Unsaved profile</span>
+        <span class="session-badge" id="sessionBadge">No active session</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Classifier</div>
+    <label class="field-label" for="classifierProvider">Provider</label>
+    <select class="select-field" id="classifierProvider">
+      <option value="bedrock">Amazon Bedrock</option>
+      <option value="local">Local — Chrome built-in AI</option>
+    </select>
+    <div id="bedrockSettings">
+      <label class="field-label" for="classifierEndpoint">API endpoint</label>
+      <input class="text-field" type="url" id="classifierEndpoint" value="http://127.0.0.1:3000" spellcheck="false">
+    </div>
+    <div class="field-hint" id="classifierHint">Health checks are free. The sample classification invokes Bedrock.</div>
+    <div class="goal-actions">
+      <button class="btn btn-secondary" id="checkClassifier">Check API</button>
+      <button class="btn btn-primary" id="testClassification">Test Bedrock</button>
+    </div>
+    <button class="btn btn-secondary classifier-lab-button" id="openClassifierLab">Open Classifier Lab</button>
+    <button class="btn btn-secondary classifier-lab-button" id="openEvaluation">Open Evaluation</button>
+    <button class="btn btn-secondary classifier-lab-button" id="openWorkflowReplay">Open Workflow Replay</button>
+    <div class="connection-result" id="classifierResult" aria-live="polite"></div>
+  </div>
+
+  <!-- Quick Filters -->
+  <div class="section">
+    <div class="section-title">Quick Filters</div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="hideShorts">
+      <label for="hideShorts">Hide Shorts</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="hideLiveStreams">
+      <label for="hideLiveStreams">Hide Live Streams</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="hidePremieres">
+      <label for="hidePremieres">Hide Premieres</label>
+    </div>
+  </div>
+
+  <!-- Duration Filter -->
+  <div class="section">
+    <div class="section-title">Duration Filter</div>
+    <div class="duration-row">
+      <label>Min</label>
+      <input type="number" class="duration-input" id="minDuration" min="0" placeholder="0">
+      <span class="duration-unit">min</span>
+      <label style="margin-left:8px">Max</label>
+      <input type="number" class="duration-input" id="maxDuration" min="0" placeholder="0">
+      <span class="duration-unit">min &nbsp;(0 = off)</span>
+    </div>
+  </div>
+
+  <!-- Blocked Keywords -->
+  <div class="section">
+    <div class="section-title">Blocked Keywords</div>
+    <div class="input-group">
+      <input type="text" id="keywordInput" placeholder="e.g. drama, reaction">
+      <button class="btn btn-add" id="addKeyword">Add</button>
+    </div>
+    <div class="tag-list" id="keywordTags"></div>
+  </div>
+
+  <!-- Blocked Channels -->
+  <div class="section">
+    <div class="section-title">Blocked Channels</div>
+    <div class="input-group">
+      <input type="text" id="channelInput" placeholder="e.g. TMZ, DramaAlert">
+      <button class="btn btn-add" id="addChannel">Add</button>
+    </div>
+    <div class="tag-list" id="channelTags"></div>
+  </div>
+
+  <!-- Whitelisted Channels -->
+  <div class="section">
+    <div class="section-title">Whitelisted Channels <span style="color:#2d9e5f;font-size:10px;font-weight:400;text-transform:none">(always show)</span></div>
+    <div class="input-group">
+      <input type="text" id="whitelistInput" placeholder="e.g. Kurzgesagt, Veritasium">
+      <button class="btn btn-add-green" id="addWhitelist">Add</button>
+    </div>
+    <div class="tag-list" id="whitelistTags"></div>
+  </div>
+
+  <!-- Channel Signals (More/Less like this) -->
+  <div class="section">
+    <div class="section-title">Channel Signals <span style="color:#888;font-size:10px;font-weight:400;text-transform:none">(from 👍 / 👎 on videos)</span></div>
+    <div class="signal-group">
+      <div class="signal-label">Boosted <span class="signal-count" id="boostedCount">0</span></div>
+      <div class="tag-list" id="boostedTags"></div>
+    </div>
+    <div class="signal-group">
+      <div class="signal-label">Suppressed <span class="signal-count" id="suppressedCount">0</span></div>
+      <div class="tag-list" id="suppressedTags"></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span id="statusText" class="status-active">Active on YouTube</span>
+  </div>
+
+  <script src="../local-classifier.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

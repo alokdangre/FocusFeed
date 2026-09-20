@@ -1,0 +1,158 @@
+# Workflow evaluation and manual test plan
+
+Status: planned, following a source review and small Node reproductions on 2026-09-20. This document does not mark the faults below as fixed. Browser testing belongs to Alok.
+
+## 1. What we need to establish
+
+The workflow must make the right display decision, avoid unnecessary inference, and remain correct when cards, preferences, storage, and provider responses change over time.
+
+The existing 20-case replay is a routing smoke test. It does not evaluate the full discovery → rules → cache → queue → model → validation → DOM flow. Its passing result is useful evidence for those fixtures only.
+
+Use three separate evaluation layers:
+
+1. **Deterministic correctness:** rules, cache compatibility, output validation, policy, and scheduling invariants. Fast, repeatable, no model calls.
+2. **Semantic quality:** real local or Bedrock assessments against independently reviewed labels. Run only after the deterministic path is trustworthy.
+3. **Browser behavior and usefulness:** actual YouTube cards, scrolling, navigation, delays, incorrect hiding, and user control. Alok runs this with guided steps.
+
+Report each layer independently. A pending video that stays visible can be correct fallback behavior without being a successful semantic classification.
+
+## 2. Faults and limitations found in the current checkpoint
+
+The three existing workflow test files passed during this review. Additional Node probes exposed problems outside those tests. No real LLM or browser was invoked.
+
+| Finding | Evidence and consequence | Planned correction and regression |
+| --- | --- | --- |
+| Cached assessments are not validated sufficiently | `workflow-core.js:cacheEntryStatus` accepts any assessment object. A probe cached an assessment for a different video ID under a compatible signature and received `cache → hide`. A nonnumeric expiry also returned `hit`. | Validate required labels, assessment ID against requested ID, finite timestamps, schema, and provenance on insertion and retrieval. Malformed entries must become unresolved/misses, never hide. Keep valid insufficient-evidence assessments distinct from failures or missing-output fallbacks. |
+| Concurrent cache writes lose entries | `workflow-cache.js:put` independently reads and replaces the entire store. With an asynchronous storage double that copies values, two simultaneous writes left one entry. Current tests only write sequentially. | Use one serialized cache writer across extension contexts, or transactional storage. Test concurrent put/lookup/prune/clear, quota failure, reload, eviction, and recovery. A queue inside each tab alone does not serialize other tabs. |
+| Warm replay can pass without persistence | `workflow.js:cacheForReplay` merges persisted entries over a synthetic warm cache containing the same successful entries. With an empty persisted result, both cache cases still hit. | Separate pure in-memory routing fixtures from storage integration tests. In the persistence test, seed once, recreate the cache/page context, and read without reseeding or synthetic fallback. A missing write/read must fail the test. |
+| Live CSS bypasses rule precedence | `content.js:buildCss` emits unconditional `display:none !important` for format matches. `evaluateExplicitRules` says an exact allow wins, but `showCard` does not neutralize this CSS. This is a source-level conflict; actual YouTube reproduction remains a browser test. | Make the final resolved decision control visibility; decorative/format CSS must obey it. Include an allowed live video with Hide Live enabled, and an allowed Short with Hide Shorts enabled. Verify actual display and counts, not only router output. |
+| Mode reuse is not established across the real profile flow | Replay changes mode with the same profile version. `popup.js:saveActiveProfile` increments version for a mode-only or session-duration change; version is in the cache key. Both provider prompts also currently receive `profile.mode`, while the cache excludes mode. | Separate semantic profile identity from display/session settings, and define a mode-independent provider request before enabling reuse across modes. Version the new request/prompt contract; retain existing benchmark prompts. Otherwise conservatively key by every model input. Test saving through the real popup, not just constructing fixture objects. |
+| Measurement overstates what was tested | The page counts rule/cache *rows* as “Model calls avoided,” including disabled filtering and repeated video IDs. It measures only the synchronous router and derives trace text from its output. It does not time persistence, queueing, inference, or DOM application. | Report resolved unique candidates, actual provider requests and videos sent, honest trace events, and separate latency stages. Call savings require a measured comparison with the same workload and batching. |
+
+Additional review targets: cache normalization differs from the exact strings sent to the model; channel display names and handles are collapsed into one identity; the replay’s stale-profile case forces a hash-key collision rather than exercising a normal goal change; evaluation and workflow have separate policy functions; current hidden-card counters do not consistently represent the number currently hidden. These need focused tests before making stronger claims.
+
+## 3. Freeze the behavioral contract before expanding tests
+
+Write expected behavior in fixture data before running the implementation. Alok reviews cases where intent is subjective. Reference outcomes must not be produced by calling the router under test.
+
+For this checkpoint, record precedence explicitly:
+
+1. Filtering disabled → show, no inference.
+2. Explicit channel allow → show, ahead of other existing channel, keyword, and format rules.
+3. Repeated negative channel feedback, enabled format restrictions, duration limits, literal keyword blocks, and explicit channel blocks → hide as configured, with a recorded rule ID.
+4. Compatible valid assessment → apply the current display policy.
+5. Missing required input → visible and unresolved.
+6. Otherwise → eligible for scheduling; visible until there is a usable result.
+
+Per-video overrides are a future feature and must be marked unsupported until implemented. Natural-language unwanted topics are semantic preferences, not automatic literal blocks. Unknown duration or format does not establish Shorts. A title can be present but semantically vague; the model can still abstain.
+
+Define the cache contract using the *actual semantic request*: input video metadata, semantic profile, available provider/model identity, prompt/request/schema versions, and expiry. Only normalize fields in ways that the provider contract also normalizes without losing meaning. Distinguish a stable channel ID, handle, and display-name fallback.
+
+Use the shared production policy for actual actions. Expected actions remain independent, reviewed literals in the fixture data. This avoids both policy drift and using the same faulty function to generate its own answer key.
+
+## 4. Deterministic test matrix
+
+Retain the original 20 cases as regressions, then add independent cases and sequences for these failure families. All authored cases, expectations, rationale, and changes must be inspectable in the frontend. Generated tests record their seed and a small reproducible failing sequence.
+
+| Family | Required examples | Assertion |
+| --- | --- | --- |
+| Rule conflicts | Allow + block; allow + live/Short; disabled + every hide rule; literal keyword versus semantic exception | Documented precedence wins; no unnecessary model admission. |
+| Metadata | Missing title/ID/duration; malformed duration; normal 30-second video; actual Short; title arriving later; API/DOM disagreement | Unknown values stay unknown; updated metadata gets reconsidered; API and DOM paths follow the same contract. |
+| Channels and keywords | Exact name versus substring; real handle versus display name; Unicode and combining marks; regex punctuation; negation under a literal rule | Literal controls have predictable semantics and no accidental identity broadening. |
+| Cache validity | Wrong ID; missing/invalid labels; stale schema/provider/prompt/profile; title change; forced hash collision; expired/future/malformed times; cached provider failure | Invalid/incompatible entries cannot produce a resolved hide. Valid uncertainty remains abstention. |
+| Cache lifecycle | Fresh empty store; write/read; reopen without reseeding; TTL boundary; eviction at capacity; simultaneous writes; storage exception; clear during a write | Persistence is real, limits hold, no lost updates or resurrection after clear, and errors remain observable. |
+| Policy | Useful/supporting/unrelated/unwanted/uncertain combinations under both modes; mode-only save; goal edit | Same compatible assessment is reinterpreted only under the declared contract; goal changes cannot reuse old semantics. |
+| Provider output | Missing IDs; duplicates; unexpected IDs; malformed JSON; incomplete batches; timeout; late success; unsupported provider state | Only validated, current, requested results can be applied or cached; failures are not successful classifications. |
+| Scheduling, once implemented | Duplicates; two subscribers to one video; out-of-order results; viewport changes; navigation; profile switch; overload | Bounds, priority, deduplication, cancellation, and stale-response protections hold across event sequences. |
+| Display adapter | Allowed card with conflicting CSS; reused card now showing another video; enable/disable; restore/undo when available; hidden counter reconciliation | Actual visibility matches the latest applicable decision and counts reflect their documented meaning. |
+
+Add relationship checks as well as hand-authored examples: unrelated cache entries cannot affect a decision; a repeated identical request keeps its identity; changing semantic input invalidates it; insufficient evidence cannot become a semantic hide. Generate permutations and interleavings with a fake clock rather than waiting real seconds.
+
+Verify the tests can detect defects. Deliberately reverse allow precedence, skip the signature/ID check, break persistence, or remove the stale-response guard in a test-only variant. The appropriate test must fail. Do not leave those mutations in application code.
+
+## 5. Improve the evaluation surface first
+
+Extend Workflow Replay with distinct run types:
+
+- **Rules and policy:** no cache or provider dependency.
+- **Storage integration:** real extension storage in an isolated test namespace; seed, reopen/read, expire, and clear separately.
+- **Lifecycle simulation:** fake provider and fake clock; inject bursts, failures, cancellation, and delayed results.
+- **Recorded-response replay:** use saved real model outputs with their original request identity. Label these as recorded; they do not measure current model speed.
+- **Real-provider evaluation:** optional, explicit local/Bedrock selection, fixed inputs, a bounded run, and a Stop control.
+
+Every row should expose input metadata, full profile/rules, mode, reference route/state/action and rationale, actual route/state/action, cache compatibility reason, any validation error, and timing. Distinguish a semantic action from the temporary visible fallback while pending.
+
+Add report export and previous-run comparison. Workflow Replay does not currently have report export. A report must capture fixture/dataset/workflow/policy versions, exact request and configuration, provider/prompt identity, cold/warm settings, browser/device details available to the test, run timestamps, counters, observed events, and mismatches. Local performance and recorded/simulated performance must be labeled separately. Keep fixture data isolated from future production assessments.
+
+Before asking Alok to run long tests, the page must show the expected work, model-call budget, how to stop, and how to export the outcome. Exports can contain user-entered goals and video metadata; show the included fields so they can be reviewed before sharing.
+
+## 6. Measure quality, coverage, and latency separately
+
+| Metric | Definition or interpretation |
+| --- | --- |
+| Contract pass rate | Cases with the correct route/state/action and required invariants. Independent of semantic accuracy. |
+| False hides | Actual hide on a reviewed expected-show case; report count and rate using reviewed expected-show cases as denominator. |
+| Missed hides | Reviewed expected-hide cases left visible at the declared deadline; separate model mistakes from unresolved/timeouts. |
+| Semantic decision agreement | Report agreement on reviewed, resolved semantic cases together with resolution coverage. Also show all reviewed cases and deadline outcomes so abstaining on everything cannot look successful. |
+| Route coverage | Unique eligible candidates resolved by rule/cache/model, and counts pending/deferred/metadata-unresolved/failed. Card appearances are a separate denominator. |
+| Model work | Actual requests, unique candidate versions sent, videos per batch, duplicate requests, retries, cancellations, and provider usage when returned. Disabled filtering and missing metadata are excluded from inference-saving claims. |
+| Correctness by group | Break out route, goal, mode, language, exception/negation cases, and cold/warm cache. Do not hide a Focus-mode failure inside a Balanced average. |
+| Latency | Discovery → usable metadata → rule/cache result → queue admission/start → provider start/end → validation → DOM application. Show stage p50/p95, sample sizes, deadline misses, and oldest pending age. |
+| Resource bounds | Queue and in-flight peaks, persistent count/bytes, cache read/write time, and storage failures. Bound the metadata and trace stores too. |
+
+The existing router timer is only CPU time for the synchronous route function. Storage initialization, network, inference, and rendering must not be included implicitly in that number.
+
+Provisional gates, to be measured rather than advertised as achieved:
+
+- All authored deterministic regressions pass; zero wrong-ID hides, stale DOM applications, or allow-precedence violations.
+- Zero observed lost cache writes, duplicate in-flight requests, or bound violations in the defined simulations.
+- Initial scheduler experiment: queue cap 24 unique waiting candidates, one local request in flight. Report in-flight work separately from waiting depth.
+- Rule/cache decision-to-application p95 below 100 ms after usable metadata on Alok's browser; show first-load storage timing separately from a hot in-memory cache. Include sample counts and repeated runs.
+- No known false hides in the critical reviewed semantic regression set before live semantic hiding. Report missed-hide rate and unresolved coverage alongside that gate.
+- Semantic provider latency remains an open measurement. A fast rule path cannot establish that fresh local inference finishes within seconds. If provider latency exceeds the useful waiting budget, keep the backlog bounded and decisions pending/deferred rather than weaken quality silently.
+
+Zero observed errors on a small set is a regression gate, not evidence of zero population error.
+
+## 7. Real-model evaluation without wasting minutes per iteration
+
+First reuse saved development reports to test parsing, validation, routing, policy under both modes, and cache reuse. These replays must preserve the original request/prompt identity and be labeled recorded results; they cannot prove a changed prompt or current latency improved.
+
+Then use this sequence:
+
+1. **Targeted smoke:** 8–12 residual videos, emphasizing useful content, unwanted content, exceptions, vague titles, negation, and the finance cautionary-story regression. Check full ID coverage before a larger run. Print the actual provider-call count before starting.
+2. **Development comparison:** the same fixed ordered inputs and profile snapshots through model-only and complete-workflow paths. Show cold assessment cache, warm assessment cache, and cold/warm model sessions as distinct experiments. Compare decisions and total work as well as speed.
+3. **One optimization at a time:** compare output size first, session reuse separately, then their combination. For batching, use the same 12 residual videos at sizes 1, 2, and 4. Run a small pilot before paying for all 21 requests required by that sweep; stop configurations with broken coverage. Counterbalance run order and repeat promising configurations to check variability.
+4. **User-reviewed examples:** accumulate about 60 real metadata examples across at least three distinct goals and difficult cases. Initially use 40 for development and reserve 20 as an untouched final check. This is a small practical pilot, not a statistical accuracy guarantee. Keep variants of the same video, including mode changes and near duplicates, in the same split.
+5. **Frozen final check:** choose workflow, rules, provider contract, prompt, and scheduler settings using development data; then run held-out evaluation. If a held-out result informs a fix, move it into regression/development history and obtain fresh final-check examples.
+
+Review expected labels before revealing predictions where practical. Show labels and rationale in the frontend for inspection, but never send gold labels or reviewer notes to a provider. Allow disputed/ambiguous references; resolve or mark them separately instead of changing the answer key to make a run pass. Keep regression cases and representative real-feed cases as separately reported sets.
+
+The model sees only what the extension knows. Do not label a vague title confidently using information from watching the full video unless that information was supplied to the classifier too. Alok can separately record personal usefulness for product feedback.
+
+Use measured per-call times to estimate a run's duration. Run deterministic and recorded-response checks frequently; run a short real-provider smoke after relevant provider/prompt changes; run the full development set only for a candidate release. Do not rerun the minutes-long LLM suite after an unrelated UI or deterministic-cache fix. Evaluate Bedrock against the same contract when account access works; current local results do not predict its quality, latency, or cost.
+
+## 8. When Alok should test, and how
+
+Manual testing happens at an observable milestone, after the corresponding automated checks pass. It is not required after every internal edit. Times below are approximate hands-on time; real model waiting time must be displayed separately.
+
+| Handoff | When it is ready | Alok's procedure | Evidence and decision |
+| --- | --- | --- | --- |
+| A0: baseline smoke, optional now | Current checkpoint, if not already tested | Reload the extension and YouTube; open Workflow Replay; run cold and warm; review expectations, especially allow precedence and mode behavior. | About 5 minutes. Current results should be 20/20 in both modes. Record any mismatch. This does not qualify storage persistence or the full feed workflow; skip repeating it if already done. |
+| A1: rules/cache correctness | Evaluation harness corrected; known cache, CSS, and profile-contract faults reproduced and fixed; new regressions green | Run rules and storage suites. Seed once, close/reopen the replay page, then **read without reseeding**. Test expiry/clear. On YouTube enable Hide Live, explicitly allow the exact live channel, and verify it remains visible; check Shorts similarly where present. Change mode through the popup, then edit the goal separately. | About 10 minutes. Export both runs; record actual visibility and any ambiguous setting semantics. Advance only when the live behavior matches the contract. New read-only storage controls are not implemented yet. |
+| B: scheduling and lifecycle | Shared bounded scheduler and fake-provider simulation implemented; automated interleaving tests pass | Replay a burst of 100 card appearances with duplicates, one slow response, and one failed response. Scroll away, change goal while a result is pending, navigate, pause, then resume. Use a dry-run overlay for the semantic decisions. | About 10 minutes. Queue/in-flight bounds hold, duplicate work is avoided, obsolete responses cannot alter current cards, failures remain visible. Trace export identifies every transition. This harness is not implemented yet. |
+| C: real-provider smoke | A1 and B pass; validation and provider lifetime are wired; visible run budget and Stop work | Run the 8–12-video residual smoke and inspect every assessment and decision under both policies. Compare cold/warm timings on the same input sequence. Close the popup during work; verify the chosen owning document's lifecycle separately. | Review time about 10 minutes plus measured inference time. Full ID coverage, no critical regression hide, timings separated, and stopping prevents late application. Run broader comparisons only after this passes. |
+| D: real-feed shadow trial | Provider smoke and queue tests pass; proposed decisions and corrections are inspectable | Use YouTube normally for 10–15 minutes with semantic changes in shadow mode. Review 30–50 recommendations, including proposed hides, shows, and unresolved cases. Mark desired action and why; do not review only proposed hides. Existing explicit filters can remain active but their actual effects must be shown separately. | Export the reviewed samples and traces. Check real-feed route coverage, missed hides, false hides, pending age, and goal/exception interpretation. Incorporate failures into development; keep reserved final-check examples separate. |
+| E: reversible live pilot | Frozen candidate passes the reviewed regressions and final check; shadow errors addressed; inspect/undo/pause controls implemented | Start in Balanced mode for one short session, inspect hidden cards and undo mistakes, then test Focus separately. Toggle pause and change goal. | Any wrong-ID hide, stale action, or overridden explicit allow stops semantic application and returns to shadow/debugging. Record usefulness as well as correctness. Broader use waits for these failures to be resolved. |
+
+For a manual mismatch, capture: build/workflow version, run or case ID, browser version, selected provider/mode, input metadata and goal, expected versus actual behavior, rough timing, and steps to reproduce. Prefer the exported report once implemented; existing replay results can be copied as text meanwhile. Do not ask Alok to run unavailable buttons or hidden diagnostics.
+
+## 9. How each iteration finds and fixes a fault
+
+1. Preserve a failing report and reduce it to the smallest reproducible input or event sequence.
+2. Identify the responsible stage: extraction, rule, cache identity, storage, scheduling, provider, validation, policy, DOM/CSS, metric, or incorrect reference label.
+3. Add a regression that fails on the old behavior. A semantic error does not automatically require a prompt change; a correct assessment with the wrong display action belongs to policy or application logic.
+4. Make one scoped change, run the affected suite and existing critical regressions, then compare the same workload before and after.
+5. Reject speed improvements that introduce false hides, invalid output acceptance, hidden unresolved work, or stale actions.
+6. Show an iteration note in the frontend and a report in `eval_reports/`: fault, evidence, changed files/configuration, prior/new results, latency impact, remaining failures, and next manual handoff.
+
+Recommended next implementation: fix the evaluation's persistence/metric blind spots, add failing regressions for the confirmed cache problems and display precedence, then correct those faults. Complete handoff A1 before advancing to queue/provider integration. This order gives the next workflow stages a trustworthy baseline.

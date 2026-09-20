@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFeed Classifier Lab</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>FocusFeed</strong>
+      <span>Classifier Lab</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="model-state" id="modelState">Checking local model…</span>
+      <a class="button" href="../workflow/workflow.html">Workflow Replay</a>
+      <a class="button" href="../eval/eval.html">Open Evaluation</a>
+      <button class="button primary" id="runTest">Run local test</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="workspace" aria-label="Classifier test workspace">
+      <article class="panel test-control">
+        <div class="panel-heading">
+          <div>
+            <h1>Test control</h1>
+            <p>Define the exact goal and metadata sent to the model.</p>
+          </div>
+          <button class="button quiet" id="resetFixture">Reset fixture</button>
+        </div>
+
+        <label for="scenario">Scenario</label>
+        <select id="scenario">
+          <option value="interview">Coding interview focus</option>
+          <option value="upsc">UPSC study session</option>
+          <option value="design">Product design learning</option>
+          <option value="active">Current extension profile</option>
+        </select>
+
+        <label for="goal">Goal</label>
+        <textarea id="goal" rows="3" maxlength="500"></textarea>
+
+        <div class="field-grid">
+          <div>
+            <label for="usefulTopics">Useful topics</label>
+            <input id="usefulTopics" type="text">
+          </div>
+          <div>
+            <label for="unwantedTopics">Unwanted topics</label>
+            <input id="unwantedTopics" type="text">
+          </div>
+        </div>
+
+        <div class="field-grid narrow-right">
+          <div>
+            <label for="exceptions">Exceptions</label>
+            <input id="exceptions" type="text">
+          </div>
+          <div>
+            <label for="mode">Mode</label>
+            <select id="mode">
+              <option value="focus">Focus</option>
+              <option value="balanced">Balanced</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="editor-heading">
+          <div>
+            <label for="videosJson">Video candidates</label>
+            <p>Editable JSON array, limited to 1–12 videos.</p>
+          </div>
+          <span id="videoCount">0 videos</span>
+        </div>
+        <textarea class="code-editor" id="videosJson" rows="15" spellcheck="false"></textarea>
+        <div class="form-error" id="formError" role="alert"></div>
+      </article>
+
+      <article class="panel trace-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Live trace</h2>
+            <p>Observable stages from capability check through validation.</p>
+          </div>
+          <span class="run-state idle" id="runState">Idle</span>
+        </div>
+        <ol class="trace-list" id="traceList"></ol>
+        <div class="trace-note" id="traceNote">Run a controlled test to populate the trace.</div>
+      </article>
+    </section>
+
+    <section class="metrics" aria-label="Latest run timings">
+      <article><span>Total latency</span><strong id="totalLatency">—</strong></article>
+      <article><span>Session setup</span><strong id="sessionLatency">—</strong></article>
+      <article><span>Inference</span><strong id="inferenceLatency">—</strong></article>
+      <article><span>Validation</span><strong id="validationLatency">—</strong></article>
+    </section>
+
+    <section class="panel assessments-panel">
+      <div class="panel-heading assessments-heading">
+        <div>
+          <h2>Assessments</h2>
+          <p id="assessmentSummary">No classification has run yet.</p>
+        </div>
+        <div class="classifier-meta" id="classifierMeta">Provider — · Model — · Prompt —</div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Video</th>
+              <th>Purpose</th>
+              <th>Goal relevance</th>
+              <th>Unwanted</th>
+              <th>Evidence</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="assessmentRows">
+            <tr class="empty-row"><td colspan="6">Run a test to inspect every normalized assessment.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="details-grid">
+      <details class="panel data-panel" open>
+        <summary>
+          <span>Request JSON</span>
+          <button class="copy-button" data-copy="requestOutput">Copy</button>
+        </summary>
+        <pre id="requestOutput">No request yet.</pre>
+      </details>
+
+      <details class="panel data-panel" open>
+        <summary>
+          <span>Raw model output</span>
+          <button class="copy-button" data-copy="rawOutput">Copy</button>
+        </summary>
+        <pre id="rawOutput">No model output yet.</pre>
+      </details>
+
+      <article class="panel history-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Run history</h2>
+            <p id="historySummary">Stored locally · latest 20</p>
+          </div>
+          <button class="button quiet danger" id="clearHistory">Clear</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <p class="empty-message">No retained runs.</p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="../local-classifier.js"></script>
+  <script src="lab.js"></script>
+</body>
+</html>

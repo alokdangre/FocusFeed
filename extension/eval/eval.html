@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFeed Evaluation</title>
+  <link rel="stylesheet" href="../lab/lab.css">
+  <link rel="stylesheet" href="eval.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>FocusFeed</strong>
+      <span>Evaluation</span>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="../workflow/workflow.html">Workflow Replay</a>
+      <a class="button" href="../lab/lab.html">Classifier Lab</a>
+      <span class="model-state" id="modelState">Checking local model…</span>
+      <button class="button danger" id="stopEvaluation" disabled>Stop</button>
+      <button class="button primary" id="runEvaluation">Run evaluation</button>
+    </div>
+  </header>
+
+  <main class="app-shell evaluation-shell">
+    <section class="evaluation-intro">
+      <article class="panel evaluation-control">
+        <div class="panel-heading">
+          <div>
+            <h1>Evaluation control</h1>
+            <p>Measure the classifier against fixed reference labels before changing the prompt.</p>
+          </div>
+          <span class="dataset-version" id="datasetVersion">Dataset —</span>
+        </div>
+
+        <div class="control-grid">
+          <div>
+            <label for="promptVariant">Prompt</label>
+            <select id="promptVariant">
+              <option value="few-shot-v4">Few-shot v4 · candidate</option>
+              <option value="few-shot-v3">Few-shot v3 · needs revision</option>
+              <option value="few-shot-v2">Few-shot v2 · rejected</option>
+              <option value="baseline">Baseline v1 · original</option>
+            </select>
+          </div>
+          <div>
+            <label for="evaluationSplit">Dataset split</label>
+            <select id="evaluationSplit">
+              <option value="development">Development · tune here</option>
+              <option value="heldout">Held-out · final check</option>
+              <option value="all">All · diagnostic only</option>
+            </select>
+          </div>
+          <div>
+            <label for="repeatCount">Runs per case</label>
+            <select id="repeatCount">
+              <option value="1">1 · accuracy and latency</option>
+              <option value="3">3 · include consistency</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="run-progress" aria-live="polite">
+          <div class="progress-copy">
+            <strong id="runStatus">Ready to evaluate</strong>
+            <span id="runProgressText">0 / 0 scenario calls</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressTrack">
+            <span id="progressBar"></span>
+          </div>
+          <p id="stageDetail">The evaluator sends only the profile and video metadata to the model.</p>
+        </div>
+      </article>
+
+      <aside class="panel protocol-panel">
+        <h2>Evaluation protocol</h2>
+        <ol>
+          <li><strong>Develop</strong><span>Iterate on the prompt using the development split.</span></li>
+          <li><strong>Freeze</strong><span>Choose a candidate prompt before opening held-out results.</span></li>
+          <li><strong>Verify</strong><span>Run held-out once and record the report.</span></li>
+        </ol>
+        <div class="protocol-note">
+          Expected labels and label notes stay in the evaluator. They are never included in classifier requests.
+        </div>
+      </aside>
+    </section>
+
+    <section class="transparency-grid">
+      <article class="panel iteration-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Iteration details</h2>
+            <p>What changed, why it changed, and the current status.</p>
+          </div>
+          <span class="iteration-badge" id="iterationStatus">Candidate</span>
+        </div>
+        <h3 id="iterationTitle">Few-shot v4</h3>
+        <p class="iteration-summary" id="iterationSummary"></p>
+        <ul class="iteration-changes" id="iterationChanges"></ul>
+        <div class="iteration-finding" id="iterationFinding" hidden></div>
+      </article>
+
+      <article class="panel rubric-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Scoring rubric</h2>
+            <p>The reference rules used to judge every prediction.</p>
+          </div>
+        </div>
+        <dl>
+          <div><dt>Purpose</dt><dd>The video's primary format: tutorial, practice, news, commentary, entertainment, music, other, or unclear.</dd></div>
+          <div><dt>Relevance</dt><dd>Directly useful teaches or practices the goal; supporting assists it; unrelated does neither.</dd></div>
+          <div><dt>Unwanted</dt><dd>Yes only when metadata positively matches a topic the user explicitly rejected.</dd></div>
+          <div><dt>Evidence</dt><dd>Insufficient when metadata cannot establish subject or purpose; uncertain fields should then be unclear.</dd></div>
+          <div><dt>Feed policy</dt><dd>Insufficient stays visible. Explicit unwanted hides. Focus mode also hides sufficiently evidenced unrelated content.</dd></div>
+        </dl>
+      </article>
+    </section>
+
+    <section class="panel dataset-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Visible test set</h2>
+          <p id="testSetSummary">Every input, expected label, decision, rationale, and difficulty tag for the selected split.</p>
+        </div>
+        <span class="dataset-version" id="testSetVersion">Dataset —</span>
+      </div>
+      <div class="test-set-scenarios" id="testSetScenarios"></div>
+    </section>
+
+    <section class="metric-grid" aria-label="Evaluation metrics">
+      <article><span>Exact match</span><strong id="exactMetric">—</strong><small>all 4 labels correct</small></article>
+      <article><span>Decision accuracy</span><strong id="decisionMetric">—</strong><small>expected show/hide action</small></article>
+      <article><span>Relevance accuracy</span><strong id="relevanceMetric">—</strong><small>goal relationship</small></article>
+      <article><span>Unwanted F1</span><strong id="unwantedMetric">—</strong><small>precision + recall</small></article>
+      <article class="risk-metric"><span>False-hide rate</span><strong id="falseHideMetric">—</strong><small id="falseHideDetail">useful videos hidden</small></article>
+      <article><span>False-show rate</span><strong id="falseShowMetric">—</strong><small id="falseShowDetail">distracting videos shown</small></article>
+      <article><span>Abstention recall</span><strong id="abstentionMetric">—</strong><small>unclear cases handled safely</small></article>
+      <article><span>Latency p50 / p95</span><strong id="latencyMetric">—</strong><small id="latencyDetail">per scenario batch</small></article>
+      <article><span>Repeat consistency</span><strong id="consistencyMetric">—</strong><small>available with 3 runs</small></article>
+      <article><span>Evaluation wall time</span><strong id="wallTimeMetric">—</strong><small>complete sequential run</small></article>
+      <article><span>Inference share</span><strong id="inferenceShareMetric">—</strong><small>share of total wall time</small></article>
+      <article><span>Output coverage</span><strong id="coverageMetric">—</strong><small id="coverageDetail">accepted assessments</small></article>
+    </section>
+
+    <section class="timing-comparison-grid">
+      <article class="panel timing-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Timing breakdown</h2>
+            <p id="timingSummary">Run an evaluation to measure each pipeline stage.</p>
+          </div>
+        </div>
+        <div class="table-scroll timing-table-scroll">
+          <table class="timing-table">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Total</th>
+                <th>Session setup</th>
+                <th>Inference</th>
+                <th>Other</th>
+              </tr>
+            </thead>
+            <tbody id="timingRows">
+              <tr class="empty-row"><td colspan="5">No timing data yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel comparison-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Prompt comparison</h2>
+            <p>Uses a compatible retained run on the same dataset and split.</p>
+          </div>
+        </div>
+        <div class="comparison-content" id="comparisonContent">
+          Run the few-shot candidate on Development to compare it with the retained baseline.
+        </div>
+      </article>
+    </section>
+
+    <section class="analysis-grid">
+      <article class="panel matrix-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Goal relevance confusion</h2>
+            <p>Rows are expected labels; columns are model outputs.</p>
+          </div>
+        </div>
+        <div class="matrix-scroll" id="relevanceMatrix"><p class="empty-message">Run an evaluation to build the matrix.</p></div>
+      </article>
+      <article class="panel matrix-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Unwanted-topic confusion</h2>
+            <p>Watch false positives because they can hide useful content.</p>
+          </div>
+        </div>
+        <div class="matrix-scroll" id="unwantedMatrix"><p class="empty-message">Run an evaluation to build the matrix.</p></div>
+      </article>
+    </section>
+
+    <section class="panel case-panel">
+      <div class="panel-heading cases-heading">
+        <div>
+          <h2>Case results</h2>
+          <p id="caseSummary">No evaluated cases yet.</p>
+        </div>
+        <div class="case-actions">
+          <label for="resultFilter">Show</label>
+          <select id="resultFilter">
+            <option value="failures">Mismatches only</option>
+            <option value="all">All predictions</option>
+            <option value="false-hides">False hides</option>
+            <option value="false-shows">False shows</option>
+            <option value="missing">Missing model outputs</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-scroll evaluation-table-scroll">
+        <table class="evaluation-table">
+          <thead>
+            <tr>
+              <th>Scenario / video</th>
+              <th>Expected</th>
+              <th>Actual</th>
+              <th>Feed decision</th>
+              <th>Verdict</th>
+              <th>Model reason</th>
+            </tr>
+          </thead>
+          <tbody id="caseRows">
+            <tr class="empty-row"><td colspan="6">Run an evaluation to inspect case-level results.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-grid">
+      <details class="panel data-panel" open>
+        <summary>
+          <span>Evaluation report</span>
+          <span class="report-actions">
+            <button class="copy-button" id="copyReport">Copy</button>
+            <button class="copy-button" id="exportReport">Export JSON</button>
+          </span>
+        </summary>
+        <pre id="reportOutput">No report yet.</pre>
+      </details>
+
+      <article class="panel history-panel evaluation-history">
+        <div class="panel-heading">
+          <div>
+            <h2>Evaluation history</h2>
+            <p id="historySummary">Stored locally · latest 10</p>
+          </div>
+          <button class="button quiet danger" id="clearHistory">Clear</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <p class="empty-message">No retained evaluations.</p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="../local-classifier.js"></script>
+  <script src="dataset.js"></script>
+  <script src="request-builder.js"></script>
+  <script src="metrics.js"></script>
+  <script src="eval.js"></script>
+</body>
+</html>

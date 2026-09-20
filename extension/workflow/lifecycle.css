@@ -1,0 +1,57 @@
+.lifecycle-config {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.lifecycle-config span {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lifecycle-config strong { color: var(--text); }
+.lifecycle-table { min-width: 1050px; }
+.lifecycle-result-table { min-width: 1180px; }
+
+.invariant-list {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 11px/1.45 var(--mono);
+}
+
+.invariant-list strong { color: #b7c3cf; }
+.invariant-list span { color: var(--muted); }
+
+.event-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 410px;
+}
+
+.event-summary span {
+  display: inline-flex;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font: 10px var(--mono);
+}
+
+.result-status {
+  display: block;
+  margin-top: 5px;
+  font-weight: 800;
+}
+
+.result-status.pass { color: var(--green); }
+.result-status.fail { color: var(--red); }

@@ -20,16 +20,48 @@ assert.ok(scriptOrder.every((index) => index >= 0), "workflow page must load eve
 assert.deepEqual(scriptOrder, scriptOrder.slice().sort((left, right) => left - right), "workflow dependencies must load in order");
 assert.match(workflowHtml, /id="fixtureRows"/);
 assert.match(workflowHtml, /id="resultRows"/);
+assert.match(workflowHtml, /id="seedCache"/);
+assert.match(workflowHtml, /id="readWarm"/);
+assert.match(workflowHtml, /id="exportReport"/);
+assert.doesNotMatch(workflowHtml, /id="runWarm"/);
 assert.match(workflowHtml, /No LLM is invoked on this page/);
 
 const popupHtml = fs.readFileSync(path.join(extensionRoot, "popup", "popup.html"), "utf8");
 const popupJs = fs.readFileSync(path.join(extensionRoot, "popup", "popup.js"), "utf8");
 assert.match(popupHtml, /id="openWorkflowReplay"/);
 assert.match(popupJs, /workflow\/workflow\.html/);
+assert.match(popupHtml, /id="openLifecycleReplay"/);
+assert.match(popupJs, /workflow\/lifecycle\.html/);
+
+const lifecycleHtml = fs.readFileSync(path.join(extensionRoot, "workflow", "lifecycle.html"), "utf8");
+const lifecycleScriptOrder = [
+  "../workflow-scheduler.js",
+  "lifecycle-fixtures.js",
+  "lifecycle.js",
+].map((script) => lifecycleHtml.indexOf(`src="${script}"`));
+assert.ok(lifecycleScriptOrder.every((index) => index >= 0), "lifecycle page must load every simulation dependency");
+assert.deepEqual(
+  lifecycleScriptOrder,
+  lifecycleScriptOrder.slice().sort((left, right) => left - right),
+  "lifecycle dependencies must load in order"
+);
+assert.match(lifecycleHtml, /id="runLifecycle"/);
+assert.match(lifecycleHtml, /id="lifecycleFixtureRows"/);
+assert.match(lifecycleHtml, /id="lifecycleResultRows"/);
+assert.match(lifecycleHtml, /id="exportLifecycleReport"/);
+assert.match(lifecycleHtml, /fake provider/i);
+
+const evalHtml = fs.readFileSync(path.join(extensionRoot, "eval", "eval.html"), "utf8");
+assert.ok(
+  evalHtml.indexOf('src="../workflow-core.js"') < evalHtml.indexOf('src="metrics.js"'),
+  "the shared policy must load before evaluation metrics"
+);
 
 const content = fs.readFileSync(path.join(extensionRoot, "content.js"), "utf8");
 assert.doesNotMatch(content, /isShort:\s*!.*lengthText/);
 assert.doesNotMatch(content, /channelLower\.includes/);
+assert.doesNotMatch(content, /function buildCss\(/, "global format CSS must not bypass per-card allow precedence");
+assert.match(content, /"ytm-shorts-lockup-view-model"/, "individual Short cards must be routed through the shared evaluator");
 assert.match(content, /FocusFeedWorkflow\.evaluateExplicitRules/);
 assert.match(content, /PREFERENCE_KEYS\[key\]/);
 

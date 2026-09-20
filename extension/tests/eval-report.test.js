@@ -5,6 +5,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 delete global.FocusFeedEvalMetrics;
+delete global.FocusFeedWorkflow;
+require("../workflow-core.js");
 require("../eval/metrics.js");
 
 const reportPath = path.resolve(__dirname, "../../eval_reports/focusfeed-evaluation-1789893371682.json");

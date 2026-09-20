@@ -22,6 +22,7 @@ assert.equal(workflow.matchesLiteralKeyword("C++ [beginner] guide", "C++ [beginn
 
 const emptyCache = {};
 const warmCache = fixtures.buildWarmCache(now);
+assert.equal(typeof fixtures.buildInvalidationCache, "function");
 
 for (const fixture of fixtures.cases) {
   const cold = workflow.routeCandidate({
@@ -53,6 +54,19 @@ for (const fixture of fixtures.cases) {
   );
 }
 
+const invalidationOnlyCache = fixtures.buildInvalidationCache(now);
+for (const fixture of fixtures.cases.filter((item) => item.cacheSeed === "compatible")) {
+  const route = workflow.routeCandidate({
+    video: fixture.video,
+    profile: fixture.profile,
+    preferences: fixture.preferences,
+    classifier: fixture.classifier,
+    cacheEntries: invalidationOnlyCache,
+    now,
+  });
+  assert.equal(route.cacheStatus, "miss", `${fixture.id} must not receive a synthetic compatible cache hit`);
+}
+
 const sharedVideo = fixtures.cases.find((item) => item.id === "cached-focus").video;
 const focusProfile = fixtures.cases.find((item) => item.id === "cached-focus").profile;
 const balancedProfile = fixtures.cases.find((item) => item.id === "cached-balanced").profile;
@@ -60,7 +74,11 @@ const classifier = fixtures.classifier;
 
 const focusIdentity = workflow.buildCacheIdentity(sharedVideo, focusProfile, classifier);
 const balancedIdentity = workflow.buildCacheIdentity(sharedVideo, balancedProfile, classifier);
-assert.deepEqual(focusIdentity, balancedIdentity, "mode must not freeze the final action into the assessment cache");
+assert.notEqual(
+  focusIdentity.signature,
+  balancedIdentity.signature,
+  "mode is currently part of the provider request, so changing it must invalidate the assessment cache"
+);
 
 const changedMetadataIdentity = workflow.buildCacheIdentity(
   Object.assign({}, sharedVideo, { title: sharedVideo.title + " updated" }),
@@ -75,6 +93,49 @@ const changedProviderIdentity = workflow.buildCacheIdentity(sharedVideo, focusPr
   model: "amazon.nova-micro-v1:0",
 }));
 assert.notEqual(changedProviderIdentity.signature, focusIdentity.signature);
+
+const wrongVideoEntry = workflow.createCacheEntry({
+  identity: focusIdentity,
+  assessment: {
+    videoId: "a-different-video",
+    goalRelevance: "unrelated",
+    unwantedMatch: "yes",
+    evidenceSufficiency: "sufficient",
+    evidence: ["Wrong video"],
+  },
+  createdAt: now - 100,
+  ttlMs: 10_000,
+});
+const wrongVideoRoute = workflow.routeCandidate({
+  video: sharedVideo,
+  profile: focusProfile,
+  preferences: { enabled: true },
+  classifier,
+  cacheEntries: { [focusIdentity.key]: wrongVideoEntry },
+  now,
+});
+assert.equal(wrongVideoRoute.route, "model_pending", "a cached assessment for another video must not resolve this candidate");
+assert.equal(wrongVideoRoute.cacheStatus, "invalid");
+assert.deepEqual(
+  wrongVideoRoute.trace.map((event) => `${event.stage}:${event.status}`),
+  ["normalize:complete", "rule:miss", "cache:invalid", "metadata:sufficient", "queue:eligible"]
+);
+
+const malformedExpiryRoute = workflow.routeCandidate({
+  video: sharedVideo,
+  profile: focusProfile,
+  preferences: { enabled: true },
+  classifier,
+  cacheEntries: {
+    [focusIdentity.key]: Object.assign({}, wrongVideoEntry, {
+      assessment: Object.assign({}, wrongVideoEntry.assessment, { videoId: sharedVideo.videoId }),
+      expiresAt: "not-a-timestamp",
+    }),
+  },
+  now,
+});
+assert.equal(malformedExpiryRoute.route, "model_pending", "malformed cache timestamps must fail open");
+assert.equal(malformedExpiryRoute.cacheStatus, "invalid");
 
 const insufficient = { evidenceSufficiency: "insufficient", unwantedMatch: "yes", goalRelevance: "unrelated" };
 assert.equal(workflow.policyDecision(insufficient, "focus"), "show");

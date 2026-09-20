@@ -332,9 +332,9 @@
     "yt-lockup-view-model",
     "ytd-compact-video-renderer",
     "ytd-video-renderer",
-    "ytd-reel-shelf-renderer",
     "ytd-reel-item-renderer",
-    "ytd-rich-shelf-renderer",
+    "ytm-shorts-lockup-view-model",
+    "ytm-shorts-lockup-view-model-v2",
     "ytd-radio-renderer",
     "ytd-playlist-renderer",
     "ytd-compact-radio-renderer",
@@ -543,70 +543,15 @@
     return el ? (el.innerText || el.textContent || "").trim() : "";
   }
 
-  // --- Dynamic CSS injection ---
-  var _cssEl = null;
-
-  function buildCss() {
-    var rules = [];
-
-    if (hideShorts) {
-      rules.push(
-        "ytd-reel-shelf-renderer { display: none !important; }",
-        "ytd-reel-item-renderer { display: none !important; }",
-        "ytd-rich-shelf-renderer:has(ytm-shorts-lockup-view-model) { display: none !important; }",
-        "ytd-item-section-renderer:has(ytm-shorts-lockup-view-model):not(:has(yt-lockup-view-model, ytd-video-renderer, ytd-compact-video-renderer)) { display: none !important; }",
-        "ytm-shorts-lockup-view-model { display: none !important; }",
-        "ytm-shorts-lockup-view-model-v2 { display: none !important; }"
-      );
-    }
-
-    if (hideLiveStreams) {
-      var liveTargets = [
-        "ytd-rich-item-renderer",
-        "yt-lockup-view-model",
-        "ytd-video-renderer",
-        "ytd-compact-video-renderer",
-      ];
-      liveTargets.forEach(function(sel) {
-        rules.push(sel + ":has([overlay-style='LIVE']) { display: none !important; }");
-      });
-    }
-
-    if (hidePremieres) {
-      var premiereTargets = [
-        "ytd-rich-item-renderer",
-        "yt-lockup-view-model",
-        "ytd-video-renderer",
-        "ytd-compact-video-renderer",
-      ];
-      premiereTargets.forEach(function(sel) {
-        rules.push(sel + ":has([overlay-style='UPCOMING']) { display: none !important; }");
-      });
-    }
-
-    return rules.join("\n");
-  }
-
-  function updateDynamicCss() {
-    if (!enabled) {
-      if (_cssEl) { _cssEl.remove(); _cssEl = null; }
-      return;
-    }
-    var css = buildCss();
-    if (!css) {
-      if (_cssEl) { _cssEl.remove(); _cssEl = null; }
-      return;
-    }
-    if (!_cssEl) {
-      _cssEl = document.createElement("style");
-      _cssEl.id = "focusfeed-css";
-      (document.head || document.documentElement).appendChild(_cssEl);
-    }
-    _cssEl.textContent = css;
+  function removeLegacyFormatCss() {
+    var legacy = document.getElementById("focusfeed-css");
+    if (legacy) legacy.remove();
   }
 
   function applyFiltersToDOM() {
-    updateDynamicCss();
+    // Each card must pass through the shared evaluator so an explicit allow can
+    // win. Unconditional format CSS used to bypass that precedence.
+    removeLegacyFormatCss();
     if (!enabled) return;
 
     var cards = document.querySelectorAll(CARD_SELECTORS);
@@ -685,7 +630,9 @@
 
   function isCardAShort(card) {
     if (card.tagName === "YTD-REEL-SHELF-RENDERER" ||
-        card.tagName === "YTD-REEL-ITEM-RENDERER") {
+        card.tagName === "YTD-REEL-ITEM-RENDERER" ||
+        card.tagName === "YTM-SHORTS-LOCKUP-VIEW-MODEL" ||
+        card.tagName === "YTM-SHORTS-LOCKUP-VIEW-MODEL-V2") {
       return true;
     }
     if (card.querySelector("ytm-shorts-lockup-view-model") ||
@@ -739,6 +686,7 @@
     card.dataset.focusfeedReason = reason || "";
     feedItemsHidden++;
     console.log("[FocusFeed] Hidden:", reason);
+    updateBadge();
   }
 
   function showCard(card) {
@@ -746,6 +694,8 @@
     card.style.display = "";
     delete card.dataset.focusfeedHidden;
     delete card.dataset.focusfeedReason;
+    feedItemsHidden = Math.max(0, feedItemsHidden - 1);
+    updateBadge();
   }
 
   function reprocessAllCards() {
@@ -757,6 +707,7 @@
     }
     feedItemsHidden = 0;
     applyFiltersToDOM();
+    updateBadge();
     console.log("[FocusFeed] Reprocessed with updated preferences");
   }
 

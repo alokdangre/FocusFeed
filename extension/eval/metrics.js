@@ -4,6 +4,8 @@
   var FIELDS = ["contentPurpose", "goalRelevance", "unwantedMatch", "evidenceSufficiency"];
   var RELEVANCE_LABELS = ["directly_useful", "supporting", "unrelated", "unclear"];
   var UNWANTED_LABELS = ["yes", "no", "unclear"];
+  if (!root.FocusFeedWorkflow) throw new Error("FocusFeedWorkflow must load before evaluation metrics.");
+  var policyDecision = root.FocusFeedWorkflow.policyDecision;
 
   function ratio(numerator, denominator) {
     return denominator ? numerator / denominator : null;
@@ -19,13 +21,6 @@
       return !isMissingAssessment(record) && record.actual[field] === record.expected[field];
     }).length;
     return ratio(correct, records.length);
-  }
-
-  function policyDecision(assessment, mode) {
-    if (!assessment || assessment.evidenceSufficiency !== "sufficient") return "show";
-    if (assessment.unwantedMatch === "yes") return "hide";
-    if (mode === "focus" && assessment.goalRelevance === "unrelated") return "hide";
-    return "show";
   }
 
   function isAbstention(assessment) {

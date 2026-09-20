@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FocusFeed · YouTube session</title>
+  <link rel="stylesheet" href="../lab/lab.css"><link rel="stylesheet" href="live.css">
+</head>
+<body>
+  <header class="topbar"><div class="brand"><strong>FocusFeed</strong><span>YouTube session</span></div>
+    <div class="topbar-actions"><button id="back" class="button">Back to YouTube</button><button id="export" class="button" disabled>Export session</button></div>
+  </header>
+  <main class="live-shell">
+    <section class="panel">
+      <h1>Your feed, one batch at a time</h1>
+      <p id="profile">Reading your saved goal…</p>
+      <p>Rules → compatible cache → AI for the remaining videos. Start with 12 recommendations and at most 3 model calls. Use <strong>Load 12 more</strong> in the FocusFeed toolbar on YouTube when you want another allowance; hidden videos do not automatically replace themselves.</p>
+      <p id="providerNote"></p>
+      <div class="controls"><button class="button" id="prepare">Check / prepare provider</button><button class="button primary" id="start">Start preview on YouTube</button><button class="button" id="stop" disabled>Stop and restore AI hides</button></div>
+      <label class="mode"><input type="checkbox" id="apply" disabled> Apply AI hides on YouTube</label>
+      <p id="status" role="status">Connecting to your YouTube tab…</p>
+      <p class="muted">Keep this session tab open; the popup can close. Start in preview, inspect the decisions, then enable AI hiding if wanted. Stop, closing this tab, or changing your goal restores AI hides and returns normal pagination. Your explicit filters remain active.</p>
+    </section>
+    <section class="metrics" aria-label="Session metrics">
+      <article><span>Admitted / allowance</span><strong id="admitted">0 / 12</strong></article>
+      <article><span>Rules / cache</span><strong id="fast">0 / 0</strong></article>
+      <article><span>AI / pending / unresolved</span><strong id="resolved">0 / 0 / 0</strong></article>
+      <article><span>Calls / allowance</span><strong id="calls">0 / 3</strong></article>
+      <article><span>AI videos / allowance</span><strong id="videos">0 / 12</strong></article>
+      <article><span>Queue / in flight</span><strong id="queue">0 / 0</strong></article>
+      <article><span>AI hidden / held page requests</span><strong id="display">0 / 0</strong></article>
+      <article><span>Provider p95</span><strong id="latency">—</strong></article>
+    </section>
+    <section class="panel"><h2>Real recommendation decisions</h2>
+      <p>Review title, route, assessment, and proposed action. Mark the action you wanted before exporting. A failed classification stays visible. Restoring a card is a session override.</p>
+      <div class="table-scroll"><table><thead><tr><th>Video</th><th>Route / result</th><th>Evidence and assessment</th><th>Timing</th><th>Your review</th></tr></thead><tbody id="results"></tbody></table></div>
+    </section>
+  </main>
+  <script src="../workflow-core.js"></script><script src="../workflow-cache.js"></script><script src="../workflow-scheduler.js"></script><script src="../local-classifier.js"></script><script src="engine.js"></script><script src="provider.js"></script><script src="bootstrap.js"></script><script src="live.js"></script>
+</body></html>

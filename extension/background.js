@@ -34,10 +34,15 @@ function classifierEndpoint() {
     .then(function (result) { return normalizeEndpoint(result.classifierEndpoint); });
 }
 
-async function requestJson(path, options, timeoutMs) {
+async function requestJson(path, options, timeoutMs, externalSignal) {
   var endpoint = await classifierEndpoint();
   var controller = new AbortController();
   var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
+  var cancel = function () { controller.abort(); };
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    externalSignal.addEventListener("abort", cancel, { once: true });
+  }
 
   try {
     var response = await fetch(endpoint + path, Object.assign({}, options, {
@@ -63,6 +68,7 @@ async function requestJson(path, options, timeoutMs) {
     throw error;
   } finally {
     clearTimeout(timeout);
+    if (externalSignal) externalSignal.removeEventListener("abort", cancel);
   }
 }
 
@@ -79,7 +85,7 @@ async function healthCheck() {
   return { ok: true, data: body };
 }
 
-async function classify(request) {
+async function classify(request, signal) {
   if (!request || !request.requestId || !request.profile || !Array.isArray(request.videos)) {
     var error = new Error("Classification request is incomplete.");
     error.code = "invalid_extension_request";
@@ -98,7 +104,8 @@ async function classify(request) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(request),
     },
-    CLASSIFY_TIMEOUT_MS
+    CLASSIFY_TIMEOUT_MS,
+    signal
   );
   return { ok: true, data: body };
 }
@@ -118,5 +125,28 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       sendResponse({ ok: false, error: serializeError(error) });
     });
 
+  return true;
+});
+
+// Live sessions have a separate cancellation path. No retry or provider fallback.
+var liveCloudRequests = new Map();
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (!message || (message.type !== "LIVE_CLASSIFY_BEDROCK" && message.type !== "LIVE_CLASSIFY_CANCEL")) return false;
+  if (!sender || !String(sender.url || "").startsWith(chrome.runtime.getURL("live/live.html"))) {
+    sendResponse({ ok: false, error: { message: "Only the live session page can dispatch this request." } }); return false;
+  }
+  if (message.type === "LIVE_CLASSIFY_CANCEL") {
+    var pending = liveCloudRequests.get(message.requestId);
+    if (pending && pending.owner === sender.url) pending.controller.abort();
+    sendResponse({ ok: true }); return false;
+  }
+  if (liveCloudRequests.size) { sendResponse({ ok: false, error: { message: "Another live cloud request is still running." } }); return false; }
+  var request = message.request;
+  if (!request || !request.requestId) { sendResponse({ ok: false, error: { message: "Missing request identity." } }); return false; }
+  var controller = new AbortController();
+  liveCloudRequests.set(request.requestId, { controller: controller, owner: sender.url });
+  classify(request, controller.signal).then(sendResponse).catch(function (error) {
+    sendResponse({ ok: false, error: serializeError(error) });
+  }).finally(function () { liveCloudRequests.delete(request.requestId); });
   return true;
 });

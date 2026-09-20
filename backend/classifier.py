@@ -117,6 +117,10 @@ def classify_videos(
     structured = result.structured_output
     batch = structured if isinstance(structured, ClassificationBatch) else ClassificationBatch.model_validate(structured)
     elapsed_ms = max(0, round((clock() - started) * 1000))
+    requested_ids = {video.video_id for video in request.videos}
+    returned_ids = [assessment.video_id for assessment in batch.assessments]
+    missing_ids = [video.video_id for video in request.videos if video.video_id not in returned_ids]
+    unexpected_ids = sorted(set(returned_ids) - requested_ids)
 
     return ClassificationResponse(
         requestId=request.request_id,
@@ -127,4 +131,14 @@ def classify_videos(
         ),
         assessments=normalize_assessments(request, batch),
         timing=TimingInfo(totalMs=elapsed_ms),
+        diagnostics={
+            "requestedAssessmentCount": len(requested_ids),
+            "returnedAssessmentCount": len(returned_ids),
+            "acceptedAssessmentCount": len(set(returned_ids) & requested_ids),
+            "missingAssessmentCount": len(missing_ids),
+            "duplicateAssessmentCount": len(returned_ids) - len(set(returned_ids)),
+            "unexpectedAssessmentCount": len(unexpected_ids),
+            "missingVideoIds": missing_ids,
+            "unexpectedVideoIds": unexpected_ids,
+        },
     )

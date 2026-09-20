@@ -1,0 +1,2170 @@
+{
+  "schemaVersion": "focusfeed-provider-smoke-report-v1",
+  "exportedAt": "2026-09-20T19:39:12.479Z",
+  "runStartedAt": "2026-09-20T19:36:16.193Z",
+  "runCompletedAt": "2026-09-20T19:39:12.479Z",
+  "fixtureVersion": "2026-09-20.1",
+  "datasetVersion": "2026-09-20.2",
+  "schedulerVersion": "scheduler-v1",
+  "workflowVersion": "workflow-v1.1",
+  "classifier": {
+    "provider": "chrome-built-in-ai",
+    "model": "chrome-gemini-nano",
+    "promptVariant": "few-shot-v4",
+    "promptVersion": "local-2026-09-20.3"
+  },
+  "configuration": {
+    "queueCap": 24,
+    "maxInFlight": 1,
+    "batchSize": 4,
+    "timeoutMs": 120000,
+    "requestBudget": 3
+  },
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+  },
+  "summary": {
+    "cases": 12,
+    "resolved": 12,
+    "failed": 0,
+    "coverage": 1,
+    "exactMatches": 10,
+    "exactMatchAccuracy": 0.8333333333333334,
+    "decisionMatches": 12,
+    "decisionAccuracy": 1,
+    "falseHides": 0,
+    "falseShows": 0,
+    "focusFalseHides": 0,
+    "focusFalseShows": 0,
+    "unresolvedExpectedHide": 0,
+    "providerRequests": 3,
+    "providerVideos": 12,
+    "peakQueueDepth": 4,
+    "peakInFlightRequests": 1,
+    "queueTiming": {
+      "count": 12,
+      "p50": 0,
+      "p95": 0,
+      "max": 0
+    },
+    "providerTiming": {
+      "count": 12,
+      "p50": 59269,
+      "p95": 59293,
+      "max": 59293
+    },
+    "totalTiming": {
+      "count": 12,
+      "p50": 59269,
+      "p95": 59293,
+      "max": 59293
+    },
+    "providerReportedTotalMs": 176273,
+    "wallClockMs": 176285.5,
+    "stopped": false,
+    "promotionGate": {
+      "passed": true,
+      "checks": {
+        "completed": true,
+        "outputCoverage": true,
+        "providerCallBudget": true,
+        "providerVideoCoverage": true,
+        "queueBound": true,
+        "inFlightBound": true,
+        "selectedDecisionAgreement": true,
+        "selectedFalseHideSafety": true,
+        "focusFalseHideSafety": true
+      },
+      "failedChecks": []
+    }
+  },
+  "scheduler": {
+    "snapshot": {
+      "version": "scheduler-v1",
+      "contextId": "heldout-finance",
+      "paused": false,
+      "stopped": false,
+      "queueDepth": 0,
+      "inFlightRequests": 0,
+      "queuedKeys": [],
+      "stats": {
+        "appearances": 12,
+        "uniqueAdmitted": 12,
+        "duplicateJoins": 0,
+        "priorityPromotions": 0,
+        "overloadDeferred": 0,
+        "priorityEvictions": 0,
+        "providerRequests": 3,
+        "providerVideos": 12,
+        "resultsApplied": 12,
+        "completedItems": 12,
+        "failedItems": 0,
+        "failedSubscribers": 0,
+        "timedOutItems": 0,
+        "validationFailedItems": 0,
+        "unexpectedAssessments": 0,
+        "staleAdmissions": 0,
+        "staleResultsIgnored": 0,
+        "canceledSubscribers": 0,
+        "pauseCount": 0,
+        "resumeCount": 0,
+        "peakQueueDepth": 4,
+        "peakInFlightRequests": 1
+      },
+      "timing": {
+        "queueWaitMs": {
+          "count": 12,
+          "p50": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "providerMs": {
+          "count": 12,
+          "p50": 59269,
+          "p95": 59293,
+          "max": 59293
+        },
+        "totalMs": {
+          "count": 12,
+          "p50": 59269,
+          "p95": 59293,
+          "max": 59293
+        }
+      }
+    },
+    "events": [
+      {
+        "type": "queued",
+        "atMs": 1789932976194,
+        "key": "dev-interview-focus:eval-interview-dsa",
+        "videoId": "eval-interview-dsa",
+        "subscriberId": "dev-interview-focus::eval-interview-dsa",
+        "priority": 100,
+        "queueDepth": 1
+      },
+      {
+        "type": "queued",
+        "atMs": 1789932976194,
+        "key": "dev-interview-focus:eval-interview-gta",
+        "videoId": "eval-interview-gta",
+        "subscriberId": "dev-interview-focus::eval-interview-gta",
+        "priority": 100,
+        "queueDepth": 2
+      },
+      {
+        "type": "queued",
+        "atMs": 1789932976194,
+        "key": "dev-interview-focus:eval-interview-music",
+        "videoId": "eval-interview-music",
+        "subscriberId": "dev-interview-focus::eval-interview-music",
+        "priority": 100,
+        "queueDepth": 3
+      },
+      {
+        "type": "queued",
+        "atMs": 1789932976194,
+        "key": "dev-interview-focus:eval-interview-vague",
+        "videoId": "eval-interview-vague",
+        "subscriberId": "dev-interview-focus::eval-interview-vague",
+        "priority": 100,
+        "queueDepth": 4
+      },
+      {
+        "type": "batch_started",
+        "atMs": 1789932976194,
+        "requestId": "scheduler-1",
+        "contextId": "dev-interview-focus",
+        "videoIds": [
+          "eval-interview-dsa",
+          "eval-interview-gta",
+          "eval-interview-music",
+          "eval-interview-vague"
+        ],
+        "batchSize": 4,
+        "queueDepth": 0,
+        "inFlightRequests": 1
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933033907,
+        "requestId": "scheduler-1",
+        "key": "dev-interview-focus:eval-interview-dsa",
+        "videoId": "eval-interview-dsa",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933033908,
+        "requestId": "scheduler-1",
+        "key": "dev-interview-focus:eval-interview-gta",
+        "videoId": "eval-interview-gta",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933033908,
+        "requestId": "scheduler-1",
+        "key": "dev-interview-focus:eval-interview-music",
+        "videoId": "eval-interview-music",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933033909,
+        "requestId": "scheduler-1",
+        "key": "dev-interview-focus:eval-interview-vague",
+        "videoId": "eval-interview-vague",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      {
+        "type": "batch_completed",
+        "atMs": 1789933033909,
+        "requestId": "scheduler-1",
+        "batchSize": 4,
+        "providerMs": 57712
+      },
+      {
+        "type": "context_changed",
+        "atMs": 1789933033909,
+        "previousContextId": "dev-interview-focus",
+        "contextId": "dev-product-design"
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933033909,
+        "key": "dev-product-design:eval-design-research",
+        "videoId": "eval-design-research",
+        "subscriberId": "dev-product-design::eval-design-research",
+        "priority": 100,
+        "queueDepth": 1
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933033909,
+        "key": "dev-product-design:eval-design-figma",
+        "videoId": "eval-design-figma",
+        "subscriberId": "dev-product-design::eval-design-figma",
+        "priority": 100,
+        "queueDepth": 2
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933033909,
+        "key": "dev-product-design:eval-design-stream",
+        "videoId": "eval-design-stream",
+        "subscriberId": "dev-product-design::eval-design-stream",
+        "priority": 100,
+        "queueDepth": 3
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933033909,
+        "key": "dev-product-design:eval-design-hud",
+        "videoId": "eval-design-hud",
+        "subscriberId": "dev-product-design::eval-design-hud",
+        "priority": 100,
+        "queueDepth": 4
+      },
+      {
+        "type": "batch_started",
+        "atMs": 1789933033909,
+        "requestId": "scheduler-2",
+        "contextId": "dev-product-design",
+        "videoIds": [
+          "eval-design-research",
+          "eval-design-figma",
+          "eval-design-stream",
+          "eval-design-hud"
+        ],
+        "batchSize": 4,
+        "queueDepth": 0,
+        "inFlightRequests": 1
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933093179,
+        "requestId": "scheduler-2",
+        "key": "dev-product-design:eval-design-research",
+        "videoId": "eval-design-research",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933093180,
+        "requestId": "scheduler-2",
+        "key": "dev-product-design:eval-design-figma",
+        "videoId": "eval-design-figma",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933093180,
+        "requestId": "scheduler-2",
+        "key": "dev-product-design:eval-design-stream",
+        "videoId": "eval-design-stream",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933093181,
+        "requestId": "scheduler-2",
+        "key": "dev-product-design:eval-design-hud",
+        "videoId": "eval-design-hud",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      {
+        "type": "batch_completed",
+        "atMs": 1789933093181,
+        "requestId": "scheduler-2",
+        "batchSize": 4,
+        "providerMs": 59269
+      },
+      {
+        "type": "context_changed",
+        "atMs": 1789933093181,
+        "previousContextId": "dev-product-design",
+        "contextId": "heldout-finance"
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933093181,
+        "key": "heldout-finance:eval-finance-index",
+        "videoId": "eval-finance-index",
+        "subscriberId": "heldout-finance::eval-finance-index",
+        "priority": 100,
+        "queueDepth": 1
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933093181,
+        "key": "heldout-finance:eval-finance-budget",
+        "videoId": "eval-finance-budget",
+        "subscriberId": "heldout-finance::eval-finance-budget",
+        "priority": 100,
+        "queueDepth": 2
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933093181,
+        "key": "heldout-finance:eval-finance-pump",
+        "videoId": "eval-finance-pump",
+        "subscriberId": "heldout-finance::eval-finance-pump",
+        "priority": 100,
+        "queueDepth": 3
+      },
+      {
+        "type": "queued",
+        "atMs": 1789933093181,
+        "key": "heldout-finance:eval-finance-loss",
+        "videoId": "eval-finance-loss",
+        "subscriberId": "heldout-finance::eval-finance-loss",
+        "priority": 100,
+        "queueDepth": 4
+      },
+      {
+        "type": "batch_started",
+        "atMs": 1789933093181,
+        "requestId": "scheduler-3",
+        "contextId": "heldout-finance",
+        "videoIds": [
+          "eval-finance-index",
+          "eval-finance-budget",
+          "eval-finance-pump",
+          "eval-finance-loss"
+        ],
+        "batchSize": 4,
+        "queueDepth": 0,
+        "inFlightRequests": 1
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933152476,
+        "requestId": "scheduler-3",
+        "key": "heldout-finance:eval-finance-index",
+        "videoId": "eval-finance-index",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933152477,
+        "requestId": "scheduler-3",
+        "key": "heldout-finance:eval-finance-budget",
+        "videoId": "eval-finance-budget",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933152478,
+        "requestId": "scheduler-3",
+        "key": "heldout-finance:eval-finance-pump",
+        "videoId": "eval-finance-pump",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      {
+        "type": "result_applied",
+        "atMs": 1789933152478,
+        "requestId": "scheduler-3",
+        "key": "heldout-finance:eval-finance-loss",
+        "videoId": "eval-finance-loss",
+        "subscriberCount": 1,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      {
+        "type": "batch_completed",
+        "atMs": 1789933152478,
+        "requestId": "scheduler-3",
+        "batchSize": 4,
+        "providerMs": 59293
+      }
+    ]
+  },
+  "scenarioCalls": [
+    {
+      "requestId": "scheduler-1",
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "videoIds": [
+        "eval-interview-dsa",
+        "eval-interview-gta",
+        "eval-interview-music",
+        "eval-interview-vague"
+      ],
+      "startedAt": "2026-09-20T19:36:16.194Z",
+      "status": "complete",
+      "stages": [
+        {
+          "id": "availability",
+          "status": "running",
+          "detail": "Checking Chrome's built-in model",
+          "at": "2026-09-20T19:36:16.195Z"
+        },
+        {
+          "id": "availability",
+          "status": "complete",
+          "detail": "Model status: available",
+          "at": "2026-09-20T19:36:16.199Z",
+          "durationMs": 5
+        },
+        {
+          "id": "session",
+          "status": "running",
+          "detail": "Creating an isolated local inference session",
+          "at": "2026-09-20T19:36:16.199Z"
+        },
+        {
+          "id": "session",
+          "status": "complete",
+          "detail": "Inference session ready",
+          "at": "2026-09-20T19:36:31.120Z",
+          "durationMs": 14921
+        },
+        {
+          "id": "inference",
+          "status": "running",
+          "detail": "Classifying 4 video candidates",
+          "at": "2026-09-20T19:36:31.120Z"
+        },
+        {
+          "id": "inference",
+          "status": "complete",
+          "detail": "Structured model response received",
+          "at": "2026-09-20T19:37:13.903Z",
+          "durationMs": 42783
+        },
+        {
+          "id": "parsing",
+          "status": "running",
+          "detail": "Parsing schema-constrained JSON output",
+          "at": "2026-09-20T19:37:13.904Z"
+        },
+        {
+          "id": "parsing",
+          "status": "complete",
+          "detail": "JSON parsed successfully",
+          "at": "2026-09-20T19:37:13.905Z",
+          "durationMs": 0
+        },
+        {
+          "id": "validation",
+          "status": "running",
+          "detail": "Checking video IDs, duplicates, and missing assessments",
+          "at": "2026-09-20T19:37:13.905Z"
+        },
+        {
+          "id": "validation",
+          "status": "complete",
+          "detail": "All requested assessments accepted",
+          "at": "2026-09-20T19:37:13.905Z",
+          "durationMs": 1
+        },
+        {
+          "id": "complete",
+          "status": "complete",
+          "detail": "Classification completed in 57711 ms",
+          "at": "2026-09-20T19:37:13.905Z",
+          "durationMs": 57711
+        }
+      ],
+      "timing": {
+        "totalMs": 57711,
+        "availabilityMs": 5,
+        "sessionCreateMs": 14921,
+        "inferenceMs": 42783,
+        "parsingMs": 0,
+        "validationMs": 1
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "rawOutput": "{\"assessments\":[{\"videoId\":\"eval-interview-dsa\",\"topics\":[\"data structures\",\"algorithms\"],\"contentPurpose\":\"tutorial\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Solve These 5 Interview Problems\"],\"reason\":\"The video explicitly provides coding interview practice.\"},{\"videoId\":\"eval-interview-gta\",\"topics\":[\"gaming\"],\"contentPurpose\":\"entertainment\",\"goalRelevance\":\"unrelated\",\"unwantedMatch\":\"yes\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"I Played GTA 6 Early\"],\"reason\":\"The video is about gaming, an explicitly unwanted topic.\"},{\"videoId\":\"eval-interview-music\",\"topics\":[\"music\"],\"contentPurpose\":\"music\",\"goalRelevance\":\"supporting\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Deep Focus Music\"],\"reason\":\"The video provides background music, which is an allowed exception.\"},{\"videoId\":\"eval-interview-vague\",\"topics\":[],\"contentPurpose\":\"unclear\",\"goalRelevance\":\"unclear\",\"unwantedMatch\":\"unclear\",\"evidenceSufficiency\":\"insufficient\",\"evidence\":[],\"reason\":\"The title does not convey a clear subject or purpose.\"}]}",
+        "contextBeforePrompt": 976,
+        "contextAfterPrompt": 1762,
+        "contextWindow": 9216
+      },
+      "classifier": {
+        "provider": "chrome-built-in-ai",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "promptVariant": "few-shot-v4"
+      },
+      "error": null,
+      "completedAt": "2026-09-20T19:37:13.906Z"
+    },
+    {
+      "requestId": "scheduler-2",
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "videoIds": [
+        "eval-design-research",
+        "eval-design-figma",
+        "eval-design-stream",
+        "eval-design-hud"
+      ],
+      "startedAt": "2026-09-20T19:37:13.909Z",
+      "status": "complete",
+      "stages": [
+        {
+          "id": "availability",
+          "status": "running",
+          "detail": "Checking Chrome's built-in model",
+          "at": "2026-09-20T19:37:13.909Z"
+        },
+        {
+          "id": "availability",
+          "status": "complete",
+          "detail": "Model status: available",
+          "at": "2026-09-20T19:37:13.922Z",
+          "durationMs": 13
+        },
+        {
+          "id": "session",
+          "status": "running",
+          "detail": "Creating an isolated local inference session",
+          "at": "2026-09-20T19:37:13.922Z"
+        },
+        {
+          "id": "session",
+          "status": "complete",
+          "detail": "Inference session ready",
+          "at": "2026-09-20T19:37:20.110Z",
+          "durationMs": 6188
+        },
+        {
+          "id": "inference",
+          "status": "running",
+          "detail": "Classifying 4 video candidates",
+          "at": "2026-09-20T19:37:20.111Z"
+        },
+        {
+          "id": "inference",
+          "status": "complete",
+          "detail": "Structured model response received",
+          "at": "2026-09-20T19:38:13.177Z",
+          "durationMs": 53067
+        },
+        {
+          "id": "parsing",
+          "status": "running",
+          "detail": "Parsing schema-constrained JSON output",
+          "at": "2026-09-20T19:38:13.178Z"
+        },
+        {
+          "id": "parsing",
+          "status": "complete",
+          "detail": "JSON parsed successfully",
+          "at": "2026-09-20T19:38:13.178Z",
+          "durationMs": 0
+        },
+        {
+          "id": "validation",
+          "status": "running",
+          "detail": "Checking video IDs, duplicates, and missing assessments",
+          "at": "2026-09-20T19:38:13.178Z"
+        },
+        {
+          "id": "validation",
+          "status": "complete",
+          "detail": "All requested assessments accepted",
+          "at": "2026-09-20T19:38:13.178Z",
+          "durationMs": 0
+        },
+        {
+          "id": "complete",
+          "status": "complete",
+          "detail": "Classification completed in 59269 ms",
+          "at": "2026-09-20T19:38:13.178Z",
+          "durationMs": 59269
+        }
+      ],
+      "timing": {
+        "totalMs": 59269,
+        "availabilityMs": 13,
+        "sessionCreateMs": 6188,
+        "inferenceMs": 53067,
+        "parsingMs": 0,
+        "validationMs": 0
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "rawOutput": "{\"assessments\":[{\"videoId\":\"eval-design-research\",\"topics\":[\"usability study\",\"UX research\"],\"contentPurpose\":\"tutorial\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"How to Plan a Usability Study\"],\"reason\":\"The video provides a tutorial on planning a usability study, directly supporting the goal.\"},{\"videoId\":\"eval-design-figma\",\"topics\":[\"Figma\",\"prototyping\",\"design tool\"],\"contentPurpose\":\"news\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Figma's New Prototyping Features Explained\"],\"reason\":\"The video discusses new features of a design tool, directly supportive of the goal.\"},{\"videoId\":\"eval-design-stream\",\"topics\":[\"gaming stream\"],\"contentPurpose\":\"entertainment\",\"goalRelevance\":\"unrelated\",\"unwantedMatch\":\"yes\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Late Night Ranked Gaming Stream\"],\"reason\":\"The metadata explicitly identifies this as a gaming stream, which is an unwanted topic.\"},{\"videoId\":\"eval-design-hud\",\"topics\":[\"game HUD\",\"accessibility\",\"layout\"],\"contentPurpose\":\"tutorial\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Design a Readable Game HUD: Accessibility and Layout\"],\"reason\":\"The video is a tutorial on designing a game HUD with accessibility considerations, directly supporting the goal.\"}]}",
+        "contextBeforePrompt": 976,
+        "contextAfterPrompt": 1825,
+        "contextWindow": 9216
+      },
+      "classifier": {
+        "provider": "chrome-built-in-ai",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "promptVariant": "few-shot-v4"
+      },
+      "error": null,
+      "completedAt": "2026-09-20T19:38:13.178Z"
+    },
+    {
+      "requestId": "scheduler-3",
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "videoIds": [
+        "eval-finance-index",
+        "eval-finance-budget",
+        "eval-finance-pump",
+        "eval-finance-loss"
+      ],
+      "startedAt": "2026-09-20T19:38:13.181Z",
+      "status": "complete",
+      "stages": [
+        {
+          "id": "availability",
+          "status": "running",
+          "detail": "Checking Chrome's built-in model",
+          "at": "2026-09-20T19:38:13.181Z"
+        },
+        {
+          "id": "availability",
+          "status": "complete",
+          "detail": "Model status: available",
+          "at": "2026-09-20T19:38:13.194Z",
+          "durationMs": 13
+        },
+        {
+          "id": "session",
+          "status": "running",
+          "detail": "Creating an isolated local inference session",
+          "at": "2026-09-20T19:38:13.195Z"
+        },
+        {
+          "id": "session",
+          "status": "complete",
+          "detail": "Inference session ready",
+          "at": "2026-09-20T19:38:19.643Z",
+          "durationMs": 6449
+        },
+        {
+          "id": "inference",
+          "status": "running",
+          "detail": "Classifying 4 video candidates",
+          "at": "2026-09-20T19:38:19.644Z"
+        },
+        {
+          "id": "inference",
+          "status": "complete",
+          "detail": "Structured model response received",
+          "at": "2026-09-20T19:39:12.473Z",
+          "durationMs": 52829
+        },
+        {
+          "id": "parsing",
+          "status": "running",
+          "detail": "Parsing schema-constrained JSON output",
+          "at": "2026-09-20T19:39:12.474Z"
+        },
+        {
+          "id": "parsing",
+          "status": "complete",
+          "detail": "JSON parsed successfully",
+          "at": "2026-09-20T19:39:12.474Z",
+          "durationMs": 0
+        },
+        {
+          "id": "validation",
+          "status": "running",
+          "detail": "Checking video IDs, duplicates, and missing assessments",
+          "at": "2026-09-20T19:39:12.474Z"
+        },
+        {
+          "id": "validation",
+          "status": "complete",
+          "detail": "All requested assessments accepted",
+          "at": "2026-09-20T19:39:12.474Z",
+          "durationMs": 0
+        },
+        {
+          "id": "complete",
+          "status": "complete",
+          "detail": "Classification completed in 59293 ms",
+          "at": "2026-09-20T19:39:12.474Z",
+          "durationMs": 59293
+        }
+      ],
+      "timing": {
+        "totalMs": 59293,
+        "availabilityMs": 13,
+        "sessionCreateMs": 6449,
+        "inferenceMs": 52829,
+        "parsingMs": 0,
+        "validationMs": 0
+      },
+      "diagnostics": {
+        "requestedAssessmentCount": 4,
+        "returnedAssessmentCount": 4,
+        "acceptedAssessmentCount": 4,
+        "missingAssessmentCount": 0,
+        "duplicateAssessmentCount": 0,
+        "unexpectedAssessmentCount": 0,
+        "missingVideoIds": [],
+        "unexpectedVideoIds": [],
+        "schemaConstrained": true,
+        "rawOutput": "{\"assessments\":[{\"videoId\":\"eval-finance-index\",\"topics\":[\"index funds\"],\"contentPurpose\":\"tutorial\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Index Funds Explained for Complete Beginners\"],\"reason\":\"The video directly teaches about index funds, a core personal finance topic.\"},{\"videoId\":\"eval-finance-budget\",\"topics\":[\"budgeting\",\"practical framework\"],\"contentPurpose\":\"commentary\",\"goalRelevance\":\"directly_useful\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"Why Most Budget Advice Fails — A Practical Framework\"],\"reason\":\"The video analyzes budgeting and provides a practical framework for personal finance.\"},{\"videoId\":\"eval-finance-pump\",\"topics\":[\"crypto pumps\"],\"contentPurpose\":\"entertainment\",\"goalRelevance\":\"unrelated\",\"unwantedMatch\":\"yes\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"LIVE: This Crypto Can 100X Tonight — Buy Signal\"],\"reason\":\"The title explicitly promotes a crypto pump, an unwanted topic.\"},{\"videoId\":\"eval-finance-loss\",\"topics\":[\"day trading\",\"loss\"],\"contentPurpose\":\"commentary\",\"goalRelevance\":\"supporting\",\"unwantedMatch\":\"no\",\"evidenceSufficiency\":\"sufficient\",\"evidence\":[\"How I Lost Everything Day Trading\"],\"reason\":\"The video provides a cautionary tale about day trading, supporting the avoidance of get-rich-quick schemes.\"}]}",
+        "contextBeforePrompt": 976,
+        "contextAfterPrompt": 1806,
+        "contextWindow": 9216
+      },
+      "classifier": {
+        "provider": "chrome-built-in-ai",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "promptVariant": "few-shot-v4"
+      },
+      "error": null,
+      "completedAt": "2026-09-20T19:39:12.474Z"
+    }
+  ],
+  "testSet": [
+    {
+      "id": "dev-interview-focus",
+      "split": "development",
+      "name": "Coding interview focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-interview-dsa",
+            "title": "Sliding Window: Solve These 5 Interview Problems",
+            "channel": "Algorithm Academy",
+            "duration": "12:30",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly describes interview problem instruction.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-gta",
+            "title": "I Played GTA 6 Early — Here's What Happened",
+            "channel": "Game Drop",
+            "duration": "18:42",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title clearly identifies gaming entertainment, which the profile rejects.",
+          "tags": [
+            "clear-negative"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-music",
+            "title": "Deep Focus Music for Coding — 90 Minutes",
+            "channel": "Quiet Keys",
+            "duration": "1:30:00",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "music",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Background music is an explicit exception and can support the session.",
+          "tags": [
+            "exception"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-interview-vague",
+            "title": "We Need to Talk",
+            "channel": "Daily Notes",
+            "duration": "8:05",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "unclear",
+            "goalRelevance": "unclear",
+            "unwantedMatch": "unclear",
+            "evidenceSufficiency": "insufficient"
+          },
+          "labelNote": "The supplied metadata does not identify a subject or relationship to the goal.",
+          "tags": [
+            "abstention",
+            "vague-title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dev-product-design",
+      "split": "development",
+      "name": "Product design learning",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-design-research",
+            "title": "How to Plan a Usability Study",
+            "channel": "Research Practice",
+            "duration": "15:12",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title directly teaches a requested research method.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-figma",
+            "title": "Figma's New Prototyping Features Explained",
+            "channel": "Design Tool News",
+            "duration": "10:33",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "news",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "Design-tool release news is an explicit exception and supports the broader goal.",
+          "tags": [
+            "exception"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-stream",
+            "title": "Late Night Ranked Gaming Stream",
+            "channel": "Level Up Live",
+            "duration": "2:04:10",
+            "isShort": false,
+            "isLive": true,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "entertainment",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "A gaming livestream explicitly matches the unwanted preference.",
+          "tags": [
+            "clear-negative",
+            "live"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-design-hud",
+            "title": "Design a Readable Game HUD: Accessibility and Layout",
+            "channel": "Interface Workshop",
+            "duration": "17:40",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The purpose is interface and accessibility instruction despite the gaming context.",
+          "tags": [
+            "keyword-trap",
+            "purpose-vs-topic"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heldout-finance",
+      "split": "development",
+      "name": "Personal finance fundamentals",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "cases": [
+        {
+          "video": {
+            "videoId": "eval-finance-index",
+            "title": "Index Funds Explained for Complete Beginners",
+            "channel": "Steady Money",
+            "duration": "15:50",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "tutorial",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly teaches a requested long-term finance topic.",
+          "tags": [
+            "clear-positive"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-budget",
+            "title": "Why Most Budget Advice Fails — A Practical Framework",
+            "channel": "Money Methods",
+            "duration": "12:16",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "directly_useful",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title signals substantive budgeting guidance despite its commentary format.",
+          "tags": [
+            "purpose-vs-topic"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-pump",
+            "title": "LIVE: This Crypto Can 100X Tonight — Buy Signal",
+            "channel": "Moon Calls",
+            "duration": null,
+            "isShort": false,
+            "isLive": true,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "unrelated",
+            "unwantedMatch": "yes",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The title explicitly promotes a crypto pump and trading signal.",
+          "tags": [
+            "clear-negative",
+            "live"
+          ]
+        },
+        {
+          "video": {
+            "videoId": "eval-finance-loss",
+            "title": "How I Lost Everything Day Trading",
+            "channel": "Market Lessons",
+            "duration": "19:05",
+            "isShort": false,
+            "isLive": false,
+            "isPremiere": false
+          },
+          "expected": {
+            "contentPurpose": "commentary",
+            "goalRelevance": "supporting",
+            "unwantedMatch": "no",
+            "evidenceSufficiency": "sufficient"
+          },
+          "labelNote": "The cautionary title can support risk awareness and does not promote a signal or quick-profit scheme.",
+          "tags": [
+            "hard-negative",
+            "purpose-vs-topic"
+          ]
+        }
+      ]
+    }
+  ],
+  "records": [
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "caseId": "eval-interview-dsa",
+      "video": {
+        "videoId": "eval-interview-dsa",
+        "title": "Sliding Window: Solve These 5 Interview Problems",
+        "channel": "Algorithm Academy",
+        "duration": "12:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title explicitly describes interview problem instruction.",
+      "tags": [
+        "clear-positive"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-interview-dsa",
+        "topics": [
+          "data structures",
+          "algorithms"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Solve These 5 Interview Problems"
+        ],
+        "reason": "The video explicitly provides coding interview practice."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789932976194,
+        "providerStartedAtMs": 1789932976194,
+        "providerEndedAtMs": 1789933033906,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "caseId": "eval-interview-gta",
+      "video": {
+        "videoId": "eval-interview-gta",
+        "title": "I Played GTA 6 Early — Here's What Happened",
+        "channel": "Game Drop",
+        "duration": "18:42",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title clearly identifies gaming entertainment, which the profile rejects.",
+      "tags": [
+        "clear-negative"
+      ],
+      "expectedDecision": "hide",
+      "expectedFocusDecision": "hide",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-interview-gta",
+        "topics": [
+          "gaming"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "I Played GTA 6 Early"
+        ],
+        "reason": "The video is about gaming, an explicitly unwanted topic."
+      },
+      "actualDecision": "hide",
+      "actualFocusDecision": "hide",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789932976194,
+        "providerStartedAtMs": 1789932976194,
+        "providerEndedAtMs": 1789933033906,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "caseId": "eval-interview-music",
+      "video": {
+        "videoId": "eval-interview-music",
+        "title": "Deep Focus Music for Coding — 90 Minutes",
+        "channel": "Quiet Keys",
+        "duration": "1:30:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "Background music is an explicit exception and can support the session.",
+      "tags": [
+        "exception"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-interview-music",
+        "topics": [
+          "music"
+        ],
+        "contentPurpose": "music",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Deep Focus Music"
+        ],
+        "reason": "The video provides background music, which is an allowed exception."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789932976194,
+        "providerStartedAtMs": 1789932976194,
+        "providerEndedAtMs": 1789933033906,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-interview-focus",
+      "scenarioName": "Coding interview focus",
+      "split": "development",
+      "mode": "focus",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Prepare for software engineering coding interviews over the next two weeks.",
+        "usefulTopics": [
+          "data structures",
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity news",
+          "creator drama"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "caseId": "eval-interview-vague",
+      "video": {
+        "videoId": "eval-interview-vague",
+        "title": "We Need to Talk",
+        "channel": "Daily Notes",
+        "duration": "8:05",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "unclear",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient"
+      },
+      "labelNote": "The supplied metadata does not identify a subject or relationship to the goal.",
+      "tags": [
+        "abstention",
+        "vague-title"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-interview-vague",
+        "topics": [],
+        "contentPurpose": "unclear",
+        "goalRelevance": "unclear",
+        "unwantedMatch": "unclear",
+        "evidenceSufficiency": "insufficient",
+        "evidence": [],
+        "reason": "The title does not convey a clear subject or purpose."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789932976194,
+        "providerStartedAtMs": 1789932976194,
+        "providerEndedAtMs": 1789933033906,
+        "queueWaitMs": 0,
+        "providerMs": 57712,
+        "totalMs": 57712
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-design-research",
+      "video": {
+        "videoId": "eval-design-research",
+        "title": "How to Plan a Usability Study",
+        "channel": "Research Practice",
+        "duration": "15:12",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title directly teaches a requested research method.",
+      "tags": [
+        "clear-positive"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-design-research",
+        "topics": [
+          "usability study",
+          "UX research"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "How to Plan a Usability Study"
+        ],
+        "reason": "The video provides a tutorial on planning a usability study, directly supporting the goal."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933033909,
+        "providerStartedAtMs": 1789933033909,
+        "providerEndedAtMs": 1789933093178,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-design-figma",
+      "video": {
+        "videoId": "eval-design-figma",
+        "title": "Figma's New Prototyping Features Explained",
+        "channel": "Design Tool News",
+        "duration": "10:33",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "news",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "Design-tool release news is an explicit exception and supports the broader goal.",
+      "tags": [
+        "exception"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-design-figma",
+        "topics": [
+          "Figma",
+          "prototyping",
+          "design tool"
+        ],
+        "contentPurpose": "news",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Figma's New Prototyping Features Explained"
+        ],
+        "reason": "The video discusses new features of a design tool, directly supportive of the goal."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": false,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933033909,
+        "providerStartedAtMs": 1789933033909,
+        "providerEndedAtMs": 1789933093178,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-design-stream",
+      "video": {
+        "videoId": "eval-design-stream",
+        "title": "Late Night Ranked Gaming Stream",
+        "channel": "Level Up Live",
+        "duration": "2:04:10",
+        "isShort": false,
+        "isLive": true,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "A gaming livestream explicitly matches the unwanted preference.",
+      "tags": [
+        "clear-negative",
+        "live"
+      ],
+      "expectedDecision": "hide",
+      "expectedFocusDecision": "hide",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-design-stream",
+        "topics": [
+          "gaming stream"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Late Night Ranked Gaming Stream"
+        ],
+        "reason": "The metadata explicitly identifies this as a gaming stream, which is an unwanted topic."
+      },
+      "actualDecision": "hide",
+      "actualFocusDecision": "hide",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933033909,
+        "providerStartedAtMs": 1789933033909,
+        "providerEndedAtMs": 1789933093178,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "dev-product-design",
+      "scenarioName": "Product design learning",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Improve product design skills through interaction patterns, research methods, and accessible interfaces.",
+        "usefulTopics": [
+          "UX research",
+          "interaction design",
+          "accessibility",
+          "design systems"
+        ],
+        "unwantedTopics": [
+          "AI art compilations",
+          "celebrity content",
+          "gaming streams"
+        ],
+        "exceptions": [
+          "software release news for design tools"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-design-hud",
+      "video": {
+        "videoId": "eval-design-hud",
+        "title": "Design a Readable Game HUD: Accessibility and Layout",
+        "channel": "Interface Workshop",
+        "duration": "17:40",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The purpose is interface and accessibility instruction despite the gaming context.",
+      "tags": [
+        "keyword-trap",
+        "purpose-vs-topic"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-design-hud",
+        "topics": [
+          "game HUD",
+          "accessibility",
+          "layout"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Design a Readable Game HUD: Accessibility and Layout"
+        ],
+        "reason": "The video is a tutorial on designing a game HUD with accessibility considerations, directly supporting the goal."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933033909,
+        "providerStartedAtMs": 1789933033909,
+        "providerEndedAtMs": 1789933093178,
+        "queueWaitMs": 0,
+        "providerMs": 59269,
+        "totalMs": 59269
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-finance-index",
+      "video": {
+        "videoId": "eval-finance-index",
+        "title": "Index Funds Explained for Complete Beginners",
+        "channel": "Steady Money",
+        "duration": "15:50",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title explicitly teaches a requested long-term finance topic.",
+      "tags": [
+        "clear-positive"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-finance-index",
+        "topics": [
+          "index funds"
+        ],
+        "contentPurpose": "tutorial",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Index Funds Explained for Complete Beginners"
+        ],
+        "reason": "The video directly teaches about index funds, a core personal finance topic."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933093181,
+        "providerStartedAtMs": 1789933093181,
+        "providerEndedAtMs": 1789933152474,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-finance-budget",
+      "video": {
+        "videoId": "eval-finance-budget",
+        "title": "Why Most Budget Advice Fails — A Practical Framework",
+        "channel": "Money Methods",
+        "duration": "12:16",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title signals substantive budgeting guidance despite its commentary format.",
+      "tags": [
+        "purpose-vs-topic"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-finance-budget",
+        "topics": [
+          "budgeting",
+          "practical framework"
+        ],
+        "contentPurpose": "commentary",
+        "goalRelevance": "directly_useful",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "Why Most Budget Advice Fails — A Practical Framework"
+        ],
+        "reason": "The video analyzes budgeting and provides a practical framework for personal finance."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933093181,
+        "providerStartedAtMs": 1789933093181,
+        "providerEndedAtMs": 1789933152474,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-finance-pump",
+      "video": {
+        "videoId": "eval-finance-pump",
+        "title": "LIVE: This Crypto Can 100X Tonight — Buy Signal",
+        "channel": "Moon Calls",
+        "duration": null,
+        "isShort": false,
+        "isLive": true,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The title explicitly promotes a crypto pump and trading signal.",
+      "tags": [
+        "clear-negative",
+        "live"
+      ],
+      "expectedDecision": "hide",
+      "expectedFocusDecision": "hide",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-finance-pump",
+        "topics": [
+          "crypto pumps"
+        ],
+        "contentPurpose": "entertainment",
+        "goalRelevance": "unrelated",
+        "unwantedMatch": "yes",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "LIVE: This Crypto Can 100X Tonight — Buy Signal"
+        ],
+        "reason": "The title explicitly promotes a crypto pump, an unwanted topic."
+      },
+      "actualDecision": "hide",
+      "actualFocusDecision": "hide",
+      "exactMatch": false,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933093181,
+        "providerStartedAtMs": 1789933093181,
+        "providerEndedAtMs": 1789933152474,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      "failure": null
+    },
+    {
+      "scenarioId": "heldout-finance",
+      "scenarioName": "Personal finance fundamentals",
+      "split": "development",
+      "mode": "balanced",
+      "profile": {
+        "id": "focusfeed-eval",
+        "version": 1,
+        "goal": "Learn long-term personal finance fundamentals without speculative get-rich-quick content.",
+        "usefulTopics": [
+          "budgeting",
+          "index funds",
+          "tax basics",
+          "emergency funds"
+        ],
+        "unwantedTopics": [
+          "crypto pumps",
+          "day-trading signals",
+          "get-rich-quick schemes"
+        ],
+        "exceptions": [],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "caseId": "eval-finance-loss",
+      "video": {
+        "videoId": "eval-finance-loss",
+        "title": "How I Lost Everything Day Trading",
+        "channel": "Market Lessons",
+        "duration": "19:05",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "expected": {
+        "contentPurpose": "commentary",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient"
+      },
+      "labelNote": "The cautionary title can support risk awareness and does not promote a signal or quick-profit scheme.",
+      "tags": [
+        "hard-negative",
+        "purpose-vs-topic"
+      ],
+      "expectedDecision": "show",
+      "expectedFocusDecision": "show",
+      "status": "resolved",
+      "actual": {
+        "videoId": "eval-finance-loss",
+        "topics": [
+          "day trading",
+          "loss"
+        ],
+        "contentPurpose": "commentary",
+        "goalRelevance": "supporting",
+        "unwantedMatch": "no",
+        "evidenceSufficiency": "sufficient",
+        "evidence": [
+          "How I Lost Everything Day Trading"
+        ],
+        "reason": "The video provides a cautionary tale about day trading, supporting the avoidance of get-rich-quick schemes."
+      },
+      "actualDecision": "show",
+      "actualFocusDecision": "show",
+      "exactMatch": true,
+      "decisionMatch": true,
+      "focusDecisionMatch": true,
+      "falseHide": false,
+      "falseShow": false,
+      "focusFalseHide": false,
+      "focusFalseShow": false,
+      "schedulerTiming": {
+        "queuedAtMs": 1789933093181,
+        "providerStartedAtMs": 1789933093181,
+        "providerEndedAtMs": 1789933152474,
+        "queueWaitMs": 0,
+        "providerMs": 59293,
+        "totalMs": 59293
+      },
+      "failure": null
+    }
+  ]
+}

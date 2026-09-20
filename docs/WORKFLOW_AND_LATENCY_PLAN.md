@@ -1,6 +1,6 @@
 # FocusFeed routing workflow and latency plan
 
-Decision after the v4 development review: prioritize the combined workflow before further prompt-only tuning. A1 explicit-rule/cache replay passed Alok's persisted, empty-store, and cold browser checks. B1 now implements the reusable bounded scheduler and a deterministic lifecycle replay. Semantic model decisions are still not allowed to hide cards in the live feed.
+Decision after the v4 development review: prioritize the combined workflow before further prompt-only tuning. A1 explicit-rule/cache replay passed Alok's persisted, empty-store, and cold browser checks. B1's reusable bounded scheduler and deterministic lifecycle replay passed Alok's exported 5/5 browser run. C1's bounded 12-video Chrome built-in AI smoke passed all output, decision-safety, and scheduler gates. Version 0.6.0 now connects real Home recommendations in preview, with opt-in reversible AI hides for Alok's manual test and explicit Load more budgets. This is an experimental integration; live browser verification is pending.
 
 The follow-up review found cache validation/concurrency faults and gaps in what the replay proves. A1 fixed those faults and exposes 24 visible cases, separate seed/read controls, actual route events, storage timing, and report export. B1 adds a 24-item priority queue, one-request concurrency bound, batching, subscriber deduplication/cancellation, goal-context invalidation, pause/resume, timeout handling, provider-output validation, stage timing, and a five-scenario reportable fake-provider suite. See [WORKFLOW_EVALUATION_PLAN.md](WORKFLOW_EVALUATION_PLAN.md) for evidence and handoffs.
 
@@ -8,7 +8,7 @@ The follow-up review found cache validation/concurrency faults and gaps in what 
 
 V4 takes 4m51.9s for 24 videos on this device, averaging 48.7s per four-video batch. Inference accounts for 84.4%, session setup for 15.6%. All 24 recorded decisions match their references, but the finance loss-story relevance error remains unsafe under Focus policy. See `eval_reports/2026-09-20-few-shot-v4-development-analysis.md`.
 
-- `extension/content.js` already applies explicit channel, keyword, format, duration, and feedback rules. It reads the active goal but does not invoke the semantic classifier.
+- `extension/content.js` already applies explicit channel, keyword, format, duration, and feedback rules. It applies explicit rules and, during an active live session, passes admitted card snapshots to the session tab for cache/residual classification.
 - `extension/eval/eval.js` evaluates every fixture directly through the local LLM. It is a classifier benchmark, not an end-to-end filtering or workflow benchmark.
 - `extension/local-classifier.js` creates and destroys an isolated session for every batch, generating topics, purpose, three policy labels, evidence, and a reason.
 - `backend/classifier.py` already wraps Bedrock with a Strands Agent. Its mere presence does not supply a cache, queue, or routing workflow, and local prompt changes do not automatically change the Bedrock prompt.
@@ -114,8 +114,10 @@ The deterministic prototypes now enforce a 24-item waiting bound, one in-flight 
 ## Implementation checkpoints and manual handoffs
 
 1. **A1 core qualified.** Shared rules and policy live in `extension/workflow-core.js`; validated, serialized assessment storage lives in `extension/workflow-cache.js`; Alok's persisted, empty-store, and cold reports match the 24-case contract. The real YouTube allow/format selector check is deferred, while semantic/cache hiding remains disconnected.
-2. **B1 implemented; awaiting browser report.** `extension/workflow-scheduler.js` provides bounded priority scheduling, batching, deduplication, subscriber cancellation, goal invalidation, pause/resume, timeout and response validation. `extension/workflow/lifecycle.html` exposes five fixed fake-provider scenarios and JSON export. Handoff: run once and export 5/5 evidence.
-3. Benchmark compact output and base-session cloning separately, then together; connect the selected local/cloud provider through this scheduler for a bounded 8–12-video smoke. Handoff: compare cold/warm timing and remaining semantic backlog on the same input sequence.
-4. Add only the semantic fast rules supported by measured precision. Review label ambiguities and freeze the complete workflow before final held-out evaluation.
+2. **B1 qualified in the browser.** `focusfeed-lifecycle-1789922518708.json` passed all five scenarios with queue peak 24, in-flight peak 1, zero duplicate provider videos, zero stale applications, and three intentionally unresolved failures.
+3. **C1 qualified in the browser.** `focusfeed-provider-smoke-1789933158535.json` returned 12/12 valid outputs, 10/12 exact labels, 12/12 selected and Focus decisions, zero false hides, three bounded calls, and no lifecycle fault. Provider p95 was 59.3s and wall time was 2m 56.3s, so quality on this small smoke passed while latency remains a major limitation.
+4. **Real-feed integration implemented; awaiting Alok's test.** A persistent session tab owns routing/cache/scheduling and local inference for actual Home cards. Preview and opt-in reversible hides, exact request/card identity checks, per-row reviews, telemetry, and export are available. Candidate and model budgets start at 12 videos/three calls; Load more explicitly adds another allowance. Home browse continuations are gated separately. See [YOUTUBE_LIVE_TEST.md](YOUTUBE_LIVE_TEST.md).
+5. Benchmark compact output and base-session cloning separately, then together. Compare the same fixed inputs against C1 and the small real-feed shadow run before changing batching or concurrency.
+6. Run a larger 30-50 recommendation shadow review, add only semantic fast rules supported by measured precision, then freeze the complete workflow before final held-out evaluation.
 
 Browser verification stays with Alok. No actual LLM throughput or browser behavior is inferred from mocked automated tests.

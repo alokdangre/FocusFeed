@@ -4,7 +4,7 @@ Date: 2026-09-20
 Extension: 0.4.0  
 Scheduler: scheduler-v1  
 Lifecycle fixtures: 2026-09-20.1  
-Status: automated checks passed; browser lifecycle export pending
+Status: qualified from automated checks and Alok's browser lifecycle export
 
 ## A1 reports reviewed
 
@@ -57,3 +57,7 @@ The expected values and rationale are visible before running. Export uses `focus
 6. Export the JSON report and add it to `eval_reports/`.
 
 This run is fast and invokes no LLM. Its virtual latency validates timing accounting, not real local or Bedrock performance.
+
+## Browser result received
+
+`focusfeed-lifecycle-1789922518708.json` matches report schema `focusfeed-lifecycle-report-v1`, lifecycle fixture `2026-09-20.1`, and `scheduler-v1`. All five expected scenario IDs occur exactly once and pass. The summary reports queue peak 24, in-flight peak 1, zero duplicate provider videos, zero stale applications, and three intentionally unresolved provider/output failures. This qualifies B1 and unlocks the bounded real-provider smoke; it does not establish real-model or live-YouTube latency.

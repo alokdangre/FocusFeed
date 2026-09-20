@@ -3,6 +3,7 @@
 
 (function () {
   "use strict";
+  if (globalThis.__focusFeedContentInstalled) return;
 
   // --- State ---
   var feedItemsReceived = 0;
@@ -19,6 +20,7 @@
   var channelSignals = {};   // { "Channel Name": integer in [-3, +3] }
   var activeProfile = null;
   var focusSession = null;
+  var liveFeed = null;
   var PREFERENCE_KEYS = {
     enabled: true,
     blockedKeywords: true,
@@ -32,6 +34,8 @@
     channelSignals: true,
     activeProfile: true,
     focusSession: true,
+    classifierProvider: true,
+    classifierEndpoint: true,
   };
 
   // --- Load preferences ---
@@ -78,6 +82,7 @@
       return PREFERENCE_KEYS[key] === true;
     });
     if (!shouldReload) return;
+    if (liveFeed) liveFeed.preferencesChanged();
     loadPreferences().then(function () {
       reprocessAllCards();
     });
@@ -594,15 +599,16 @@
       // DOM format badges/URLs can supply explicit flags that are absent from
       // the intercepted renderer. Unknown duration alone never supplies one.
       var video = Object.assign({}, apiVideo, {
-        title: apiVideo.title || extractTitleFromCard(card),
-        channel: apiVideo.channel || extractChannelFromCard(card),
-        duration: apiVideo.duration || extractDurationFromCard(card),
+        title: extractTitleFromCard(card) || apiVideo.title,
+        channel: extractChannelFromCard(card) || apiVideo.channel,
+        duration: extractDurationFromCard(card) || apiVideo.duration,
         isShort: apiVideo.isShort === true || isCardAShort(card),
         isLive: apiVideo.isLive === true || !!card.querySelector("[overlay-style='LIVE']"),
         isPremiere: apiVideo.isPremiere === true || !!card.querySelector("[overlay-style='UPCOMING']"),
       });
       injectSignalButtons(card, video.channel);
       applyExplicitDecision(card, video);
+      if (liveFeed) liveFeed.observe(card, video);
       updateSignalButtonState(card, video.channel);
       return;
     }
@@ -616,7 +622,7 @@
     var channel = isPlaylist ? extractPlaylistChannel(card) : extractChannelFromCard(card);
     var title = isPlaylist ? extractPlaylistTitle(card) : extractTitleFromCard(card);
     injectSignalButtons(card, channel);
-    applyExplicitDecision(card, {
+    var fallbackVideo = {
       videoId: videoId || "",
       title: title,
       channel: channel,
@@ -624,7 +630,9 @@
       isShort: isCardAShort(card),
       isLive: !!card.querySelector("[overlay-style='LIVE']"),
       isPremiere: !!card.querySelector("[overlay-style='UPCOMING']"),
-    });
+    };
+    applyExplicitDecision(card, fallbackVideo);
+    if (liveFeed) liveFeed.observe(card, fallbackVideo);
     updateSignalButtonState(card, channel);
   }
 
@@ -774,6 +782,21 @@
   });
 
   // --- Init ---
+  liveFeed = FocusFeedLiveContent.create({
+    scan: applyFiltersToDOM,
+    rule: function (video) { return FocusFeedWorkflow.evaluateExplicitRules(video, preferenceSnapshot()); },
+  });
+  var liveScanTimer = null;
+  var metadataObserver = new MutationObserver(function (mutations) {
+    if (!document.documentElement.dataset.focusfeedSession) return;
+    if (!mutations.some(function (mutation) {
+      var node = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
+      return node && !node.closest(".focusfeed-live-label, .focusfeed-signals, #focusfeed-live-panel");
+    })) return;
+    clearTimeout(liveScanTimer);
+    liveScanTimer = setTimeout(applyFiltersToDOM, 150);
+  });
+  metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["href", "title"] });
   injectStaticCss();
   loadPreferences().then(function () {
     observeFeed();
@@ -806,4 +829,5 @@
   }
 
   console.log("[FocusFeed] Content script loaded");
+  globalThis.__focusFeedContentInstalled = true;
 })();

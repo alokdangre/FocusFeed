@@ -130,3 +130,4 @@ class ClassificationResponse(StrictModel):
     classifier: ClassifierInfo
     assessments: list[VideoAssessment]
     timing: TimingInfo
+    diagnostics: dict = Field(default_factory=dict)

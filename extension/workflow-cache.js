@@ -21,6 +21,8 @@
       throw new Error("A chrome.storage-compatible area is required.");
     }
     var settings = options || {};
+    var storageKey = settings.storageKey || STORAGE_KEY;
+    var lockName = MUTATION_LOCK_NAME + ":" + storageKey;
     var maxEntries = Math.max(1, Number(settings.maxEntries) || DEFAULT_MAX_ENTRIES);
 
     function enqueueLocally(task) {
@@ -32,7 +34,7 @@
 
     function mutate(task) {
       if (root.navigator && root.navigator.locks && typeof root.navigator.locks.request === "function") {
-        return root.navigator.locks.request(MUTATION_LOCK_NAME, task);
+        return root.navigator.locks.request(lockName, task);
       }
       return enqueueLocally(task);
     }
@@ -43,14 +45,14 @@
     }
 
     function read() {
-      return storageArea.get(STORAGE_KEY).then(function (stored) {
-        return copyEntries(stored && stored[STORAGE_KEY]);
+      return storageArea.get(storageKey).then(function (stored) {
+        return copyEntries(stored && stored[storageKey]);
       });
     }
 
     function write(entries) {
       var payload = {};
-      payload[STORAGE_KEY] = entries;
+      payload[storageKey] = entries;
       return storageArea.set(payload).then(function () { return entries; });
     }
 
@@ -144,10 +146,10 @@
     function clear() {
       return mutate(function () {
         if (typeof storageArea.remove === "function") {
-          return storageArea.remove(STORAGE_KEY);
+          return storageArea.remove(storageKey);
         }
         var payload = {};
-        payload[STORAGE_KEY] = {};
+        payload[storageKey] = {};
         return storageArea.set(payload);
       });
     }
@@ -166,7 +168,7 @@
     }
 
     return {
-      storageKey: STORAGE_KEY,
+      storageKey: storageKey,
       getAll: getAll,
       lookup: lookup,
       put: put,

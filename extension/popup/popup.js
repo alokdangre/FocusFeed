@@ -47,6 +47,7 @@
   var openEvaluationBtn = document.getElementById("openEvaluation");
   var openWorkflowReplayBtn = document.getElementById("openWorkflowReplay");
   var openLifecycleReplayBtn = document.getElementById("openLifecycleReplay");
+  var openProviderSmokeBtn = document.getElementById("openProviderSmoke");
   var classifierResult = document.getElementById("classifierResult");
 
   var DEFAULT_PROFILE = {
@@ -732,6 +733,21 @@
 
   openLifecycleReplayBtn.addEventListener("click", function () {
     chrome.tabs.create({ url: chrome.runtime.getURL("workflow/lifecycle.html") });
+  });
+
+  openProviderSmokeBtn.addEventListener("click", function () {
+    chrome.tabs.create({ url: chrome.runtime.getURL("workflow/provider-smoke.html") });
+  });
+
+  document.getElementById("openYouTubeSession").addEventListener("click", async function () {
+    var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    var tab = tabs[0];
+    var url;
+    try { url = new URL(tab && tab.url); } catch (_) {}
+    if (!url || !/(^|\.)youtube\.com$/.test(url.hostname) || url.pathname !== "/") {
+      setClassifierResult("Open YouTube Home first, then open the session here.", "error"); return;
+    }
+    await chrome.tabs.create({ url: chrome.runtime.getURL("live/live.html") + "?tab=" + tab.id });
   });
 
   // --- Status ---

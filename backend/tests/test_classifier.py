@@ -98,6 +98,10 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(result.assessments[0].evidence_sufficiency, "insufficient")
         self.assertEqual(result.assessments[1].goal_relevance, "unrelated")
         self.assertEqual(result.timing.total_ms, 125)
+        self.assertEqual(result.diagnostics["missingVideoIds"], ["dsa-1"])
+        self.assertEqual(result.diagnostics["unexpectedVideoIds"], ["not-requested"])
+        self.assertEqual(result.diagnostics["acceptedAssessmentCount"], 1)
+        self.assertEqual(result.diagnostics["duplicateAssessmentCount"], 0)
         self.assertIs(agent.schema, ClassificationBatch)
 
 

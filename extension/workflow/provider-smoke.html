@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFeed Local Provider Smoke</title>
+  <link rel="stylesheet" href="../lab/lab.css">
+  <link rel="stylesheet" href="workflow.css">
+  <link rel="stylesheet" href="provider-smoke.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>FocusFeed</strong>
+      <span>Local Provider Smoke</span>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="workflow.html">Routing Replay</a>
+      <a class="button" href="lifecycle.html">Lifecycle Replay</a>
+      <button class="button" id="checkProviderSmoke">Check local AI</button>
+      <button class="button primary" id="runProviderSmoke" disabled>Run 12-video smoke</button>
+      <button class="button" id="stopProviderSmoke" disabled>Stop</button>
+      <button class="button" id="exportProviderSmoke" disabled>Export report</button>
+    </div>
+  </header>
+
+  <main class="app-shell workflow-shell">
+    <section class="workflow-hero">
+      <article class="panel replay-control">
+        <div class="panel-heading">
+          <div>
+            <h1>Real local-model workflow smoke</h1>
+            <p>Classify 12 reviewed development videos through the bounded scheduler using three four-video calls.</p>
+          </div>
+          <span class="run-chip idle" id="providerSmokeRunState">Checking model</span>
+        </div>
+        <div class="smoke-config">
+          <span><strong>Provider</strong> Chrome built-in AI</span>
+          <span><strong>Prompt</strong> few-shot-v4</span>
+          <span><strong>Budget</strong> 3 calls / 12 videos</span>
+          <span><strong>Concurrency</strong> 1</span>
+          <span><strong>Timeout</strong> 120 s per call</span>
+        </div>
+        <div class="smoke-progress" aria-live="polite">
+          <div class="smoke-progress-copy">
+            <strong id="providerSmokeProgress">0 / 12 videos</strong>
+            <span id="providerSmokeStage">Waiting for local AI readiness.</span>
+          </div>
+          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="providerSmokeProgressTrack">
+            <span id="providerSmokeProgressBar"></span>
+          </div>
+        </div>
+        <p class="cache-status" id="providerSmokeStatus">This run may take several minutes. Keep this tab open; the popup may be closed.</p>
+      </article>
+
+      <aside class="panel contract-panel">
+        <h2>Promotion gate</h2>
+        <ol>
+          <li><strong>Coverage</strong><span>Every requested video returns one validated assessment.</span></li>
+          <li><strong>Selected policy</strong><span>Report exact labels and feed decisions under each scenario's mode.</span></li>
+          <li><strong>Focus safety</strong><span>Reapply all assessments under Focus to expose masked false hides.</span></li>
+          <li><strong>Latency</strong><span>Separate queue, provider, scheduler total, and provider stage timings.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="metric-grid workflow-metrics" aria-label="Provider smoke metrics">
+      <article><span>Promotion gate</span><strong id="providerGateMetric">—</strong><small>quality, coverage, and bounds</small></article>
+      <article><span>Output coverage</span><strong id="providerCoverageMetric">—</strong><small>validated / 12 requested</small></article>
+      <article><span>Exact labels</span><strong id="providerExactMetric">—</strong><small>four reviewed fields</small></article>
+      <article><span>Selected decisions</span><strong id="providerDecisionMetric">—</strong><small>scenario mode</small></article>
+      <article><span>Focus false hides</span><strong id="providerFocusFalseHideMetric">—</strong><small>critical safety audit</small></article>
+      <article><span>Provider calls</span><strong id="providerCallMetric">—</strong><small>budget 3</small></article>
+      <article><span>Queue peak / in flight</span><strong id="providerBoundMetric">—</strong><small>scheduler bounds</small></article>
+      <article><span>Provider p95</span><strong id="providerLatencyMetric">—</strong><small>real model elapsed time</small></article>
+      <article><span>Wall time</span><strong id="providerWallMetric">—</strong><small>complete smoke run</small></article>
+    </section>
+
+    <section class="panel fixture-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Reviewed smoke set</h2>
+          <p>Inputs, goals, expected labels, and expected decisions are visible before inference. Gold labels are never sent to the model.</p>
+        </div>
+        <span id="providerSmokeFixtureVersion">Fixtures —</span>
+      </div>
+      <div class="table-scroll">
+        <table class="provider-fixture-table">
+          <thead><tr><th>Scenario and goal</th><th>Video metadata</th><th>Expected labels</th><th>Selected / Focus</th><th>Reference rationale</th></tr></thead>
+          <tbody id="providerSmokeFixtureRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Classification results</h2>
+          <p>Failures remain visible and unresolved. A selected-mode pass can still fail the Focus safety audit.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="provider-result-table">
+          <thead><tr><th>Video</th><th>Expected</th><th>Actual</th><th>Selected decision</th><th>Focus audit</th><th>Scheduler timing</th></tr></thead>
+          <tbody id="providerSmokeResultRows">
+            <tr><td colspan="6" class="empty-row">Run the smoke test to populate real-model results.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Provider calls and stages</h2>
+          <p>Availability, session creation, inference, parsing, and validation timings come from the local classifier.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="provider-call-table">
+          <thead><tr><th>Call</th><th>Scenario</th><th>Status</th><th>Total</th><th>Session</th><th>Inference</th><th>Validation</th><th>Diagnostics</th></tr></thead>
+          <tbody id="providerSmokeCallRows">
+            <tr><td colspan="8" class="empty-row">No provider calls yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel scope-note">
+      <h2>Checkpoint boundary</h2>
+      <p>This page invokes the real Chrome built-in model with synthetic reviewed metadata. It does not change YouTube cards, reuse the assessment cache, or measure Bedrock. Export the report before changing the prompt or scheduler settings.</p>
+    </section>
+  </main>
+
+  <script src="../workflow-core.js"></script>
+  <script src="../workflow-scheduler.js"></script>
+  <script src="../local-classifier.js"></script>
+  <script src="../eval/dataset.js"></script>
+  <script src="provider-smoke-fixtures.js"></script>
+  <script src="provider-smoke-core.js"></script>
+  <script src="provider-smoke.js"></script>
+</body>
+</html>

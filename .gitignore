@@ -1,0 +1,12 @@
+# Local Python environment and generated files
+backend/.venv/
+backend/__pycache__/
+backend/tests/__pycache__/
+*.py[cod]
+
+# Local configuration may contain a private AWS profile name or overrides
+backend/.env
+backend/iam/*.local.json
+
+# AWS SAM build output
+.aws-sam/

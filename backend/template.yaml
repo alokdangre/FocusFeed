@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: FocusFeed Bedrock classification API
+
+Parameters:
+  BedrockModelId:
+    Type: String
+    Default: us.amazon.nova-micro-v1:0
+  BedrockRegion:
+    Type: String
+    Default: us-east-1
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures:
+      - arm64
+    MemorySize: 768
+    Timeout: 30
+    Tracing: Active
+    Environment:
+      Variables:
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        BEDROCK_REGION: !Ref BedrockRegion
+
+Resources:
+  FocusFeedApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - content-type
+          - x-request-id
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  ClassifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: handler.lambda_handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource:
+                - arn:aws:bedrock:*::foundation-model/*
+                - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /health
+            Method: GET
+        Classify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /classify
+            Method: POST
+
+Outputs:
+  ApiUrl:
+    Description: FocusFeed classification API base URL
+    Value: !Sub https://${FocusFeedApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}

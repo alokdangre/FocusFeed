@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFeed Workflow Replay</title>
+  <link rel="stylesheet" href="../lab/lab.css">
+  <link rel="stylesheet" href="workflow.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>FocusFeed</strong>
+      <span>Workflow Replay</span>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="../lab/lab.html">Classifier Lab</a>
+      <a class="button" href="../eval/eval.html">Evaluation</a>
+      <button class="button" id="runCold">Run cold replay</button>
+      <button class="button primary" id="runWarm">Seed + run warm</button>
+    </div>
+  </header>
+
+  <main class="app-shell workflow-shell">
+    <section class="workflow-hero">
+      <article class="panel replay-control">
+        <div class="panel-heading">
+          <div>
+            <h1>Deterministic routing checkpoint</h1>
+            <p>Replay the same rule, cache, metadata, and policy code used by the extension. No LLM is invoked on this page.</p>
+          </div>
+          <span class="run-chip idle" id="runState">Not run</span>
+        </div>
+        <div class="replay-actions">
+          <div>
+            <strong id="fixtureVersion">Fixtures —</strong>
+            <span id="runDescription">Choose a cold or warm replay. Every expected result is visible below before execution.</span>
+          </div>
+          <button class="button quiet danger" id="clearCache">Clear assessment cache</button>
+        </div>
+        <div class="cache-status" id="cacheStatus" aria-live="polite">Reading persistent cache…</div>
+      </article>
+
+      <aside class="panel contract-panel">
+        <h2>Routing contract</h2>
+        <ol>
+          <li><strong>Explicit rules</strong><span>Exact user controls resolve first.</span></li>
+          <li><strong>Assessment cache</strong><span>Reuse only an exact compatible assessment.</span></li>
+          <li><strong>Metadata gate</strong><span>Incomplete inputs remain visible and unresolved.</span></li>
+          <li><strong>Model queue</strong><span>Unresolved eligible inputs are marked pending; this checkpoint does not invoke the model.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="metric-grid workflow-metrics" aria-label="Workflow replay metrics">
+      <article><span>Cases passed</span><strong id="passMetric">—</strong><small>route + action + cache + rule</small></article>
+      <article><span>Model calls avoided</span><strong id="avoidedMetric">—</strong><small>rule and cache routes</small></article>
+      <article><span>Model pending</span><strong id="pendingMetric">—</strong><small>visible at this checkpoint</small></article>
+      <article><span>Unresolved metadata</span><strong id="unresolvedMetric">—</strong><small>fail open</small></article>
+      <article><span>False hides</span><strong id="falseHideMetric">—</strong><small>expected show, actual hide</small></article>
+      <article><span>Routing p95</span><strong id="latencyMetric">—</strong><small>rules + cache lookup in memory</small></article>
+    </section>
+
+    <section class="panel fixture-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Visible replay set</h2>
+          <p>Cold and warm expectations are fixed in the extension. Warm mode also exercises persistent cache writes before replay.</p>
+        </div>
+        <span id="fixtureCount">0 cases</span>
+      </div>
+      <div class="table-scroll">
+        <table class="fixture-table">
+          <thead>
+            <tr>
+              <th>Case and input</th>
+              <th>Rule settings</th>
+              <th>Cold expected</th>
+              <th>Warm expected</th>
+            </tr>
+          </thead>
+          <tbody id="fixtureRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Replay results and traces</h2>
+          <p id="resultSummary">No replay has run yet.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th>Case</th>
+              <th>Expected</th>
+              <th>Actual</th>
+              <th>Trace</th>
+              <th>Latency</th>
+            </tr>
+          </thead>
+          <tbody id="resultRows">
+            <tr><td colspan="5" class="empty-row">Run a replay to populate route traces.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel scope-note">
+      <h2>Checkpoint boundary</h2>
+      <p>The YouTube content script now uses these explicit rules. Cache routing is proven here before semantic decisions are allowed to hide live feed cards. Queueing, viewport priority, in-flight deduplication, cancellation, and provider invocation belong to the next checkpoint.</p>
+    </section>
+  </main>
+
+  <script src="../workflow-core.js"></script>
+  <script src="../workflow-cache.js"></script>
+  <script src="fixtures.js"></script>
+  <script src="workflow.js"></script>
+</body>
+</html>

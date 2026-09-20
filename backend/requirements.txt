@@ -1,0 +1,2 @@
+strands-agents>=1.56.0,<2
+pydantic>=2.13.0,<3

@@ -3,9 +3,12 @@
 const assert = require("node:assert/strict");
 
 delete global.FocusFeedEvalMetrics;
+delete global.FocusFeedWorkflow;
+require("../workflow-core.js");
 require("../eval/metrics.js");
 
 const metricsApi = global.FocusFeedEvalMetrics;
+assert.equal(metricsApi.policyDecision, global.FocusFeedWorkflow.policyDecision, "evaluation and live routing must share one policy function");
 
 function assessment(contentPurpose, goalRelevance, unwantedMatch, evidenceSufficiency) {
   return { contentPurpose, goalRelevance, unwantedMatch, evidenceSufficiency };

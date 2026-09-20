@@ -1,8 +1,8 @@
 # FocusFeed routing workflow and latency plan
 
-Decision after the v4 development review: prioritize the combined workflow before further prompt-only tuning. Checkpoint 1 is implemented for explicit rules and controlled cache replay. Semantic cache decisions and model routing are not yet allowed to hide cards in the live feed.
+Decision after the v4 development review: prioritize the combined workflow before further prompt-only tuning. A1 explicit-rule/cache replay passed Alok's persisted, empty-store, and cold browser checks. B1 now implements the reusable bounded scheduler and a deterministic lifecycle replay. Semantic model decisions are still not allowed to hide cards in the live feed.
 
-The follow-up review found cache validation/concurrency faults and gaps in what the replay proves. See [WORKFLOW_EVALUATION_PLAN.md](WORKFLOW_EVALUATION_PLAN.md) for reproduced findings, planned fixes, independent test expectations, latency measurements, and manual handoffs. Passing the original 20 cases does not qualify the complete workflow; strengthen and correct checkpoint 1 before queue/provider integration.
+The follow-up review found cache validation/concurrency faults and gaps in what the replay proves. A1 fixed those faults and exposes 24 visible cases, separate seed/read controls, actual route events, storage timing, and report export. B1 adds a 24-item priority queue, one-request concurrency bound, batching, subscriber deduplication/cancellation, goal-context invalidation, pause/resume, timeout handling, provider-output validation, stage timing, and a five-scenario reportable fake-provider suite. See [WORKFLOW_EVALUATION_PLAN.md](WORKFLOW_EVALUATION_PLAN.md) for evidence and handoffs.
 
 ## Evidence and current implementation
 
@@ -109,13 +109,13 @@ Report on the frontend and in exports:
 
 Do not hide the cold-cache result inside a warm-cache average. High avoidance is not itself success: a rule can avoid all calls by hiding everything. Aggregate decision accuracy can also conceal policy failures, as v4's finance example demonstrates.
 
-Targets for the first workflow prototype, explicitly unmeasured: rule/cache decision p95 under 100ms after usable metadata; bounded queue and no duplicate requests; no stale DOM changes; zero false hides on the reviewed regression fixtures; and separate visible counts for unresolved cases. A seconds-scale semantic target is a provider acceptance gate, not a claim we can make for the current local classifier.
+The deterministic prototypes now enforce a 24-item waiting bound, one in-flight request, shared duplicate work, stale-response rejection, and visible unresolved failures in simulation. The synthetic lifecycle run uses virtual time, so its 60/40/80 ms queue/provider/total p95 values validate accounting only. Real rule-to-DOM timing, real provider throughput, and stale DOM changes remain unmeasured. A seconds-scale semantic target is a provider acceptance gate, not a claim we can make for the current local classifier.
 
 ## Implementation checkpoints and manual handoffs
 
-1. **Implemented; awaiting browser review.** Shared rules and policy live in `extension/workflow-core.js`; bounded persistent assessment storage lives in `extension/workflow-cache.js`; the visible 20-case cold/warm harness is at `extension/workflow/workflow.html`. The live feed consumes the shared explicit rules, while semantic/cache hiding remains disconnected. Handoff: review cases, rule reasons, cache invalidation and mode behavior before live semantic hiding.
-2. Add viewport scheduling, bounded queue, in-flight deduplication and cancellation. Handoff: scroll rapidly, change goal mid-request, and verify bounded counts and no stale changes.
-3. Benchmark compact output and base-session cloning separately, then together; connect the selected local/cloud provider. Handoff: compare cold/warm timing and remaining semantic backlog on the same input sequence.
+1. **A1 core qualified.** Shared rules and policy live in `extension/workflow-core.js`; validated, serialized assessment storage lives in `extension/workflow-cache.js`; Alok's persisted, empty-store, and cold reports match the 24-case contract. The real YouTube allow/format selector check is deferred, while semantic/cache hiding remains disconnected.
+2. **B1 implemented; awaiting browser report.** `extension/workflow-scheduler.js` provides bounded priority scheduling, batching, deduplication, subscriber cancellation, goal invalidation, pause/resume, timeout and response validation. `extension/workflow/lifecycle.html` exposes five fixed fake-provider scenarios and JSON export. Handoff: run once and export 5/5 evidence.
+3. Benchmark compact output and base-session cloning separately, then together; connect the selected local/cloud provider through this scheduler for a bounded 8–12-video smoke. Handoff: compare cold/warm timing and remaining semantic backlog on the same input sequence.
 4. Add only the semantic fast rules supported by measured precision. Review label ambiguities and freeze the complete workflow before final held-out evaluation.
 
 Browser verification stays with Alok. No actual LLM throughput or browser behavior is inferred from mocked automated tests.

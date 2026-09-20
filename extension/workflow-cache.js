@@ -3,8 +3,10 @@
 (function (root) {
   "use strict";
 
-  var STORAGE_KEY = "focusFeedAssessmentCacheV1";
+  var STORAGE_KEY = "focusFeedAssessmentCacheV2";
   var DEFAULT_MAX_ENTRIES = 500;
+  var MUTATION_LOCK_NAME = "focusfeed-assessment-cache-v2-mutation";
+  var mutationChains = typeof WeakMap === "function" ? new WeakMap() : null;
 
   function copyEntries(value) {
     var entries = value && typeof value === "object" ? value : {};
@@ -20,6 +22,25 @@
     }
     var settings = options || {};
     var maxEntries = Math.max(1, Number(settings.maxEntries) || DEFAULT_MAX_ENTRIES);
+
+    function enqueueLocally(task) {
+      var previous = mutationChains && mutationChains.get(storageArea) || Promise.resolve();
+      var result = previous.catch(function () {}).then(task);
+      if (mutationChains) mutationChains.set(storageArea, result.catch(function () {}));
+      return result;
+    }
+
+    function mutate(task) {
+      if (root.navigator && root.navigator.locks && typeof root.navigator.locks.request === "function") {
+        return root.navigator.locks.request(MUTATION_LOCK_NAME, task);
+      }
+      return enqueueLocally(task);
+    }
+
+    function afterMutations(task) {
+      var pending = mutationChains && mutationChains.get(storageArea) || Promise.resolve();
+      return pending.catch(function () {}).then(task);
+    }
 
     function read() {
       return storageArea.get(STORAGE_KEY).then(function (stored) {
@@ -59,38 +80,51 @@
 
     function getAll(now) {
       var timestamp = typeof now === "number" ? now : Date.now();
-      return read().then(function (entries) {
-        var changes = pruneEntries(entries, timestamp);
-        if (changes.expired || changes.evicted) {
-          return write(entries);
-        }
-        return entries;
+      return mutate(function () {
+        return read().then(function (entries) {
+          var changes = pruneEntries(entries, timestamp);
+          if (changes.expired || changes.evicted) {
+            return write(entries);
+          }
+          return entries;
+        });
       });
     }
 
     function lookup(identity, now) {
       var timestamp = typeof now === "number" ? now : Date.now();
-      return read().then(function (entries) {
-        var entry = entries[identity.key] || null;
-        var status = root.FocusFeedWorkflow.cacheEntryStatus(entry, identity, timestamp);
-        if (status === "hit") {
-          entry.lastAccessedAt = timestamp;
-          return write(entries).then(function () {
-            return { status: status, entry: entry };
-          });
-        }
-        if (status === "expired" || status === "invalid") {
-          delete entries[identity.key];
-          return write(entries).then(function () {
-            return { status: status, entry: null };
-          });
-        }
-        return { status: status, entry: null };
+      return mutate(function () {
+        return read().then(function (entries) {
+          var entry = entries[identity.key] || null;
+          var status = root.FocusFeedWorkflow.cacheEntryStatus(entry, identity, timestamp);
+          if (status === "hit") {
+            entry.lastAccessedAt = timestamp;
+            return write(entries).then(function () {
+              return { status: status, entry: entry };
+            });
+          }
+          if (status === "expired" || status === "invalid") {
+            delete entries[identity.key];
+            return write(entries).then(function () {
+              return { status: status, entry: null };
+            });
+          }
+          return { status: status, entry: null };
+        });
       });
     }
 
     function put(identity, assessment, metadata) {
       var details = metadata || {};
+      if (!root.FocusFeedWorkflow.isValidDecisionAssessment(assessment, identity && identity.videoId)) {
+        return Promise.reject(new Error("A valid assessment for the cache identity is required."));
+      }
+      if ((details.createdAt !== undefined &&
+           (typeof details.createdAt !== "number" || !isFinite(details.createdAt))) ||
+          (details.ttlMs !== undefined &&
+           (typeof details.ttlMs !== "number" || !isFinite(details.ttlMs) || details.ttlMs <= 0))) {
+        return Promise.reject(new Error("Finite cache timestamps and a positive TTL are required."));
+      }
       var entry = root.FocusFeedWorkflow.createCacheEntry({
         identity: identity,
         assessment: assessment,
@@ -98,25 +132,29 @@
         ttlMs: details.ttlMs,
         source: details.source,
       });
-      return read().then(function (entries) {
-        entries[identity.key] = entry;
-        pruneEntries(entries, entry.createdAt);
-        return write(entries).then(function () { return entry; });
+      return mutate(function () {
+        return read().then(function (entries) {
+          entries[identity.key] = entry;
+          pruneEntries(entries, entry.createdAt);
+          return write(entries).then(function () { return entry; });
+        });
       });
     }
 
     function clear() {
-      if (typeof storageArea.remove === "function") {
-        return storageArea.remove(STORAGE_KEY);
-      }
-      var payload = {};
-      payload[STORAGE_KEY] = {};
-      return storageArea.set(payload);
+      return mutate(function () {
+        if (typeof storageArea.remove === "function") {
+          return storageArea.remove(STORAGE_KEY);
+        }
+        var payload = {};
+        payload[STORAGE_KEY] = {};
+        return storageArea.set(payload);
+      });
     }
 
     function stats(now) {
       var timestamp = typeof now === "number" ? now : Date.now();
-      return read().then(function (entries) {
+      return afterMutations(function () { return read(); }).then(function (entries) {
         var values = Object.keys(entries).map(function (key) { return entries[key]; });
         return {
           total: values.length,

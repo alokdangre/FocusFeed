@@ -4,9 +4,12 @@
 (function (root) {
   "use strict";
 
-  var WORKFLOW_VERSION = "workflow-v1";
-  var CACHE_SCHEMA_VERSION = "assessment-cache-v1";
+  var WORKFLOW_VERSION = "workflow-v1.1";
+  var CACHE_SCHEMA_VERSION = "assessment-cache-v2";
   var DEFAULT_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  var GOAL_RELEVANCE_VALUES = ["directly_useful", "supporting", "unrelated", "unclear"];
+  var UNWANTED_MATCH_VALUES = ["yes", "no", "unclear"];
+  var EVIDENCE_SUFFICIENCY_VALUES = ["sufficient", "insufficient"];
 
   function normalizeText(value) {
     var text = value === null || value === undefined ? "" : String(value);
@@ -219,8 +222,9 @@
       unwantedTopics: normalizeList(source.unwantedTopics),
       exceptions: normalizeList(source.exceptions),
       languages: normalizeList(source.languages),
-      // Mode is deliberately excluded. Assessments describe content; the current
-      // Balanced/Focus mode is reapplied by policyDecision on every cache hit.
+      // Mode is currently sent to both provider prompts, so it remains part of
+      // compatibility until the semantic request contract becomes mode-independent.
+      mode: source.mode === "balanced" ? "balanced" : "focus",
     };
   }
 
@@ -254,6 +258,7 @@
     return {
       key: CACHE_SCHEMA_VERSION + ":" + hashString(signature),
       signature: signature,
+      videoId: video.videoId,
     };
   }
 
@@ -268,11 +273,27 @@
     return cacheEntries[identity.key] || null;
   }
 
+  function isValidDecisionAssessment(assessment, expectedVideoId) {
+    if (!assessment || typeof assessment !== "object" || Array.isArray(assessment)) return false;
+    if (!expectedVideoId || assessment.videoId !== expectedVideoId) return false;
+    if (GOAL_RELEVANCE_VALUES.indexOf(assessment.goalRelevance) === -1) return false;
+    if (UNWANTED_MATCH_VALUES.indexOf(assessment.unwantedMatch) === -1) return false;
+    if (EVIDENCE_SUFFICIENCY_VALUES.indexOf(assessment.evidenceSufficiency) === -1) return false;
+    if (assessment.evidence !== undefined && !Array.isArray(assessment.evidence)) return false;
+    return true;
+  }
+
   function cacheEntryStatus(entry, identity, now) {
     if (!entry) return "miss";
+    if (entry.key !== identity.key) return "invalid";
     if (entry.signature !== identity.signature) return "incompatible";
-    if (!entry.assessment || typeof entry.assessment !== "object") return "invalid";
-    if (Number(entry.expiresAt || 0) <= now) return "expired";
+    if (!isValidDecisionAssessment(entry.assessment, identity.videoId)) return "invalid";
+    if (typeof entry.createdAt !== "number" || !isFinite(entry.createdAt)) return "invalid";
+    if (typeof entry.expiresAt !== "number" || !isFinite(entry.expiresAt)) return "invalid";
+    if (entry.lastAccessedAt !== undefined &&
+        (typeof entry.lastAccessedAt !== "number" || !isFinite(entry.lastAccessedAt))) return "invalid";
+    if (entry.expiresAt <= entry.createdAt) return "invalid";
+    if (entry.expiresAt <= now) return "expired";
     return "hit";
   }
 
@@ -284,34 +305,45 @@
     var input = options || {};
     var startedAt = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
     var video = normalizeVideo(input.video);
+    var trace = [{ stage: "normalize", status: "complete" }];
     var mode = input.profile && input.profile.mode === "balanced" ? "balanced" : "focus";
     var rule = evaluateExplicitRules(video, input.preferences);
     if (rule) {
+      trace.push({ stage: "rule", status: "resolved", detail: rule.ruleId });
+      trace.push({ stage: "cache", status: "skipped" });
+      trace.push({ stage: "decision", status: rule.action });
       rule.cacheStatus = "not_checked";
+      rule.trace = trace;
       rule.latencyMs = Math.max(0, (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) - startedAt);
       return rule;
     }
+    trace.push({ stage: "rule", status: "miss" });
 
     var identity = buildCacheIdentity(video, input.profile, input.classifier);
     var now = typeof input.now === "number" ? input.now : Date.now();
     var entry = findCacheEntry(input.cacheEntries, identity);
     var status = cacheEntryStatus(entry, identity, now);
+    trace.push({ stage: "cache", status: status });
     if (status === "hit") {
+      var cachedAction = policyDecision(entry.assessment, mode);
+      trace.push({ stage: "policy", status: cachedAction, detail: mode });
       return {
         status: "resolved",
         route: "cache",
-        action: policyDecision(entry.assessment, mode),
+        action: cachedAction,
         ruleId: "assessment_cache_hit",
         reason: "Compatible assessment reused; current " + mode + " policy was applied.",
         evidence: Array.isArray(entry.assessment.evidence) ? entry.assessment.evidence.slice(0, 3) : [],
         assessment: entry.assessment,
         cacheStatus: "hit",
         cacheKey: identity.key,
+        trace: trace,
         latencyMs: Math.max(0, (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) - startedAt),
       };
     }
 
     if (!hasMinimumModelMetadata(video)) {
+      trace.push({ stage: "metadata", status: "insufficient" });
       return {
         status: "unresolved",
         route: "metadata",
@@ -321,10 +353,13 @@
         evidence: [],
         cacheStatus: status,
         cacheKey: identity.key,
+        trace: trace,
         latencyMs: Math.max(0, (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) - startedAt),
       };
     }
 
+    trace.push({ stage: "metadata", status: "sufficient" });
+    trace.push({ stage: "queue", status: "eligible" });
     return {
       status: "pending",
       route: "model_pending",
@@ -334,6 +369,7 @@
       evidence: [],
       cacheStatus: status,
       cacheKey: identity.key,
+      trace: trace,
       latencyMs: Math.max(0, (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now()) - startedAt),
     };
   }
@@ -367,6 +403,7 @@
     policyDecision: policyDecision,
     stableStringify: stableStringify,
     buildCacheIdentity: buildCacheIdentity,
+    isValidDecisionAssessment: isValidDecisionAssessment,
     cacheEntryStatus: cacheEntryStatus,
     routeCandidate: routeCandidate,
     createCacheEntry: createCacheEntry,

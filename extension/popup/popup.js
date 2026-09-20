@@ -46,6 +46,7 @@
   var openClassifierLabBtn = document.getElementById("openClassifierLab");
   var openEvaluationBtn = document.getElementById("openEvaluation");
   var openWorkflowReplayBtn = document.getElementById("openWorkflowReplay");
+  var openLifecycleReplayBtn = document.getElementById("openLifecycleReplay");
   var classifierResult = document.getElementById("classifierResult");
 
   var DEFAULT_PROFILE = {
@@ -727,6 +728,10 @@
 
   openWorkflowReplayBtn.addEventListener("click", function () {
     chrome.tabs.create({ url: chrome.runtime.getURL("workflow/workflow.html") });
+  });
+
+  openLifecycleReplayBtn.addEventListener("click", function () {
+    chrome.tabs.create({ url: chrome.runtime.getURL("workflow/lifecycle.html") });
   });
 
   // --- Status ---

@@ -213,14 +213,25 @@
     },
     {
       id: "cached-focus",
-      name: "Same assessment under Focus policy",
-      note: "Mode is not cached in the final action; Focus reapplies policy and hides unrelated content.",
+      name: "Cached assessment under Focus policy",
+      note: "A Focus-compatible assessment is interpreted by the current deterministic policy.",
       video: video("wf-cache-shared", "A tour of a mechanical keyboard collection", "Desk Gear", "15:30"),
       profile: profile({ mode: "focus" }),
       preferences: preferences(),
       cacheSeed: "compatible",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("cache", "hide", "hit", "assessment_cache_hit"),
+    },
+    {
+      id: "mode-change-invalidates",
+      name: "Mode change invalidates current provider input",
+      note: "Mode is still sent to the classifier, so a Balanced assessment is not reused for Focus mode yet.",
+      video: video("wf-mode-change", "A desk setup tour", "Desk Gear", "11:30"),
+      profile: profile({ mode: "focus" }),
+      preferences: preferences(),
+      cacheSeed: "mode_miss",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
     },
     {
       id: "stale-profile",
@@ -232,6 +243,36 @@
       cacheSeed: "incompatible",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("model_pending", "show", "incompatible", "semantic_assessment_required"),
+    },
+    {
+      id: "wrong-video-cache-entry",
+      name: "Wrong-video cache entry is rejected",
+      note: "Even with a matching cache signature, an assessment for another video must never decide this card.",
+      video: video("wf-wrong-cache", "Graph traversal walkthrough", "CS Class", "18:00"),
+      preferences: preferences(),
+      cacheSeed: "wrong_video",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("model_pending", "show", "invalid", "semantic_assessment_required"),
+    },
+    {
+      id: "malformed-cache-expiry",
+      name: "Malformed cache timestamp fails open",
+      note: "A corrupt expiry cannot turn an entry into a permanent cache hit.",
+      video: video("wf-bad-expiry", "System design walkthrough", "Architecture Lab", "20:00"),
+      preferences: preferences(),
+      cacheSeed: "malformed_expiry",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("model_pending", "show", "invalid", "semantic_assessment_required"),
+    },
+    {
+      id: "invalid-cache-label",
+      name: "Invalid cached policy label is rejected",
+      note: "Unknown labels cannot flow into the deterministic display policy.",
+      video: video("wf-bad-label", "Database indexing overview", "Data Class", "17:00"),
+      preferences: preferences(),
+      cacheSeed: "invalid_label",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("model_pending", "show", "invalid", "semantic_assessment_required"),
     },
     {
       id: "expired-entry",
@@ -266,6 +307,10 @@
     reason: "The collection tour is unrelated to interview preparation.",
   };
 
+  function assessmentFor(videoId) {
+    return Object.assign(copy(unrelatedAssessment), { videoId: videoId });
+  }
+
   function materializeCase(item) {
     var result = copy(item);
     result.profile = result.profile || profile();
@@ -273,16 +318,17 @@
     return result;
   }
 
-  function buildWarmCache(now) {
+  function buildCacheEntries(now, includeCompatible) {
     var entries = {};
     cases.forEach(function (sourceCase) {
       if (!sourceCase.cacheSeed) return;
       var item = materializeCase(sourceCase);
       var identity = root.FocusFeedWorkflow.buildCacheIdentity(item.video, item.profile, item.classifier);
       if (sourceCase.cacheSeed === "compatible") {
+        if (!includeCompatible) return;
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: unrelatedAssessment,
+          assessment: assessmentFor(item.video.videoId),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
           source: "workflow_replay_fixture",
@@ -295,7 +341,7 @@
         );
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: oldIdentity,
-          assessment: unrelatedAssessment,
+          assessment: assessmentFor(item.video.videoId),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
           source: "workflow_replay_fixture",
@@ -304,7 +350,7 @@
       } else if (sourceCase.cacheSeed === "expired") {
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: unrelatedAssessment,
+          assessment: assessmentFor(item.video.videoId),
           createdAt: now - 5000,
           ttlMs: 1000,
           source: "workflow_replay_fixture",
@@ -318,7 +364,45 @@
         });
         entries[bedrockIdentity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: bedrockIdentity,
-          assessment: unrelatedAssessment,
+          assessment: assessmentFor(item.video.videoId),
+          createdAt: now - 1000,
+          ttlMs: 60 * 60 * 1000,
+          source: "workflow_replay_fixture",
+        });
+      } else if (sourceCase.cacheSeed === "mode_miss") {
+        var balancedIdentity = root.FocusFeedWorkflow.buildCacheIdentity(
+          item.video,
+          Object.assign({}, item.profile, { mode: "balanced" }),
+          item.classifier
+        );
+        entries[balancedIdentity.key] = root.FocusFeedWorkflow.createCacheEntry({
+          identity: balancedIdentity,
+          assessment: assessmentFor(item.video.videoId),
+          createdAt: now - 1000,
+          ttlMs: 60 * 60 * 1000,
+          source: "workflow_replay_fixture",
+        });
+      } else if (sourceCase.cacheSeed === "wrong_video") {
+        entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
+          identity: identity,
+          assessment: assessmentFor("another-video"),
+          createdAt: now - 1000,
+          ttlMs: 60 * 60 * 1000,
+          source: "workflow_replay_fixture",
+        });
+      } else if (sourceCase.cacheSeed === "malformed_expiry") {
+        entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
+          identity: identity,
+          assessment: assessmentFor(item.video.videoId),
+          createdAt: now - 1000,
+          ttlMs: 60 * 60 * 1000,
+          source: "workflow_replay_fixture",
+        });
+        entries[identity.key].expiresAt = "not-a-timestamp";
+      } else if (sourceCase.cacheSeed === "invalid_label") {
+        entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
+          identity: identity,
+          assessment: Object.assign(assessmentFor(item.video.videoId), { unwantedMatch: "maybe" }),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
           source: "workflow_replay_fixture",
@@ -326,6 +410,14 @@
       }
     });
     return entries;
+  }
+
+  function buildWarmCache(now) {
+    return buildCacheEntries(now, true);
+  }
+
+  function buildInvalidationCache(now) {
+    return buildCacheEntries(now, false);
   }
 
   function compatibleSeeds(now) {
@@ -344,10 +436,11 @@
   }
 
   root.FocusFeedWorkflowFixtures = {
-    version: "2026-09-20.1",
+    version: "2026-09-20.2",
     classifier: CLASSIFIER,
     cases: cases.map(materializeCase),
     buildWarmCache: buildWarmCache,
+    buildInvalidationCache: buildInvalidationCache,
     compatibleSeeds: compatibleSeeds,
   };
 })(globalThis);

@@ -16,8 +16,11 @@
     <div class="topbar-actions">
       <a class="button" href="../lab/lab.html">Classifier Lab</a>
       <a class="button" href="../eval/eval.html">Evaluation</a>
+      <a class="button" href="lifecycle.html">Lifecycle Replay</a>
       <button class="button" id="runCold">Run cold replay</button>
-      <button class="button primary" id="runWarm">Seed + run warm</button>
+      <button class="button" id="seedCache">Seed persistent cache</button>
+      <button class="button primary" id="readWarm">Read persisted replay</button>
+      <button class="button" id="exportReport" disabled>Export report</button>
     </div>
   </header>
 
@@ -34,7 +37,7 @@
         <div class="replay-actions">
           <div>
             <strong id="fixtureVersion">Fixtures —</strong>
-            <span id="runDescription">Choose a cold or warm replay. Every expected result is visible below before execution.</span>
+            <span id="runDescription">Run cold directly, or seed once and read persistence separately. Every expectation is visible below.</span>
           </div>
           <button class="button quiet danger" id="clearCache">Clear assessment cache</button>
         </div>
@@ -54,18 +57,19 @@
 
     <section class="metric-grid workflow-metrics" aria-label="Workflow replay metrics">
       <article><span>Cases passed</span><strong id="passMetric">—</strong><small>route + action + cache + rule</small></article>
-      <article><span>Model calls avoided</span><strong id="avoidedMetric">—</strong><small>rule and cache routes</small></article>
+      <article><span>Resolved before model</span><strong id="avoidedMetric">—</strong><small>rule/cache case rows; not measured calls</small></article>
       <article><span>Model pending</span><strong id="pendingMetric">—</strong><small>visible at this checkpoint</small></article>
       <article><span>Unresolved metadata</span><strong id="unresolvedMetric">—</strong><small>fail open</small></article>
       <article><span>False hides</span><strong id="falseHideMetric">—</strong><small>expected show, actual hide</small></article>
       <article><span>Routing p95</span><strong id="latencyMetric">—</strong><small>rules + cache lookup in memory</small></article>
+      <article><span>Persistent read</span><strong id="storageLatencyMetric">—</strong><small>separate from routing time</small></article>
     </section>
 
     <section class="panel fixture-panel">
       <div class="panel-heading">
         <div>
           <h2>Visible replay set</h2>
-          <p>Cold and warm expectations are fixed in the extension. Warm mode also exercises persistent cache writes before replay.</p>
+          <p>Cold and persisted expectations are fixed in the extension. Seed and read are separate so a missing write cannot be hidden.</p>
         </div>
         <span id="fixtureCount">0 cases</span>
       </div>
@@ -111,7 +115,8 @@
 
     <section class="panel scope-note">
       <h2>Checkpoint boundary</h2>
-      <p>The YouTube content script now uses these explicit rules. Cache routing is proven here before semantic decisions are allowed to hide live feed cards. Queueing, viewport priority, in-flight deduplication, cancellation, and provider invocation belong to the next checkpoint.</p>
+      <p>The YouTube content script now uses these explicit rules. Cache routing is proven here before semantic decisions are allowed to hide live feed cards. Queue bounds, in-flight deduplication, cancellation, timeouts, and stale-result behavior are evaluated separately in Lifecycle Replay.</p>
+      <p>Exported reports contain the synthetic fixture metadata and profiles shown on this page, classifier and workflow versions, expected and actual results, timings, timestamps, and browser user agent.</p>
     </section>
   </main>
 

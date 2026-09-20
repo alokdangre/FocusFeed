@@ -4,7 +4,9 @@
   var fixtures = FocusFeedWorkflowFixtures;
   var cache = FocusFeedAssessmentCache.create(chrome.storage.local, { maxEntries: 500 });
   var runColdButton = document.getElementById("runCold");
-  var runWarmButton = document.getElementById("runWarm");
+  var seedCacheButton = document.getElementById("seedCache");
+  var readWarmButton = document.getElementById("readWarm");
+  var exportReportButton = document.getElementById("exportReport");
   var clearCacheButton = document.getElementById("clearCache");
   var runState = document.getElementById("runState");
   var cacheStatus = document.getElementById("cacheStatus");
@@ -12,6 +14,7 @@
   var fixtureRows = document.getElementById("fixtureRows");
   var resultRows = document.getElementById("resultRows");
   var resultSummary = document.getElementById("resultSummary");
+  var latestReport = null;
 
   function appendText(parent, tag, className, value) {
     var element = document.createElement(tag);
@@ -72,13 +75,15 @@
     runState.className = "run-chip running";
     runState.textContent = "Running " + mode;
     runColdButton.disabled = true;
-    runWarmButton.disabled = true;
+    seedCacheButton.disabled = true;
+    readWarmButton.disabled = true;
     clearCacheButton.disabled = true;
   }
 
   function setIdle() {
     runColdButton.disabled = false;
-    runWarmButton.disabled = false;
+    seedCacheButton.disabled = false;
+    readWarmButton.disabled = false;
     clearCacheButton.disabled = false;
   }
 
@@ -90,16 +95,9 @@
   }
 
   function traceFor(result) {
-    var steps = ["normalize"];
-    if (result.route === "rule") {
-      steps.push("rule resolved", "cache skipped", "action " + result.action);
-    } else {
-      steps.push("rule miss", "cache " + result.cacheStatus);
-      if (result.route === "cache") steps.push("policy reapplied", "action " + result.action);
-      if (result.route === "metadata") steps.push("metadata unresolved", "visible");
-      if (result.route === "model_pending") steps.push("model pending", "visible");
-    }
-    return steps;
+    return (result.trace || []).map(function (event) {
+      return event.stage + " " + event.status + (event.detail ? " · " + event.detail : "");
+    });
   }
 
   function percentile(values, fraction) {
@@ -113,7 +111,7 @@
     return value.toFixed(2) + " ms";
   }
 
-  function renderResults(mode, records) {
+  function renderResults(mode, records, storageReadMs) {
     resultRows.textContent = "";
     records.forEach(function (record) {
       var row = document.createElement("tr");
@@ -170,9 +168,44 @@
     document.getElementById("unresolvedMetric").textContent = String(unresolved);
     document.getElementById("falseHideMetric").textContent = String(falseHides);
     document.getElementById("latencyMetric").textContent = formatLatency(p95 || 0);
+    document.getElementById("storageLatencyMetric").textContent = storageReadMs === null ? "Not used" : formatLatency(storageReadMs);
     resultSummary.textContent = mode + " replay: " + passed + " of " + records.length + " cases matched all expected fields.";
     runState.className = "run-chip " + (passed === records.length ? "passed" : "failed");
     runState.textContent = passed === records.length ? "All passed" : (records.length - passed) + " mismatches";
+    latestReport = {
+      schemaVersion: "focusfeed-workflow-report-v1",
+      exportedAt: new Date().toISOString(),
+      fixtureVersion: fixtures.version,
+      workflowVersion: FocusFeedWorkflow.WORKFLOW_VERSION,
+      runMode: mode,
+      environment: { userAgent: navigator.userAgent },
+      summary: {
+        cases: records.length,
+        passed: passed,
+        resolvedBeforeModelRows: avoided,
+        modelPending: pending,
+        metadataUnresolved: unresolved,
+        falseHides: falseHides,
+        routingP95Ms: p95,
+        persistentReadMs: storageReadMs,
+      },
+      records: records.map(function (record) {
+        return {
+          caseId: record.item.id,
+          name: record.item.name,
+          note: record.item.note,
+          video: record.item.video,
+          profile: record.item.profile,
+          preferences: record.item.preferences,
+          classifier: record.item.classifier,
+          expected: record.expected,
+          actual: record.actual,
+          routingMs: record.measuredMs,
+          pass: record.pass,
+        };
+      }),
+    };
+    exportReportButton.disabled = false;
   }
 
   function seedPersistentCompatibleEntries(now) {
@@ -191,11 +224,15 @@
   }
 
   function cacheForReplay(mode, now) {
-    if (mode === "cold") return Promise.resolve({});
-    return seedPersistentCompatibleEntries(now).then(function (persistedEntries) {
-      // Synthetic expired/incompatible/provider entries exercise invalidation.
-      // Persisted compatible entries win so the hit path actually reads the store.
-      return Object.assign({}, fixtures.buildWarmCache(now), persistedEntries);
+    if (mode === "cold") return Promise.resolve({ entries: {}, storageReadMs: null });
+    var readStarted = performance.now();
+    return cache.getAll(now).then(function (persistedEntries) {
+      // Only invalidation cases are synthetic. Compatible-hit cases must come
+      // from the persistent store populated by a separate user action.
+      return {
+        entries: Object.assign({}, persistedEntries, fixtures.buildInvalidationCache(now)),
+        storageReadMs: performance.now() - readStarted,
+      };
     });
   }
 
@@ -203,9 +240,9 @@
     setRunning(mode);
     var now = Date.now();
     runDescription.textContent = mode === "warm"
-      ? "Seeding compatible assessments, then testing hit, expiry, profile, provider, and policy behavior."
+      ? "Reading existing persistent assessments without reseeding, then testing compatibility and policy behavior."
       : "Using an empty in-memory cache. Persistent entries are deliberately ignored for this run.";
-    return cacheForReplay(mode, now).then(function (entries) {
+    return cacheForReplay(mode, now).then(function (cacheResult) {
       var records = fixtures.cases.map(function (item) {
         var start = performance.now();
         var actual = FocusFeedWorkflow.routeCandidate({
@@ -213,7 +250,7 @@
           profile: item.profile,
           preferences: item.preferences,
           classifier: item.classifier,
-          cacheEntries: entries,
+          cacheEntries: cacheResult.entries,
           now: now,
         });
         var measuredMs = performance.now() - start;
@@ -226,7 +263,7 @@
           pass: compare(actual, expected),
         };
       });
-      renderResults(mode, records);
+      renderResults(mode, records, cacheResult.storageReadMs);
       return refreshCacheStatus();
     }).catch(function (error) {
       runState.className = "run-chip failed";
@@ -244,7 +281,31 @@
   }
 
   runColdButton.addEventListener("click", function () { runReplay("cold"); });
-  runWarmButton.addEventListener("click", function () { runReplay("warm"); });
+  seedCacheButton.addEventListener("click", function () {
+    setRunning("cache seed");
+    var now = Date.now();
+    seedPersistentCompatibleEntries(now).then(function () {
+      runState.className = "run-chip idle";
+      runState.textContent = "Cache seeded";
+      runDescription.textContent = "Compatible fixture assessments were written. Close and reopen this page, then use Read persisted replay.";
+      return refreshCacheStatus("Seed complete.");
+    }).catch(function (error) {
+      runState.className = "run-chip failed";
+      runState.textContent = "Seed failed";
+      cacheStatus.textContent = error && error.message ? error.message : String(error);
+    }).finally(setIdle);
+  });
+  readWarmButton.addEventListener("click", function () { runReplay("warm"); });
+  exportReportButton.addEventListener("click", function () {
+    if (!latestReport) return;
+    var blob = new Blob([JSON.stringify(latestReport, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = "focusfeed-workflow-" + latestReport.runMode + "-" + Date.now() + ".json";
+    link.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  });
   clearCacheButton.addEventListener("click", function () {
     setRunning("cache clear");
     cache.clear().then(function () {

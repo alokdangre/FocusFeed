@@ -1,0 +1,1464 @@
+{
+  "schemaVersion": "focusfeed-lifecycle-report-v1",
+  "fixtureVersion": "2026-09-20.1",
+  "schedulerVersion": "scheduler-v1",
+  "simulation": {
+    "virtualProvider": true,
+    "queueCap": 24,
+    "batchSize": 4,
+    "maxInFlight": 1,
+    "timeoutMs": 5000
+  },
+  "summary": {
+    "scenarios": 5,
+    "passed": 5,
+    "failed": 0,
+    "maxQueueDepth": 24,
+    "maxInFlightRequests": 1,
+    "duplicateProviderVideos": 0,
+    "staleApplications": 0,
+    "unresolvedFailures": 3
+  },
+  "records": [
+    {
+      "id": "burst-backpressure",
+      "name": "100-card burst stays bounded",
+      "note": "Twenty-four unique candidates fill the queue, 70 repeated appearances deduplicate, and one visible overflow replaces distant work while five distant overflows defer.",
+      "expected": {
+        "appearances": 100,
+        "queueDepth": 24,
+        "peakQueueDepth": 24,
+        "duplicateJoins": 70,
+        "overloadDeferred": 6,
+        "priorityEvictions": 1,
+        "visibleOverflowAdmitted": true
+      },
+      "actual": {
+        "appearances": 100,
+        "queueDepth": 24,
+        "peakQueueDepth": 24,
+        "duplicateJoins": 70,
+        "overloadDeferred": 6,
+        "priorityEvictions": 1,
+        "visibleOverflowAdmitted": true
+      },
+      "pass": true,
+      "events": [
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-base-0",
+          "priority": 10,
+          "queueDepth": 1
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-base-1",
+          "priority": 10,
+          "queueDepth": 2
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-base-2",
+          "priority": 10,
+          "queueDepth": 3
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-base-3",
+          "priority": 10,
+          "queueDepth": 4
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-base-4",
+          "priority": 10,
+          "queueDepth": 5
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-base-5",
+          "priority": 10,
+          "queueDepth": 6
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-base-6",
+          "priority": 10,
+          "queueDepth": 7
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-base-7",
+          "priority": 10,
+          "queueDepth": 8
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-base-8",
+          "priority": 10,
+          "queueDepth": 9
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-base-9",
+          "priority": 10,
+          "queueDepth": 10
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-base-10",
+          "priority": 10,
+          "queueDepth": 11
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-base-11",
+          "priority": 10,
+          "queueDepth": 12
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-base-12",
+          "priority": 10,
+          "queueDepth": 13
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-base-13",
+          "priority": 10,
+          "queueDepth": 14
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-14",
+          "videoId": "base-14",
+          "subscriberId": "card-base-14",
+          "priority": 10,
+          "queueDepth": 15
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-15",
+          "videoId": "base-15",
+          "subscriberId": "card-base-15",
+          "priority": 10,
+          "queueDepth": 16
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-16",
+          "videoId": "base-16",
+          "subscriberId": "card-base-16",
+          "priority": 10,
+          "queueDepth": 17
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-17",
+          "videoId": "base-17",
+          "subscriberId": "card-base-17",
+          "priority": 10,
+          "queueDepth": 18
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-18",
+          "videoId": "base-18",
+          "subscriberId": "card-base-18",
+          "priority": 10,
+          "queueDepth": 19
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-19",
+          "videoId": "base-19",
+          "subscriberId": "card-base-19",
+          "priority": 10,
+          "queueDepth": 20
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-20",
+          "videoId": "base-20",
+          "subscriberId": "card-base-20",
+          "priority": 10,
+          "queueDepth": 21
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-21",
+          "videoId": "base-21",
+          "subscriberId": "card-base-21",
+          "priority": 10,
+          "queueDepth": 22
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-22",
+          "videoId": "base-22",
+          "subscriberId": "card-base-22",
+          "priority": 10,
+          "queueDepth": 23
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-23",
+          "videoId": "base-23",
+          "subscriberId": "card-base-23",
+          "priority": 10,
+          "queueDepth": 24
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-duplicate-0"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-duplicate-1"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-duplicate-2"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-duplicate-3"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-duplicate-4"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-duplicate-5"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-duplicate-6"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-duplicate-7"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-duplicate-8"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-duplicate-9"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-duplicate-10"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-duplicate-11"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-duplicate-12"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-duplicate-13"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-duplicate-14"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-duplicate-15"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-duplicate-16"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-duplicate-17"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-duplicate-18"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-duplicate-19"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-duplicate-20"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-duplicate-21"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-duplicate-22"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-duplicate-23"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-duplicate-24"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-duplicate-25"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-duplicate-26"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-duplicate-27"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-duplicate-28"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-duplicate-29"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-duplicate-30"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-duplicate-31"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-duplicate-32"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-duplicate-33"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-duplicate-34"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-duplicate-35"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-duplicate-36"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-duplicate-37"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-duplicate-38"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-duplicate-39"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-duplicate-40"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-duplicate-41"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-duplicate-42"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-duplicate-43"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-duplicate-44"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-duplicate-45"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-duplicate-46"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-duplicate-47"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-duplicate-48"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-duplicate-49"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-duplicate-50"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-duplicate-51"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-duplicate-52"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-duplicate-53"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-duplicate-54"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-duplicate-55"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-0",
+          "videoId": "base-0",
+          "subscriberId": "card-duplicate-56"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-1",
+          "videoId": "base-1",
+          "subscriberId": "card-duplicate-57"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-2",
+          "videoId": "base-2",
+          "subscriberId": "card-duplicate-58"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-3",
+          "videoId": "base-3",
+          "subscriberId": "card-duplicate-59"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-4",
+          "videoId": "base-4",
+          "subscriberId": "card-duplicate-60"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-5",
+          "videoId": "base-5",
+          "subscriberId": "card-duplicate-61"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-6",
+          "videoId": "base-6",
+          "subscriberId": "card-duplicate-62"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-7",
+          "videoId": "base-7",
+          "subscriberId": "card-duplicate-63"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-8",
+          "videoId": "base-8",
+          "subscriberId": "card-duplicate-64"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-9",
+          "videoId": "base-9",
+          "subscriberId": "card-duplicate-65"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-10",
+          "videoId": "base-10",
+          "subscriberId": "card-duplicate-66"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-11",
+          "videoId": "base-11",
+          "subscriberId": "card-duplicate-67"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-12",
+          "videoId": "base-12",
+          "subscriberId": "card-duplicate-68"
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-13",
+          "videoId": "base-13",
+          "subscriberId": "card-duplicate-69"
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:base-23",
+          "videoId": "base-23",
+          "reason": "priority_eviction"
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-0",
+          "videoId": "overflow-0",
+          "subscriberId": "card-overflow-0",
+          "priority": 100,
+          "queueDepth": 24
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-1",
+          "videoId": "overflow-1",
+          "reason": "queue_full"
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-2",
+          "videoId": "overflow-2",
+          "reason": "queue_full"
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-3",
+          "videoId": "overflow-3",
+          "reason": "queue_full"
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-4",
+          "videoId": "overflow-4",
+          "reason": "queue_full"
+        },
+        {
+          "type": "deferred",
+          "atMs": 1789922466016,
+          "key": "profile-v1:overflow-5",
+          "videoId": "overflow-5",
+          "reason": "queue_full"
+        }
+      ]
+    },
+    {
+      "id": "dedupe-and-scroll-away",
+      "name": "Shared work survives one card leaving",
+      "note": "Two cards for one video share work. Removing one shared card and one queued card prevents obsolete application without canceling the subscriber that remains.",
+      "expected": {
+        "appearances": 7,
+        "duplicateJoins": 1,
+        "providerRequests": 2,
+        "providerVideos": 5,
+        "duplicateProviderVideos": 0,
+        "completedItems": 5,
+        "resultsApplied": 5,
+        "canceledSubscribers": 2,
+        "obsoleteApplications": 0,
+        "peakInFlightRequests": 1,
+        "queueDepth": 0,
+        "inFlightRequests": 0,
+        "queueP95Ms": 60,
+        "providerP95Ms": 40,
+        "totalP95Ms": 80
+      },
+      "actual": {
+        "appearances": 7,
+        "duplicateJoins": 1,
+        "providerRequests": 2,
+        "providerVideos": 5,
+        "duplicateProviderVideos": 0,
+        "completedItems": 5,
+        "resultsApplied": 5,
+        "canceledSubscribers": 2,
+        "obsoleteApplications": 0,
+        "peakInFlightRequests": 1,
+        "queueDepth": 0,
+        "inFlightRequests": 0,
+        "queueP95Ms": 60,
+        "providerP95Ms": 40,
+        "totalP95Ms": 80
+      },
+      "pass": true,
+      "events": [
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-0",
+          "videoId": "video-0",
+          "subscriberId": "card-video0",
+          "priority": 100,
+          "queueDepth": 1
+        },
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-1",
+          "videoId": "video-1",
+          "subscriberId": "card-video1",
+          "priority": 99,
+          "queueDepth": 2
+        },
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-2",
+          "videoId": "video-2",
+          "subscriberId": "card-video2",
+          "priority": 98,
+          "queueDepth": 3
+        },
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-3",
+          "videoId": "video-3",
+          "subscriberId": "card-video3",
+          "priority": 97,
+          "queueDepth": 4
+        },
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-4",
+          "videoId": "video-4",
+          "subscriberId": "card-video4",
+          "priority": 96,
+          "queueDepth": 5
+        },
+        {
+          "type": "queued",
+          "atMs": 0,
+          "key": "profile-v1:video-5",
+          "videoId": "video-5",
+          "subscriberId": "card-video5",
+          "priority": 95,
+          "queueDepth": 6
+        },
+        {
+          "type": "deduplicated",
+          "atMs": 0,
+          "key": "profile-v1:video-0",
+          "videoId": "video-0",
+          "subscriberId": "card-video0-duplicate"
+        },
+        {
+          "type": "batch_started",
+          "atMs": 10,
+          "requestId": "scheduler-1",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "video-0",
+            "video-1",
+            "video-2",
+            "video-3"
+          ],
+          "batchSize": 4,
+          "queueDepth": 2,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "subscriber_canceled",
+          "atMs": 10,
+          "key": "profile-v1:video-0",
+          "videoId": "video-0",
+          "subscriberId": "card-video0",
+          "reason": "left_viewport"
+        },
+        {
+          "type": "subscriber_canceled",
+          "atMs": 10,
+          "key": "profile-v1:video-5",
+          "videoId": "video-5",
+          "subscriberId": "card-video5",
+          "reason": "left_viewport"
+        },
+        {
+          "type": "result_applied",
+          "atMs": 50,
+          "requestId": "scheduler-1",
+          "key": "profile-v1:video-0",
+          "videoId": "video-0",
+          "subscriberCount": 1,
+          "queueWaitMs": 10,
+          "providerMs": 40,
+          "totalMs": 50
+        },
+        {
+          "type": "result_applied",
+          "atMs": 50,
+          "requestId": "scheduler-1",
+          "key": "profile-v1:video-1",
+          "videoId": "video-1",
+          "subscriberCount": 1,
+          "queueWaitMs": 10,
+          "providerMs": 40,
+          "totalMs": 50
+        },
+        {
+          "type": "result_applied",
+          "atMs": 50,
+          "requestId": "scheduler-1",
+          "key": "profile-v1:video-2",
+          "videoId": "video-2",
+          "subscriberCount": 1,
+          "queueWaitMs": 10,
+          "providerMs": 40,
+          "totalMs": 50
+        },
+        {
+          "type": "result_applied",
+          "atMs": 50,
+          "requestId": "scheduler-1",
+          "key": "profile-v1:video-3",
+          "videoId": "video-3",
+          "subscriberCount": 1,
+          "queueWaitMs": 10,
+          "providerMs": 40,
+          "totalMs": 50
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 50,
+          "requestId": "scheduler-1",
+          "batchSize": 4,
+          "providerMs": 40
+        },
+        {
+          "type": "batch_started",
+          "atMs": 60,
+          "requestId": "scheduler-2",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "video-4"
+          ],
+          "batchSize": 1,
+          "queueDepth": 0,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "result_applied",
+          "atMs": 80,
+          "requestId": "scheduler-2",
+          "key": "profile-v1:video-4",
+          "videoId": "video-4",
+          "subscriberCount": 1,
+          "queueWaitMs": 60,
+          "providerMs": 20,
+          "totalMs": 80
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 80,
+          "requestId": "scheduler-2",
+          "batchSize": 1,
+          "providerMs": 20
+        }
+      ]
+    },
+    {
+      "id": "goal-change-stale-result",
+      "name": "Goal change rejects a late result",
+      "note": "Changing the semantic context aborts old work. A provider that resolves anyway cannot update a current card, while a new-context request can complete.",
+      "expected": {
+        "oldRequestAborted": true,
+        "staleResultsIgnored": 1,
+        "oldContextApplications": 0,
+        "currentContextApplications": 1,
+        "canceledSubscribers": 1,
+        "providerRequests": 2,
+        "providerVideos": 2,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "actual": {
+        "oldRequestAborted": true,
+        "staleResultsIgnored": 1,
+        "oldContextApplications": 0,
+        "currentContextApplications": 1,
+        "canceledSubscribers": 1,
+        "providerRequests": 2,
+        "providerVideos": 2,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "pass": true,
+      "events": [
+        {
+          "type": "queued",
+          "atMs": 1789922466019,
+          "key": "profile-v1:shared-video",
+          "videoId": "shared-video",
+          "subscriberId": "card-old",
+          "priority": 100,
+          "queueDepth": 1
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-1",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "shared-video"
+          ],
+          "batchSize": 1,
+          "queueDepth": 0,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "subscriber_canceled",
+          "atMs": 1789922466019,
+          "key": "profile-v1:shared-video",
+          "videoId": "shared-video",
+          "subscriberId": "card-old",
+          "reason": "context_changed"
+        },
+        {
+          "type": "batch_aborted",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-1",
+          "reason": "context_changed"
+        },
+        {
+          "type": "context_changed",
+          "atMs": 1789922466019,
+          "previousContextId": "profile-v1",
+          "contextId": "profile-v2"
+        },
+        {
+          "type": "stale_result_ignored",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-1",
+          "reason": "context_changed"
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466019,
+          "key": "profile-v2:shared-video",
+          "videoId": "shared-video",
+          "subscriberId": "card-current",
+          "priority": 100,
+          "queueDepth": 1
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-2",
+          "contextId": "profile-v2",
+          "videoIds": [
+            "shared-video"
+          ],
+          "batchSize": 1,
+          "queueDepth": 0,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "result_applied",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-2",
+          "key": "profile-v2:shared-video",
+          "videoId": "shared-video",
+          "subscriberCount": 1,
+          "queueWaitMs": 0,
+          "providerMs": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 1789922466019,
+          "requestId": "scheduler-2",
+          "batchSize": 1,
+          "providerMs": 0
+        }
+      ]
+    },
+    {
+      "id": "pause-resume",
+      "name": "Pause stops work and resume continues it",
+      "note": "Pausing aborts the active fake-provider request and requeues current subscribers. A late paused response is ignored; resume completes the retained work.",
+      "expected": {
+        "pausedRequestAborted": true,
+        "queueDepthWhilePaused": 3,
+        "providerRequestsWhilePaused": 1,
+        "pauseCount": 1,
+        "resumeCount": 1,
+        "staleResultsIgnored": 1,
+        "providerRequests": 3,
+        "providerVideos": 5,
+        "completedItems": 3,
+        "resultsApplied": 3,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "actual": {
+        "pausedRequestAborted": true,
+        "queueDepthWhilePaused": 3,
+        "providerRequestsWhilePaused": 1,
+        "pauseCount": 1,
+        "resumeCount": 1,
+        "staleResultsIgnored": 1,
+        "providerRequests": 3,
+        "providerVideos": 5,
+        "completedItems": 3,
+        "resultsApplied": 3,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "pass": true,
+      "events": [
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:pause-a",
+          "videoId": "pause-a",
+          "subscriberId": "card-pause-a",
+          "priority": 100,
+          "queueDepth": 1
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:pause-b",
+          "videoId": "pause-b",
+          "subscriberId": "card-pause-b",
+          "priority": 100,
+          "queueDepth": 2
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:pause-c",
+          "videoId": "pause-c",
+          "subscriberId": "card-pause-c",
+          "priority": 100,
+          "queueDepth": 3
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-1",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "pause-a",
+            "pause-b"
+          ],
+          "batchSize": 2,
+          "queueDepth": 1,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "batch_aborted",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-1",
+          "reason": "paused"
+        },
+        {
+          "type": "paused",
+          "atMs": 1789922466020,
+          "queueDepth": 3
+        },
+        {
+          "type": "stale_result_ignored",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-1",
+          "reason": "paused"
+        },
+        {
+          "type": "resumed",
+          "atMs": 1789922466020,
+          "queueDepth": 3
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-2",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "pause-a",
+            "pause-b"
+          ],
+          "batchSize": 2,
+          "queueDepth": 1,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "result_applied",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-2",
+          "key": "profile-v1:pause-a",
+          "videoId": "pause-a",
+          "subscriberCount": 1,
+          "queueWaitMs": 0,
+          "providerMs": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "result_applied",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-2",
+          "key": "profile-v1:pause-b",
+          "videoId": "pause-b",
+          "subscriberCount": 1,
+          "queueWaitMs": 0,
+          "providerMs": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-2",
+          "batchSize": 2,
+          "providerMs": 0
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-3",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "pause-c"
+          ],
+          "batchSize": 1,
+          "queueDepth": 0,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "result_applied",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-3",
+          "key": "profile-v1:pause-c",
+          "videoId": "pause-c",
+          "subscriberCount": 1,
+          "queueWaitMs": 0,
+          "providerMs": 0,
+          "totalMs": 0
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-3",
+          "batchSize": 1,
+          "providerMs": 0
+        }
+      ]
+    },
+    {
+      "id": "timeout-error-validation",
+      "name": "Timeouts and provider failures stay visible",
+      "note": "One request times out, one rejects, and one omits its requested ID. None retries or becomes a successful classification.",
+      "expected": {
+        "failureCodes": [
+          "missing_assessment",
+          "provider_error",
+          "timeout"
+        ],
+        "providerRequests": 3,
+        "providerVideos": 3,
+        "failedItems": 3,
+        "timedOutItems": 1,
+        "validationFailedItems": 1,
+        "completedItems": 0,
+        "resultsApplied": 0,
+        "retries": 0,
+        "visibleFallbacks": 3,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "actual": {
+        "failureCodes": [
+          "missing_assessment",
+          "provider_error",
+          "timeout"
+        ],
+        "providerRequests": 3,
+        "providerVideos": 3,
+        "failedItems": 3,
+        "timedOutItems": 1,
+        "validationFailedItems": 1,
+        "completedItems": 0,
+        "resultsApplied": 0,
+        "retries": 0,
+        "visibleFallbacks": 3,
+        "queueDepth": 0,
+        "inFlightRequests": 0
+      },
+      "pass": true,
+      "events": [
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:slow",
+          "videoId": "slow",
+          "subscriberId": "card-slow",
+          "priority": 100,
+          "queueDepth": 1
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:failed",
+          "videoId": "failed",
+          "subscriberId": "card-failed",
+          "priority": 100,
+          "queueDepth": 2
+        },
+        {
+          "type": "queued",
+          "atMs": 1789922466020,
+          "key": "profile-v1:missing",
+          "videoId": "missing",
+          "subscriberId": "card-missing",
+          "priority": 100,
+          "queueDepth": 3
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466020,
+          "requestId": "scheduler-1",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "slow"
+          ],
+          "batchSize": 1,
+          "queueDepth": 2,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "item_failed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-1",
+          "key": "profile-v1:slow",
+          "videoId": "slow",
+          "code": "timeout"
+        },
+        {
+          "type": "provider_failed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-1",
+          "code": "timeout",
+          "reason": "Provider request exceeded its time budget."
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-2",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "failed"
+          ],
+          "batchSize": 1,
+          "queueDepth": 1,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "item_failed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-2",
+          "key": "profile-v1:failed",
+          "videoId": "failed",
+          "code": "provider_error"
+        },
+        {
+          "type": "provider_failed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-2",
+          "code": "provider_error",
+          "reason": "Synthetic provider failure"
+        },
+        {
+          "type": "batch_started",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-3",
+          "contextId": "profile-v1",
+          "videoIds": [
+            "missing"
+          ],
+          "batchSize": 1,
+          "queueDepth": 0,
+          "inFlightRequests": 1
+        },
+        {
+          "type": "item_failed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-3",
+          "key": "profile-v1:missing",
+          "videoId": "missing",
+          "code": "missing_assessment"
+        },
+        {
+          "type": "batch_completed",
+          "atMs": 1789922466021,
+          "requestId": "scheduler-3",
+          "batchSize": 1,
+          "providerMs": 0
+        }
+      ]
+    }
+  ],
+  "exportedAt": "2026-09-20T16:41:06.021Z",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+  }
+}

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FocusFeed Lifecycle Replay</title>
+  <link rel="stylesheet" href="../lab/lab.css">
+  <link rel="stylesheet" href="workflow.css">
+  <link rel="stylesheet" href="lifecycle.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <strong>FocusFeed</strong>
+      <span>Lifecycle Replay</span>
+    </div>
+    <div class="topbar-actions">
+      <a class="button" href="workflow.html">Routing Replay</a>
+      <a class="button" href="../eval/eval.html">Model Evaluation</a>
+      <button class="button primary" id="runLifecycle">Run lifecycle suite</button>
+      <button class="button" id="exportLifecycleReport" disabled>Export report</button>
+    </div>
+  </header>
+
+  <main class="app-shell workflow-shell">
+    <section class="workflow-hero">
+      <article class="panel replay-control">
+        <div class="panel-heading">
+          <div>
+            <h1>Bounded classification lifecycle</h1>
+            <p>Exercise queue pressure, shared work, cancellation, goal changes, pause/resume, timeouts, and provider validation.</p>
+          </div>
+          <span class="run-chip idle" id="lifecycleRunState">Not run</span>
+        </div>
+        <div class="lifecycle-config">
+          <span><strong>Queue</strong> 24 unique waiting</span>
+          <span><strong>Concurrency</strong> 1 request</span>
+          <span><strong>Batch</strong> up to 4 videos</span>
+          <span><strong>Timeout</strong> 5,000 virtual ms</span>
+        </div>
+        <p class="cache-status" id="lifecycleSummary" aria-live="polite">The suite is deterministic and finishes without downloading or invoking a model.</p>
+      </article>
+
+      <aside class="panel contract-panel">
+        <h2>What this proves</h2>
+        <ol>
+          <li><strong>Backpressure</strong><span>Waiting work cannot exceed its configured bound.</span></li>
+          <li><strong>Freshness</strong><span>Removed cards and old goals cannot receive late results.</span></li>
+          <li><strong>Failure behavior</strong><span>Timeouts and invalid responses stay visible and unresolved.</span></li>
+          <li><strong>Simulation boundary</strong><span>A fake provider and virtual timing are used; this does not measure local AI or Bedrock speed.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section class="metric-grid workflow-metrics" aria-label="Lifecycle metrics">
+      <article><span>Scenarios passed</span><strong id="lifecyclePassMetric">—</strong><small>full invariant match</small></article>
+      <article><span>Peak waiting queue</span><strong id="queuePeakMetric">—</strong><small>configured maximum 24</small></article>
+      <article><span>Peak in flight</span><strong id="inFlightPeakMetric">—</strong><small>configured maximum 1</small></article>
+      <article><span>Duplicate joins</span><strong id="duplicateMetric">—</strong><small>shared without another request</small></article>
+      <article><span>Provider video slots</span><strong id="providerWorkMetric">—</strong><small>simulated, includes pause restart</small></article>
+      <article><span>Stale applications</span><strong id="staleMetric">—</strong><small>must remain zero</small></article>
+      <article><span>Visible failures</span><strong id="failureMetric">—</strong><small>timeout/error/invalid output</small></article>
+      <article><span>Virtual p95</span><strong id="virtualLatencyMetric">—</strong><small>queue / provider / total</small></article>
+    </section>
+
+    <section class="panel fixture-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Visible lifecycle scenarios</h2>
+          <p>Each expected invariant is authored here before the scheduler runs.</p>
+        </div>
+        <span id="lifecycleFixtureVersion">Fixtures —</span>
+      </div>
+      <div class="table-scroll">
+        <table class="lifecycle-table">
+          <thead><tr><th>Scenario</th><th>Trigger</th><th>Expected invariants</th></tr></thead>
+          <tbody id="lifecycleFixtureRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel results-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Observed results</h2>
+          <p>Events describe scheduler state transitions. They do not expose model reasoning.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="lifecycle-result-table">
+          <thead><tr><th>Scenario</th><th>Expected</th><th>Actual</th><th>Event summary</th></tr></thead>
+          <tbody id="lifecycleResultRows">
+            <tr><td colspan="4" class="empty-row">Run the suite to populate lifecycle results.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel scope-note">
+      <h2>Checkpoint boundary</h2>
+      <p>This page tests the scheduler with controlled responses. It does not call Chrome built-in AI, Amazon Bedrock, or modify YouTube cards. Real-provider latency and semantic quality remain separate checkpoints.</p>
+    </section>
+  </main>
+
+  <script src="../workflow-scheduler.js"></script>
+  <script src="lifecycle-fixtures.js"></script>
+  <script src="lifecycle.js"></script>
+</body>
+</html>

@@ -1,0 +1,2274 @@
+{
+  "schemaVersion": "focusfeed-workflow-report-v1",
+  "exportedAt": "2026-09-20T14:47:57.388Z",
+  "fixtureVersion": "2026-09-20.2",
+  "workflowVersion": "workflow-v1.1",
+  "runMode": "warm",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
+  },
+  "summary": {
+    "cases": 24,
+    "passed": 22,
+    "resolvedBeforeModelRows": 10,
+    "modelPending": 13,
+    "metadataUnresolved": 1,
+    "falseHides": 0,
+    "routingP95Ms": 0.5,
+    "persistentReadMs": 6.800000000745058
+  },
+  "records": [
+    {
+      "caseId": "allow-exact-precedence",
+      "name": "Exact allow overrides other rules",
+      "note": "The same exact channel is allowed and blocked; allow wins before the keyword rule.",
+      "video": {
+        "videoId": "wf-allow",
+        "title": "Gaming interview with a developer",
+        "channel": "Study Hub",
+        "duration": "12:10",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [
+          "gaming"
+        ],
+        "blockedChannels": [
+          "Study Hub"
+        ],
+        "whitelistedChannels": [
+          "@Study Hub"
+        ],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "show",
+        "cacheStatus": "not_checked",
+        "ruleId": "channel_allow_exact"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "show",
+        "ruleId": "channel_allow_exact",
+        "reason": "Exact allowed channel match.",
+        "evidence": [
+          "Study Hub"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "channel_allow_exact"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "show"
+          }
+        ],
+        "latencyMs": 0.30000000074505806
+      },
+      "routingMs": 0.5,
+      "pass": true
+    },
+    {
+      "caseId": "allow-substring-safe",
+      "name": "Channel substring does not allow",
+      "note": "Study Hub must not silently allow Study Hub Clips.",
+      "video": {
+        "videoId": "wf-allow-substring",
+        "title": "Weekly creator update",
+        "channel": "Study Hub Clips",
+        "duration": "8:40",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [
+          "Study Hub"
+        ],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:b3a97c80",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "block-exact",
+      "name": "Exact channel block",
+      "note": "Case and leading @ are normalized, but the identity must otherwise be exact.",
+      "video": {
+        "videoId": "wf-block",
+        "title": "A daily upload",
+        "channel": "MOON CALLS",
+        "duration": "10:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [
+          "@Moon Calls"
+        ],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "channel_block_exact"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "channel_block_exact",
+        "reason": "Exact blocked channel match.",
+        "evidence": [
+          "MOON CALLS"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "channel_block_exact"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.09999999776482582
+      },
+      "routingMs": 0.09999999776482582,
+      "pass": true
+    },
+    {
+      "caseId": "block-substring-safe",
+      "name": "Channel substring does not block",
+      "note": "Moon Calls Archive is not the exact Moon Calls identity.",
+      "video": {
+        "videoId": "wf-block-substring",
+        "title": "A daily upload",
+        "channel": "Moon Calls Archive",
+        "duration": "10:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [
+          "Moon Calls"
+        ],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:44c90f53",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "literal-keyword",
+      "name": "Literal keyword boundary",
+      "note": "gaming is a whole word in the title and resolves without a model.",
+      "video": {
+        "videoId": "wf-keyword",
+        "title": "Late-night gaming highlights",
+        "channel": "Clip Room",
+        "duration": "11:20",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [
+          "gaming"
+        ],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "keyword_literal"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "keyword_literal",
+        "reason": "Title matches an explicit literal keyword rule.",
+        "evidence": [
+          "gaming"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "keyword_literal"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.6999999992549419
+      },
+      "routingMs": 0.6999999992549419,
+      "pass": true
+    },
+    {
+      "caseId": "literal-near-miss",
+      "name": "Keyword near-miss stays unresolved",
+      "note": "car must not match cartoon.",
+      "video": {
+        "videoId": "wf-keyword-near",
+        "title": "How cartoon animation works",
+        "channel": "Motion School",
+        "duration": "14:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [
+          "car"
+        ],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:787a8711",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "unknown-duration-not-short",
+      "name": "Missing duration is not a Short",
+      "note": "No format flag means unknown metadata, so the card stays pending and visible.",
+      "video": {
+        "videoId": "wf-unknown-duration",
+        "title": "System design office hours",
+        "channel": "Architecture Lab",
+        "duration": "",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": true,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:cfca9f57",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "verified-short",
+      "name": "Verified Short rule",
+      "note": "The explicit isShort flag is trustworthy enough for the selected format preference.",
+      "video": {
+        "videoId": "wf-short",
+        "title": "One coding tip",
+        "channel": "Code Minute",
+        "duration": "",
+        "isShort": true,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": true,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "format_short"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "format_short",
+        "reason": "Verified Short filtered.",
+        "evidence": [
+          "isShort=true"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "format_short"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "verified-live",
+      "name": "Verified live stream rule",
+      "note": "A live flag resolves the selected format rule even when duration is unavailable.",
+      "video": {
+        "videoId": "wf-live",
+        "title": "Live coding office hours",
+        "channel": "Code Together",
+        "duration": "",
+        "isShort": false,
+        "isLive": true,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": true,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "format_live"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "format_live",
+        "reason": "Verified live stream filtered.",
+        "evidence": [
+          "isLive=true"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "format_live"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.09999999776482582
+      },
+      "routingMs": 0.09999999776482582,
+      "pass": true
+    },
+    {
+      "caseId": "verified-premiere",
+      "name": "Verified premiere rule",
+      "note": "Premiere and live controls retain separate provenance.",
+      "video": {
+        "videoId": "wf-premiere",
+        "title": "New course announcement",
+        "channel": "Learning Desk",
+        "duration": "",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": true
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": true,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "format_premiere"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "format_premiere",
+        "reason": "Verified premiere filtered.",
+        "evidence": [
+          "isPremiere=true"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "format_premiere"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "duration-minimum",
+      "name": "Duration below minimum",
+      "note": "A parseable duration outside the explicit limit resolves immediately.",
+      "video": {
+        "videoId": "wf-duration",
+        "title": "Fast interview recap",
+        "channel": "Career Notes",
+        "duration": "2:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 300,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "duration_below_min"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "duration_below_min",
+        "reason": "Video is shorter than the selected minimum.",
+        "evidence": [
+          "150 seconds"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "duration_below_min"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.19999999925494194
+      },
+      "routingMs": 0.19999999925494194,
+      "pass": true
+    },
+    {
+      "caseId": "duration-maximum",
+      "name": "Duration above maximum",
+      "note": "The maximum duration rule uses the same validated duration parser.",
+      "video": {
+        "videoId": "wf-duration-max",
+        "title": "Complete interview preparation course",
+        "channel": "Career School",
+        "duration": "2:10:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 3600,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "duration_above_max"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "duration_above_max",
+        "reason": "Video is longer than the selected maximum.",
+        "evidence": [
+          "7800 seconds"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "duration_above_max"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "channel-feedback",
+      "name": "Repeated channel feedback",
+      "note": "Two negative signals on the exact normalized channel activate the explicit feedback rule.",
+      "video": {
+        "videoId": "wf-feedback",
+        "title": "Another recommendation",
+        "channel": "Daily Upload",
+        "duration": "10:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {
+          "@daily upload": -2
+        }
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "hide",
+        "cacheStatus": "not_checked",
+        "ruleId": "channel_feedback_hide"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "hide",
+        "ruleId": "channel_feedback_hide",
+        "reason": "The user marked this exact channel as less useful at least twice.",
+        "evidence": [
+          "Daily Upload"
+        ],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "channel_feedback_hide"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "hide"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "filtering-disabled",
+      "name": "Disabled extension shows content",
+      "note": "The master switch resolves before every hide rule.",
+      "video": {
+        "videoId": "wf-disabled",
+        "title": "Gaming highlights",
+        "channel": "Moon Calls",
+        "duration": "10:00",
+        "isShort": true,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": false,
+        "blockedKeywords": [
+          "gaming"
+        ],
+        "blockedChannels": [
+          "Moon Calls"
+        ],
+        "whitelistedChannels": [],
+        "hideShorts": true,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "rule",
+        "action": "show",
+        "cacheStatus": "not_checked",
+        "ruleId": "extension_disabled"
+      },
+      "actual": {
+        "status": "resolved",
+        "route": "rule",
+        "action": "show",
+        "ruleId": "extension_disabled",
+        "reason": "Filtering is disabled.",
+        "evidence": [],
+        "cacheStatus": "not_checked",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "resolved",
+            "detail": "extension_disabled"
+          },
+          {
+            "stage": "cache",
+            "status": "skipped"
+          },
+          {
+            "stage": "decision",
+            "status": "show"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "missing-title",
+      "name": "Missing title abstains",
+      "note": "The router does not invoke a model without a meaningful title.",
+      "video": {
+        "videoId": "wf-no-title",
+        "title": "",
+        "channel": "Unknown Channel",
+        "duration": "9:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "metadata",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "insufficient_metadata"
+      },
+      "actual": {
+        "status": "unresolved",
+        "route": "metadata",
+        "action": "show",
+        "ruleId": "insufficient_metadata",
+        "reason": "A video ID and meaningful title are required before semantic classification.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:71eda4ac",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "insufficient"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "cached-balanced",
+      "name": "Cached assessment under Balanced policy",
+      "note": "The assessment is unrelated but not explicitly unwanted, so Balanced mode shows it.",
+      "video": {
+        "videoId": "wf-cache-shared",
+        "title": "A tour of a mechanical keyboard collection",
+        "channel": "Desk Gear",
+        "duration": "15:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "balanced"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "cache",
+        "action": "show",
+        "cacheStatus": "hit",
+        "ruleId": "assessment_cache_hit"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:9b5fd156",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.09999999776482582
+      },
+      "routingMs": 0.09999999776482582,
+      "pass": false
+    },
+    {
+      "caseId": "cached-focus",
+      "name": "Cached assessment under Focus policy",
+      "note": "A Focus-compatible assessment is interpreted by the current deterministic policy.",
+      "video": {
+        "videoId": "wf-cache-shared",
+        "title": "A tour of a mechanical keyboard collection",
+        "channel": "Desk Gear",
+        "duration": "15:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "cache",
+        "action": "hide",
+        "cacheStatus": "hit",
+        "ruleId": "assessment_cache_hit"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:83cc20c0",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": false
+    },
+    {
+      "caseId": "mode-change-invalidates",
+      "name": "Mode change invalidates current provider input",
+      "note": "Mode is still sent to the classifier, so a Balanced assessment is not reused for Focus mode yet.",
+      "video": {
+        "videoId": "wf-mode-change",
+        "title": "A desk setup tour",
+        "channel": "Desk Gear",
+        "duration": "11:30",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:a7981d88",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "stale-profile",
+      "name": "Changed profile rejects stale entry",
+      "note": "A colliding key with a different profile signature is treated as incompatible.",
+      "video": {
+        "videoId": "wf-stale-profile",
+        "title": "Graph traversal walkthrough",
+        "channel": "CS Class",
+        "duration": "18:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 4,
+        "goal": "Prepare for database interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "incompatible",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "incompatible",
+        "cacheKey": "assessment-cache-v2:7aa24b90",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "incompatible"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "wrong-video-cache-entry",
+      "name": "Wrong-video cache entry is rejected",
+      "note": "Even with a matching cache signature, an assessment for another video must never decide this card.",
+      "video": {
+        "videoId": "wf-wrong-cache",
+        "title": "Graph traversal walkthrough",
+        "channel": "CS Class",
+        "duration": "18:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "invalid",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "invalid",
+        "cacheKey": "assessment-cache-v2:df96bf89",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "invalid"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.09999999776482582
+      },
+      "routingMs": 0.09999999776482582,
+      "pass": true
+    },
+    {
+      "caseId": "malformed-cache-expiry",
+      "name": "Malformed cache timestamp fails open",
+      "note": "A corrupt expiry cannot turn an entry into a permanent cache hit.",
+      "video": {
+        "videoId": "wf-bad-expiry",
+        "title": "System design walkthrough",
+        "channel": "Architecture Lab",
+        "duration": "20:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "invalid",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "invalid",
+        "cacheKey": "assessment-cache-v2:3468a83a",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "invalid"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0.10000000149011612
+      },
+      "routingMs": 0.10000000149011612,
+      "pass": true
+    },
+    {
+      "caseId": "invalid-cache-label",
+      "name": "Invalid cached policy label is rejected",
+      "note": "Unknown labels cannot flow into the deterministic display policy.",
+      "video": {
+        "videoId": "wf-bad-label",
+        "title": "Database indexing overview",
+        "channel": "Data Class",
+        "duration": "17:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "invalid",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "invalid",
+        "cacheKey": "assessment-cache-v2:e8ec3704",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "invalid"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "expired-entry",
+      "name": "Expired assessment is not reused",
+      "note": "TTL expiry returns the video to the semantic queue while keeping it visible.",
+      "video": {
+        "videoId": "wf-expired",
+        "title": "Binary search patterns",
+        "channel": "Algorithm Class",
+        "duration": "16:20",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "expired",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "expired",
+        "cacheKey": "assessment-cache-v2:1b64be59",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "expired"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    },
+    {
+      "caseId": "provider-change",
+      "name": "Provider identity invalidates cache",
+      "note": "A local assessment cannot be reused as though it came from a different model contract.",
+      "video": {
+        "videoId": "wf-provider",
+        "title": "Mock interview with feedback",
+        "channel": "Career Practice",
+        "duration": "24:00",
+        "isShort": false,
+        "isLive": false,
+        "isPremiere": false
+      },
+      "profile": {
+        "id": "workflow-replay",
+        "version": 3,
+        "goal": "Prepare for software engineering interviews",
+        "usefulTopics": [
+          "algorithms",
+          "system design",
+          "mock interviews"
+        ],
+        "unwantedTopics": [
+          "gaming",
+          "celebrity gossip"
+        ],
+        "exceptions": [
+          "background music"
+        ],
+        "languages": [
+          "English"
+        ],
+        "mode": "focus"
+      },
+      "preferences": {
+        "enabled": true,
+        "blockedKeywords": [],
+        "blockedChannels": [],
+        "whitelistedChannels": [],
+        "hideShorts": false,
+        "hideLiveStreams": false,
+        "hidePremieres": false,
+        "minDurationSec": 0,
+        "maxDurationSec": 0,
+        "channelSignals": {}
+      },
+      "classifier": {
+        "provider": "local",
+        "model": "chrome-gemini-nano",
+        "promptVersion": "local-2026-09-20.3",
+        "assessmentSchemaVersion": "assessment-v1"
+      },
+      "expected": {
+        "route": "model_pending",
+        "action": "show",
+        "cacheStatus": "miss",
+        "ruleId": "semantic_assessment_required"
+      },
+      "actual": {
+        "status": "pending",
+        "route": "model_pending",
+        "action": "show",
+        "ruleId": "semantic_assessment_required",
+        "reason": "No explicit rule or compatible cached assessment resolved this video.",
+        "evidence": [],
+        "cacheStatus": "miss",
+        "cacheKey": "assessment-cache-v2:bc392166",
+        "trace": [
+          {
+            "stage": "normalize",
+            "status": "complete"
+          },
+          {
+            "stage": "rule",
+            "status": "miss"
+          },
+          {
+            "stage": "cache",
+            "status": "miss"
+          },
+          {
+            "stage": "metadata",
+            "status": "sufficient"
+          },
+          {
+            "stage": "queue",
+            "status": "eligible"
+          }
+        ],
+        "latencyMs": 0
+      },
+      "routingMs": 0,
+      "pass": true
+    }
+  ]
+}

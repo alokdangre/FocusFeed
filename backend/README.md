@@ -137,3 +137,11 @@ sam deploy --guided
 ```
 
 The guided deployment asks for `TypeSafeApiKey` and `TypeSafeModel`. `NoEcho` masks the key in normal CloudFormation output. Before public deployment, use managed secrets, authenticated clients, per-user quotas, restricted CORS, logs with redaction, and a retention policy.
+
+## Start automatically at login (Linux)
+
+`bash backend/install_autostart.sh --print` previews a per-user systemd unit.
+After stopping any manual process on port 3000, run
+`bash backend/install_autostart.sh --install` to enable it at login and start it.
+See `../docs/ALWAYS_ON_ARCHITECTURE.md` for status, logs, removal, and limitations.
+This is separate from the extension's automatic activation on YouTube.

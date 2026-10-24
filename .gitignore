@@ -4,7 +4,7 @@ backend/__pycache__/
 backend/tests/__pycache__/
 *.py[cod]
 
-# Local configuration may contain a private AWS profile name or overrides
+# Local configuration contains provider secrets and machine-specific overrides
 backend/.env
 backend/iam/*.local.json
 

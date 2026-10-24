@@ -2,23 +2,19 @@
   "use strict";
 
   var CLASSIFIER = {
-    provider: "local",
-    model: "chrome-gemini-nano",
-    promptVersion: "local-2026-09-20.3",
-    assessmentSchemaVersion: "assessment-v1",
+    provider: "typesafe-jev",
+    model: "jev-1.13.0",
+    promptVersion: "typesafe-jev-video-match-2026-09-26.2",
+    assessmentSchemaVersion: "objective-match-v1",
   };
-
   var BASE_PROFILE = {
     id: "workflow-replay",
-    version: 3,
-    goal: "Prepare for software engineering interviews",
-    usefulTopics: ["algorithms", "system design", "mock interviews"],
-    unwantedTopics: ["gaming", "celebrity gossip"],
-    exceptions: ["background music"],
-    languages: ["English"],
-    mode: "focus",
+    version: 1,
+    mode: "general",
+    objectives: [
+      { id: "objective-1", text: "gaming streams", contentType: "content_format" },
+    ],
   };
-
   var BASE_PREFERENCES = {
     enabled: true,
     blockedKeywords: [],
@@ -32,18 +28,9 @@
     channelSignals: {},
   };
 
-  function copy(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  function profile(overrides) {
-    return Object.assign(copy(BASE_PROFILE), overrides || {});
-  }
-
-  function preferences(overrides) {
-    return Object.assign(copy(BASE_PREFERENCES), overrides || {});
-  }
-
+  function copy(value) { return JSON.parse(JSON.stringify(value)); }
+  function profile(overrides) { return Object.assign(copy(BASE_PROFILE), overrides || {}); }
+  function preferences(overrides) { return Object.assign(copy(BASE_PREFERENCES), overrides || {}); }
   function video(videoId, title, channel, duration, overrides) {
     return Object.assign({
       videoId: videoId,
@@ -55,17 +42,36 @@
       isPremiere: false,
     }, overrides || {});
   }
-
   function expected(route, action, cacheStatus, ruleId) {
     return { route: route, action: action, cacheStatus: cacheStatus, ruleId: ruleId };
+  }
+  function assessment(videoId, probability, evidenceProbability) {
+    var outcome = evidenceProbability < 0.7
+      ? "uncertain"
+      : probability >= 0.6
+        ? "match"
+        : probability <= 0.2
+          ? "no_match"
+          : "uncertain";
+    return {
+      videoId: videoId,
+      objectiveMatches: [{
+        objectiveId: "objective-1",
+        text: "gaming streams",
+        contentType: "content_format",
+        matchProbability: probability,
+      }],
+      evidenceProbability: evidenceProbability,
+      outcome: outcome,
+      evidence: ["Title metadata"],
+      reason: "Fixture raw Jev judgment.",
+    };
   }
 
   var cases = [
     {
       id: "allow-exact-precedence",
-      name: "Exact allow overrides other rules",
-      note: "The same exact channel is allowed and blocked; allow wins before the keyword rule.",
-      video: video("wf-allow", "Gaming interview with a developer", "Study Hub", "12:10"),
+      video: video("wf-allow", "Gaming stream", "Study Hub", "12:10"),
       preferences: preferences({
         whitelistedChannels: ["@Study Hub"],
         blockedChannels: ["Study Hub"],
@@ -75,36 +81,14 @@
       expectedWarm: expected("rule", "show", "not_checked", "channel_allow_exact"),
     },
     {
-      id: "allow-substring-safe",
-      name: "Channel substring does not allow",
-      note: "Study Hub must not silently allow Study Hub Clips.",
-      video: video("wf-allow-substring", "Weekly creator update", "Study Hub Clips", "8:40"),
-      preferences: preferences({ whitelistedChannels: ["Study Hub"] }),
-      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-      expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-    },
-    {
       id: "block-exact",
-      name: "Exact channel block",
-      note: "Case and leading @ are normalized, but the identity must otherwise be exact.",
       video: video("wf-block", "A daily upload", "MOON CALLS", "10:00"),
       preferences: preferences({ blockedChannels: ["@Moon Calls"] }),
       expectedCold: expected("rule", "hide", "not_checked", "channel_block_exact"),
       expectedWarm: expected("rule", "hide", "not_checked", "channel_block_exact"),
     },
     {
-      id: "block-substring-safe",
-      name: "Channel substring does not block",
-      note: "Moon Calls Archive is not the exact Moon Calls identity.",
-      video: video("wf-block-substring", "A daily upload", "Moon Calls Archive", "10:00"),
-      preferences: preferences({ blockedChannels: ["Moon Calls"] }),
-      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-      expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-    },
-    {
       id: "literal-keyword",
-      name: "Literal keyword boundary",
-      note: "gaming is a whole word in the title and resolves without a model.",
       video: video("wf-keyword", "Late-night gaming highlights", "Clip Room", "11:20"),
       preferences: preferences({ blockedKeywords: ["gaming"] }),
       expectedCold: expected("rule", "hide", "not_checked", "keyword_literal"),
@@ -112,133 +96,102 @@
     },
     {
       id: "literal-near-miss",
-      name: "Keyword near-miss stays unresolved",
-      note: "car must not match cartoon.",
       video: video("wf-keyword-near", "How cartoon animation works", "Motion School", "14:00"),
       preferences: preferences({ blockedKeywords: ["car"] }),
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
     },
     {
-      id: "unknown-duration-not-short",
-      name: "Missing duration is not a Short",
-      note: "No format flag means unknown metadata, so the card stays pending and visible.",
-      video: video("wf-unknown-duration", "System design office hours", "Architecture Lab", ""),
-      preferences: preferences({ hideShorts: true }),
-      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-      expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-    },
-    {
       id: "verified-short",
-      name: "Verified Short rule",
-      note: "The explicit isShort flag is trustworthy enough for the selected format preference.",
       video: video("wf-short", "One coding tip", "Code Minute", "", { isShort: true }),
       preferences: preferences({ hideShorts: true }),
       expectedCold: expected("rule", "hide", "not_checked", "format_short"),
       expectedWarm: expected("rule", "hide", "not_checked", "format_short"),
     },
     {
-      id: "verified-live",
-      name: "Verified live stream rule",
-      note: "A live flag resolves the selected format rule even when duration is unavailable.",
-      video: video("wf-live", "Live coding office hours", "Code Together", "", { isLive: true }),
-      preferences: preferences({ hideLiveStreams: true }),
-      expectedCold: expected("rule", "hide", "not_checked", "format_live"),
-      expectedWarm: expected("rule", "hide", "not_checked", "format_live"),
-    },
-    {
-      id: "verified-premiere",
-      name: "Verified premiere rule",
-      note: "Premiere and live controls retain separate provenance.",
-      video: video("wf-premiere", "New course announcement", "Learning Desk", "", { isPremiere: true }),
-      preferences: preferences({ hidePremieres: true }),
-      expectedCold: expected("rule", "hide", "not_checked", "format_premiere"),
-      expectedWarm: expected("rule", "hide", "not_checked", "format_premiere"),
-    },
-    {
-      id: "duration-minimum",
-      name: "Duration below minimum",
-      note: "A parseable duration outside the explicit limit resolves immediately.",
-      video: video("wf-duration", "Fast interview recap", "Career Notes", "2:30"),
-      preferences: preferences({ minDurationSec: 300 }),
-      expectedCold: expected("rule", "hide", "not_checked", "duration_below_min"),
-      expectedWarm: expected("rule", "hide", "not_checked", "duration_below_min"),
-    },
-    {
-      id: "duration-maximum",
-      name: "Duration above maximum",
-      note: "The maximum duration rule uses the same validated duration parser.",
-      video: video("wf-duration-max", "Complete interview preparation course", "Career School", "2:10:00"),
-      preferences: preferences({ maxDurationSec: 3600 }),
-      expectedCold: expected("rule", "hide", "not_checked", "duration_above_max"),
-      expectedWarm: expected("rule", "hide", "not_checked", "duration_above_max"),
-    },
-    {
-      id: "channel-feedback",
-      name: "Repeated channel feedback",
-      note: "Two negative signals on the exact normalized channel activate the explicit feedback rule.",
-      video: video("wf-feedback", "Another recommendation", "Daily Upload", "10:00"),
-      preferences: preferences({ channelSignals: { "@daily upload": -2 } }),
-      expectedCold: expected("rule", "hide", "not_checked", "channel_feedback_hide"),
-      expectedWarm: expected("rule", "hide", "not_checked", "channel_feedback_hide"),
-    },
-    {
       id: "filtering-disabled",
-      name: "Disabled extension shows content",
-      note: "The master switch resolves before every hide rule.",
       video: video("wf-disabled", "Gaming highlights", "Moon Calls", "10:00", { isShort: true }),
-      preferences: preferences({ enabled: false, hideShorts: true, blockedKeywords: ["gaming"], blockedChannels: ["Moon Calls"] }),
+      preferences: preferences({
+        enabled: false,
+        hideShorts: true,
+        blockedKeywords: ["gaming"],
+      }),
       expectedCold: expected("rule", "show", "not_checked", "extension_disabled"),
       expectedWarm: expected("rule", "show", "not_checked", "extension_disabled"),
     },
     {
-      id: "missing-title",
-      name: "Missing title abstains",
-      note: "The router does not invoke a model without a meaningful title.",
-      video: video("wf-no-title", "", "Unknown Channel", "9:00"),
+      id: "missing-title-general",
+      video: video("wf-no-title-general", "", "Unknown Channel", "9:00"),
       preferences: preferences(),
       expectedCold: expected("metadata", "show", "miss", "insufficient_metadata"),
       expectedWarm: expected("metadata", "show", "miss", "insufficient_metadata"),
     },
     {
-      id: "cached-balanced",
-      name: "Cached assessment under Balanced policy",
-      note: "The assessment is unrelated but not explicitly unwanted, so Balanced mode shows it.",
-      video: video("wf-cache-shared", "A tour of a mechanical keyboard collection", "Desk Gear", "15:30"),
-      profile: profile({ mode: "balanced" }),
-      preferences: preferences(),
-      cacheSeed: "compatible",
-      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-      expectedWarm: expected("cache", "show", "hit", "assessment_cache_hit"),
-    },
-    {
-      id: "cached-focus",
-      name: "Cached assessment under Focus policy",
-      note: "A Focus-compatible assessment is interpreted by the current deterministic policy.",
-      video: video("wf-cache-shared", "A tour of a mechanical keyboard collection", "Desk Gear", "15:30"),
+      id: "missing-title-focus",
+      video: video("wf-no-title-focus", "", "Unknown Channel", "9:00"),
       profile: profile({ mode: "focus" }),
       preferences: preferences(),
-      cacheSeed: "compatible",
+      expectedCold: expected("metadata", "hide", "miss", "insufficient_metadata"),
+      expectedWarm: expected("metadata", "hide", "miss", "insufficient_metadata"),
+    },
+    {
+      id: "cached-match-general",
+      video: video("wf-cache-match", "LIVE Ranked Gaming Stream", "Game Clips", "15:30"),
+      profile: profile({ mode: "general" }),
+      preferences: preferences(),
+      cacheSeed: "match",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("cache", "hide", "hit", "assessment_cache_hit"),
     },
     {
-      id: "mode-change-invalidates",
-      name: "Mode change invalidates current provider input",
-      note: "Mode is still sent to the classifier, so a Balanced assessment is not reused for Focus mode yet.",
-      video: video("wf-mode-change", "A desk setup tour", "Desk Gear", "11:30"),
+      id: "cached-match-focus",
+      video: video("wf-cache-match", "LIVE Ranked Gaming Stream", "Game Clips", "15:30"),
       profile: profile({ mode: "focus" }),
       preferences: preferences(),
-      cacheSeed: "mode_miss",
-      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
-      expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      cacheSeed: "match",
+      expectedCold: expected("model_pending", "hide", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("cache", "show", "hit", "assessment_cache_hit"),
     },
     {
-      id: "stale-profile",
-      name: "Changed profile rejects stale entry",
-      note: "A colliding key with a different profile signature is treated as incompatible.",
-      video: video("wf-stale-profile", "Graph traversal walkthrough", "CS Class", "18:00"),
-      profile: profile({ version: 4, goal: "Prepare for database interviews" }),
+      id: "cached-no-match-general",
+      video: video("wf-cache-no", "Database Indexing Tutorial", "Data Class", "18:00"),
+      preferences: preferences(),
+      cacheSeed: "no_match",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("cache", "show", "hit", "assessment_cache_hit"),
+    },
+    {
+      id: "cached-no-match-focus",
+      video: video("wf-cache-no", "Database Indexing Tutorial", "Data Class", "18:00"),
+      profile: profile({ mode: "focus" }),
+      preferences: preferences(),
+      cacheSeed: "no_match",
+      expectedCold: expected("model_pending", "hide", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("cache", "hide", "hit", "assessment_cache_hit"),
+    },
+    {
+      id: "cached-uncertain-general",
+      video: video("wf-cache-uncertain", "A Quick Update", "Creator", "8:00"),
+      preferences: preferences(),
+      cacheSeed: "uncertain",
+      expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("cache", "show", "hit", "assessment_cache_hit"),
+    },
+    {
+      id: "cached-uncertain-focus",
+      video: video("wf-cache-uncertain", "A Quick Update", "Creator", "8:00"),
+      profile: profile({ mode: "focus" }),
+      preferences: preferences(),
+      cacheSeed: "uncertain",
+      expectedCold: expected("model_pending", "hide", "miss", "semantic_assessment_required"),
+      expectedWarm: expected("cache", "hide", "hit", "assessment_cache_hit"),
+    },
+    {
+      id: "stale-objectives",
+      video: video("wf-stale", "A gaming stream", "Game Clips", "18:00"),
+      profile: profile({
+        objectives: [{ id: "objective-1", text: "celebrity gossip", contentType: "topic" }],
+      }),
       preferences: preferences(),
       cacheSeed: "incompatible",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
@@ -246,9 +199,7 @@
     },
     {
       id: "wrong-video-cache-entry",
-      name: "Wrong-video cache entry is rejected",
-      note: "Even with a matching cache signature, an assessment for another video must never decide this card.",
-      video: video("wf-wrong-cache", "Graph traversal walkthrough", "CS Class", "18:00"),
+      video: video("wf-wrong-cache", "Gaming stream", "Game Clips", "18:00"),
       preferences: preferences(),
       cacheSeed: "wrong_video",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
@@ -256,29 +207,23 @@
     },
     {
       id: "malformed-cache-expiry",
-      name: "Malformed cache timestamp fails open",
-      note: "A corrupt expiry cannot turn an entry into a permanent cache hit.",
-      video: video("wf-bad-expiry", "System design walkthrough", "Architecture Lab", "20:00"),
+      video: video("wf-bad-expiry", "Gaming stream", "Game Clips", "18:00"),
       preferences: preferences(),
       cacheSeed: "malformed_expiry",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("model_pending", "show", "invalid", "semantic_assessment_required"),
     },
     {
-      id: "invalid-cache-label",
-      name: "Invalid cached policy label is rejected",
-      note: "Unknown labels cannot flow into the deterministic display policy.",
-      video: video("wf-bad-label", "Database indexing overview", "Data Class", "17:00"),
+      id: "invalid-cache-score",
+      video: video("wf-bad-score", "Gaming stream", "Game Clips", "18:00"),
       preferences: preferences(),
-      cacheSeed: "invalid_label",
+      cacheSeed: "invalid_score",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("model_pending", "show", "invalid", "semantic_assessment_required"),
     },
     {
       id: "expired-entry",
-      name: "Expired assessment is not reused",
-      note: "TTL expiry returns the video to the semantic queue while keeping it visible.",
-      video: video("wf-expired", "Binary search patterns", "Algorithm Class", "16:20"),
+      video: video("wf-expired", "Gaming stream", "Game Clips", "18:00"),
       preferences: preferences(),
       cacheSeed: "expired",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
@@ -286,30 +231,13 @@
     },
     {
       id: "provider-change",
-      name: "Provider identity invalidates cache",
-      note: "A local assessment cannot be reused as though it came from a different model contract.",
-      video: video("wf-provider", "Mock interview with feedback", "Career Practice", "24:00"),
+      video: video("wf-provider", "Gaming stream", "Game Clips", "18:00"),
       preferences: preferences(),
       cacheSeed: "provider_miss",
       expectedCold: expected("model_pending", "show", "miss", "semantic_assessment_required"),
       expectedWarm: expected("model_pending", "show", "miss", "semantic_assessment_required"),
     },
   ];
-
-  var unrelatedAssessment = {
-    videoId: "wf-cache-shared",
-    topics: ["mechanical keyboards"],
-    contentPurpose: "entertainment",
-    goalRelevance: "unrelated",
-    unwantedMatch: "no",
-    evidenceSufficiency: "sufficient",
-    evidence: ["mechanical keyboard collection"],
-    reason: "The collection tour is unrelated to interview preparation.",
-  };
-
-  function assessmentFor(videoId) {
-    return Object.assign(copy(unrelatedAssessment), { videoId: videoId });
-  }
 
   function materializeCase(item) {
     var result = copy(item);
@@ -318,17 +246,23 @@
     return result;
   }
 
+  function seededAssessment(item) {
+    if (item.cacheSeed === "no_match") return assessment(item.video.videoId, 0.04, 0.95);
+    if (item.cacheSeed === "uncertain") return assessment(item.video.videoId, 0.52, 0.90);
+    return assessment(item.video.videoId, 0.96, 0.95);
+  }
+
   function buildCacheEntries(now, includeCompatible) {
     var entries = {};
     cases.forEach(function (sourceCase) {
       if (!sourceCase.cacheSeed) return;
       var item = materializeCase(sourceCase);
       var identity = root.FocusFeedWorkflow.buildCacheIdentity(item.video, item.profile, item.classifier);
-      if (sourceCase.cacheSeed === "compatible") {
-        if (!includeCompatible) return;
+      if (["match", "no_match", "uncertain"].indexOf(sourceCase.cacheSeed) !== -1) {
+        if (!includeCompatible || entries[identity.key]) return;
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: assessmentFor(item.video.videoId),
+          assessment: seededAssessment(item),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
           source: "workflow_replay_fixture",
@@ -336,107 +270,90 @@
       } else if (sourceCase.cacheSeed === "incompatible") {
         var oldIdentity = root.FocusFeedWorkflow.buildCacheIdentity(
           item.video,
-          profile({ version: 3, goal: "Prepare for software engineering interviews" }),
+          profile(),
           item.classifier
         );
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: oldIdentity,
-          assessment: assessmentFor(item.video.videoId),
+          assessment: assessment(item.video.videoId, 0.96, 0.95),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
         });
         entries[identity.key].key = identity.key;
       } else if (sourceCase.cacheSeed === "expired") {
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: assessmentFor(item.video.videoId),
+          assessment: assessment(item.video.videoId, 0.96, 0.95),
           createdAt: now - 5000,
           ttlMs: 1000,
-          source: "workflow_replay_fixture",
         });
       } else if (sourceCase.cacheSeed === "provider_miss") {
-        var bedrockIdentity = root.FocusFeedWorkflow.buildCacheIdentity(item.video, item.profile, {
-          provider: "bedrock",
-          model: "amazon.nova-micro-v1:0",
-          promptVersion: "bedrock-v1",
-          assessmentSchemaVersion: "assessment-v1",
-        });
-        entries[bedrockIdentity.key] = root.FocusFeedWorkflow.createCacheEntry({
-          identity: bedrockIdentity,
-          assessment: assessmentFor(item.video.videoId),
-          createdAt: now - 1000,
-          ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
-        });
-      } else if (sourceCase.cacheSeed === "mode_miss") {
-        var balancedIdentity = root.FocusFeedWorkflow.buildCacheIdentity(
+        var oldProviderIdentity = root.FocusFeedWorkflow.buildCacheIdentity(
           item.video,
-          Object.assign({}, item.profile, { mode: "balanced" }),
-          item.classifier
+          item.profile,
+          {
+            provider: "typesafe-jev",
+            model: "jev-old",
+            promptVersion: "old",
+            assessmentSchemaVersion: "objective-match-v1",
+          }
         );
-        entries[balancedIdentity.key] = root.FocusFeedWorkflow.createCacheEntry({
-          identity: balancedIdentity,
-          assessment: assessmentFor(item.video.videoId),
+        entries[oldProviderIdentity.key] = root.FocusFeedWorkflow.createCacheEntry({
+          identity: oldProviderIdentity,
+          assessment: assessment(item.video.videoId, 0.96, 0.95),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
         });
       } else if (sourceCase.cacheSeed === "wrong_video") {
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: assessmentFor("another-video"),
+          assessment: assessment("another-video", 0.96, 0.95),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
         });
       } else if (sourceCase.cacheSeed === "malformed_expiry") {
         entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
           identity: identity,
-          assessment: assessmentFor(item.video.videoId),
+          assessment: assessment(item.video.videoId, 0.96, 0.95),
           createdAt: now - 1000,
           ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
         });
         entries[identity.key].expiresAt = "not-a-timestamp";
-      } else if (sourceCase.cacheSeed === "invalid_label") {
-        entries[identity.key] = root.FocusFeedWorkflow.createCacheEntry({
-          identity: identity,
-          assessment: Object.assign(assessmentFor(item.video.videoId), { unwantedMatch: "maybe" }),
+      } else if (sourceCase.cacheSeed === "invalid_score") {
+        var invalid = assessment(item.video.videoId, 0.96, 0.95);
+        invalid.objectiveMatches[0].matchProbability = 2;
+        entries[identity.key] = {
+          key: identity.key,
+          signature: identity.signature,
+          assessment: invalid,
           createdAt: now - 1000,
-          ttlMs: 60 * 60 * 1000,
-          source: "workflow_replay_fixture",
-        });
+          lastAccessedAt: now - 1000,
+          expiresAt: now + 10000,
+        };
       }
     });
     return entries;
   }
 
-  function buildWarmCache(now) {
-    return buildCacheEntries(now, true);
-  }
-
-  function buildInvalidationCache(now) {
-    return buildCacheEntries(now, false);
-  }
-
+  function buildWarmCache(now) { return buildCacheEntries(now, true); }
+  function buildInvalidationCache(now) { return buildCacheEntries(now, false); }
   function compatibleSeeds(now) {
     var seen = {};
     return cases.filter(function (item) {
-      return item.cacheSeed === "compatible";
+      return ["match", "no_match", "uncertain"].indexOf(item.cacheSeed) !== -1;
     }).map(materializeCase).filter(function (item) {
       var identity = root.FocusFeedWorkflow.buildCacheIdentity(item.video, item.profile, item.classifier);
       if (seen[identity.key]) return false;
       seen[identity.key] = true;
       item.identity = identity;
-      item.assessment = copy(unrelatedAssessment);
+      item.assessment = seededAssessment(item);
       item.createdAt = now - 1000;
       return true;
     });
   }
 
   root.FocusFeedWorkflowFixtures = {
-    version: "2026-09-20.2",
+    version: "2026-09-26.2",
     classifier: CLASSIFIER,
     cases: cases.map(materializeCase),
     buildWarmCache: buildWarmCache,

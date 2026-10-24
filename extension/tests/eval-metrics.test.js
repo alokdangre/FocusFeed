@@ -8,7 +8,11 @@ require("../workflow-core.js");
 require("../eval/metrics.js");
 
 const metricsApi = global.FocusFeedEvalMetrics;
-assert.equal(metricsApi.policyDecision, global.FocusFeedWorkflow.policyDecision, "evaluation and live routing must share one policy function");
+assert.notEqual(
+  metricsApi.policyDecision,
+  global.FocusFeedWorkflow.policyDecision,
+  "archived four-label evaluation must not drive the current raw-Noul live policy"
+);
 
 function assessment(contentPurpose, goalRelevance, unwantedMatch, evidenceSufficiency) {
   return { contentPurpose, goalRelevance, unwantedMatch, evidenceSufficiency };

@@ -2,7 +2,7 @@
   "use strict";
 
   var MAIN_FILES = ["page-gate.js", "interceptor.js"];
-  var ISOLATED_FILES = ["workflow-core.js", "live/engine.js", "live/content.js", "content.js"];
+  var ISOLATED_FILES = ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"];
 
   function isMissingReceiver(error) {
     var message = typeof error === "string" ? error : error && error.message || "";

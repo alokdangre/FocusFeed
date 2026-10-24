@@ -1,5 +1,5 @@
 // content.js — FocusFeed content script, runs in ISOLATED world (has chrome.* APIs)
-// Receives intercepted feed data, applies filters, manipulates DOM
+// Receives intercepted feed data, collects card metadata, and hosts live decisions.
 
 (function () {
   "use strict";
@@ -7,31 +7,12 @@
 
   // --- State ---
   var feedItemsReceived = 0;
-  var feedItemsHidden = 0;
   var enabled = true;
-  var blockedKeywords = [];
-  var blockedChannels = [];
-  var whitelistedChannels = [];
-  var hideShorts = false;
-  var hideLiveStreams = false;
-  var hidePremieres = false;
-  var minDurationSec = 0;
-  var maxDurationSec = 0;
-  var channelSignals = {};   // { "Channel Name": integer in [-3, +3] }
   var activeProfile = null;
   var focusSession = null;
   var liveFeed = null;
   var PREFERENCE_KEYS = {
     enabled: true,
-    blockedKeywords: true,
-    blockedChannels: true,
-    whitelistedChannels: true,
-    hideShorts: true,
-    hideLiveStreams: true,
-    hidePremieres: true,
-    minDurationSec: true,
-    maxDurationSec: true,
-    channelSignals: true,
     activeProfile: true,
     focusSession: true,
     classifierProvider: true,
@@ -42,34 +23,10 @@
   function loadPreferences() {
     return chrome.storage.local.get({
       enabled: true,
-      blockedKeywords: [],
-      blockedChannels: [],
-      whitelistedChannels: [],
-      hideShorts: false,
-      hideLiveStreams: false,
-      hidePremieres: false,
-      minDurationSec: 0,
-      maxDurationSec: 0,
-      channelSignals: {},
       activeProfile: null,
       focusSession: null,
     }).then(function (prefs) {
       enabled = prefs.enabled;
-      blockedKeywords = prefs.blockedKeywords.map(function (k) {
-        return k.toLowerCase().trim();
-      }).filter(Boolean);
-      blockedChannels = prefs.blockedChannels.map(function (c) {
-        return c.toLowerCase().trim();
-      }).filter(Boolean);
-      whitelistedChannels = prefs.whitelistedChannels.map(function (c) {
-        return c.toLowerCase().trim();
-      }).filter(Boolean);
-      hideShorts = prefs.hideShorts;
-      hideLiveStreams = prefs.hideLiveStreams;
-      hidePremieres = prefs.hidePremieres;
-      minDurationSec = prefs.minDurationSec || 0;
-      maxDurationSec = prefs.maxDurationSec || 0;
-      channelSignals = prefs.channelSignals || {};
       activeProfile = prefs.activeProfile || null;
       focusSession = prefs.focusSession || null;
     });
@@ -110,6 +67,8 @@
         videoId: vr.videoId || "",
         title: extractText(vr.title),
         channel: extractText(vr.ownerText || vr.longBylineText || vr.shortBylineText),
+        channelId: extractChannelIdentity(vr.ownerText || vr.longBylineText || vr.shortBylineText),
+        description: extractDescription(vr),
         duration: extractText(vr.lengthText),
         // A missing duration is unknown, not proof that this is a Short.
         isShort: false,
@@ -126,6 +85,8 @@
         videoId: cvr.videoId || "",
         title: extractText(cvr.title),
         channel: extractText(cvr.longBylineText || cvr.shortBylineText || cvr.ownerText),
+        channelId: extractChannelIdentity(cvr.longBylineText || cvr.shortBylineText || cvr.ownerText),
+        description: extractDescription(cvr),
         duration: extractText(cvr.lengthText),
         // Compact cards without duration can be live/upcoming; do not infer Shorts.
         isShort: false,
@@ -140,6 +101,8 @@
         videoId: pvr.videoId || "",
         title: extractText(pvr.title),
         channel: extractText(pvr.longBylineText || pvr.shortBylineText),
+        channelId: extractChannelIdentity(pvr.longBylineText || pvr.shortBylineText),
+        description: extractDescription(pvr),
         duration: extractText(pvr.lengthText),
         isShort: false,
         isLive: false,
@@ -153,6 +116,8 @@
         videoId: rr.videoId || "",
         title: extractText(rr.headline),
         channel: extractText(rr.ownerText),
+        channelId: extractChannelIdentity(rr.ownerText),
+        description: extractDescription(rr),
         duration: "",
         isShort: true,
         isLive: false,
@@ -170,6 +135,8 @@
             videoId: ri.videoId || "",
             title: extractText(ri.headline),
             channel: extractText(ri.ownerText),
+            channelId: extractChannelIdentity(ri.ownerText),
+            description: extractDescription(ri),
             duration: "",
             isShort: true,
             isLive: false,
@@ -188,6 +155,8 @@
         title: (slvm.overlayMetadata && slvm.overlayMetadata.primaryText &&
                 slvm.overlayMetadata.primaryText.content) || "",
         channel: "",
+        channelId: "",
+        description: extractDescription(slvm),
         duration: "",
         isShort: true,
         isLive: false,
@@ -227,85 +196,44 @@
     return "";
   }
 
-  // --- Channel signals (More/Less like this) ---
-  function getChannelSignal(channelName) {
-    if (!channelName) return 0;
-    var identity = FocusFeedWorkflow.normalizeChannelIdentity(channelName);
-    var keys = Object.keys(channelSignals);
-    for (var i = 0; i < keys.length; i++) {
-      if (FocusFeedWorkflow.normalizeChannelIdentity(keys[i]) === identity) {
-        return Number(channelSignals[keys[i]]) || 0;
-      }
-    }
-    return 0;
+  function normalizeChannelIdentity(value) {
+    var text = String(value || "").trim();
+    var channelPath = text.match(/^\/?channel\/([^/?#]+)/i);
+    if (channelPath) return channelPath[1];
+    var handlePath = text.match(/^\/?(@[^/?#]+)/);
+    if (handlePath) return handlePath[1].toLowerCase();
+    if (/^UC[A-Za-z0-9_-]{10,}$/.test(text)) return text;
+    if (/^@[A-Za-z0-9._-]+$/.test(text)) return text.toLowerCase();
+    return "";
   }
 
-  // direction: +1 (like) or -1 (dislike)
-  // Same direction → increment further. Opposite direction → cancel to 0.
-  function applyChannelSignal(channelName, direction) {
-    if (!channelName) return;
-    var name = channelName.trim();
-    if (!name) return;
-    var identity = FocusFeedWorkflow.normalizeChannelIdentity(name);
-    var existingName = Object.keys(channelSignals).find(function (candidate) {
-      return FocusFeedWorkflow.normalizeChannelIdentity(candidate) === identity;
-    });
-    if (existingName && existingName !== name) {
-      channelSignals[name] = channelSignals[existingName];
-      delete channelSignals[existingName];
+  function extractChannelIdentity(textObj) {
+    var runs = textObj && Array.isArray(textObj.runs) ? textObj.runs : [];
+    for (var index = 0; index < runs.length; index++) {
+      var endpoint = runs[index] && runs[index].navigationEndpoint || {};
+      var browse = endpoint.browseEndpoint || {};
+      var identity = normalizeChannelIdentity(browse.browseId || browse.canonicalBaseUrl || "");
+      if (identity) return identity;
+      var command = endpoint.commandMetadata && endpoint.commandMetadata.webCommandMetadata || {};
+      identity = normalizeChannelIdentity(command.url || "");
+      if (identity) return identity;
     }
-    var current = Number(channelSignals[name]) || 0;
-    var next;
-    if (current === 0) {
-      next = direction;
-    } else if ((current > 0 && direction > 0) || (current < 0 && direction < 0)) {
-      next = current + direction;
-    } else {
-      next = 0;
-    }
-    if (next > 3) next = 3;
-    if (next < -3) next = -3;
-    if (next === 0) {
-      delete channelSignals[name];
-    } else {
-      channelSignals[name] = next;
-    }
-    chrome.storage.local.set({ channelSignals: channelSignals });
-    scheduleReprocess();
+    return "";
   }
 
-  var _reprocessTimer = null;
-  function scheduleReprocess() {
-    if (_reprocessTimer) clearTimeout(_reprocessTimer);
-    _reprocessTimer = setTimeout(function () {
-      _reprocessTimer = null;
-      reprocessAllCards();
-    }, 200);
-  }
-
-  function preferenceSnapshot() {
-    return {
-      enabled: enabled,
-      blockedKeywords: blockedKeywords,
-      blockedChannels: blockedChannels,
-      whitelistedChannels: whitelistedChannels,
-      hideShorts: hideShorts,
-      hideLiveStreams: hideLiveStreams,
-      hidePremieres: hidePremieres,
-      minDurationSec: minDurationSec,
-      maxDurationSec: maxDurationSec,
-      channelSignals: channelSignals,
-    };
-  }
-
-  // --- Decide whether a video should be hidden using the shared workflow core ---
-  function shouldHideVideo(video) {
-    var result = FocusFeedWorkflow.evaluateExplicitRules(video, preferenceSnapshot());
-    return {
-      hide: !!(result && result.action === "hide"),
-      reason: result ? result.reason : "",
-      workflow: result,
-    };
+  function extractDescription(renderer) {
+    if (!renderer) return "";
+    var direct = extractText(renderer.descriptionSnippet || renderer.snippetText);
+    if (direct) return direct;
+    var snippets = Array.isArray(renderer.detailedMetadataSnippets)
+      ? renderer.detailedMetadataSnippets : [];
+    for (var index = 0; index < snippets.length; index++) {
+      var text = extractText(snippets[index] && (
+        snippets[index].snippetText || snippets[index].descriptionSnippet
+      ));
+      if (text) return text;
+    }
+    return "";
   }
 
   // --- Build a lookup map from intercepted data ---
@@ -318,7 +246,17 @@
     for (var i = 0; i < videos.length; i++) {
       var video = videos[i];
       if (video.videoId) {
-        videoDataMap[video.videoId] = video;
+        var previous = videoDataMap[video.videoId] || {};
+        videoDataMap[video.videoId] = Object.assign({}, previous, video, {
+          title: video.title || previous.title || "",
+          channel: video.channel || previous.channel || "",
+          channelId: video.channelId || previous.channelId || "",
+          description: video.description || previous.description || "",
+          duration: video.duration || previous.duration || "",
+          isShort: video.isShort === true || previous.isShort === true,
+          isLive: video.isLive === true || previous.isLive === true,
+          isPremiere: video.isPremiere === true || previous.isPremiere === true,
+        });
       }
     }
 
@@ -327,7 +265,7 @@
       "Total tracked: " + Object.keys(videoDataMap).length
     );
 
-    applyFiltersToDOM();
+    scanCards();
     updateBadge();
   }
 
@@ -416,125 +354,10 @@
     return (el.innerText || el.textContent || "").trim();
   }
 
-  // --- Signal buttons (👍 / 👎) ---
-  var SIGNAL_CSS =
-    ".focusfeed-signals {" +
-    "  position: absolute; top: 6px; left: 6px;" +
-    "  display: flex; gap: 4px;" +
-    "  opacity: 0; transition: opacity 0.15s;" +
-    "  z-index: 100; pointer-events: none;" +
-    "}" +
-    "ytd-rich-item-renderer:hover .focusfeed-signals," +
-    "yt-lockup-view-model:hover .focusfeed-signals," +
-    "ytd-video-renderer:hover .focusfeed-signals," +
-    "ytd-compact-video-renderer:hover .focusfeed-signals {" +
-    "  opacity: 1; pointer-events: auto;" +
-    "}" +
-    ".focusfeed-signals.focusfeed-active { opacity: 1; pointer-events: auto; }" +
-    ".focusfeed-sig {" +
-    "  background: rgba(0,0,0,0.75);" +
-    "  border: 1px solid rgba(255,255,255,0.25);" +
-    "  border-radius: 4px;" +
-    "  width: 28px; height: 28px;" +
-    "  font-size: 14px; line-height: 1;" +
-    "  cursor: pointer; padding: 0;" +
-    "  display: flex; align-items: center; justify-content: center;" +
-    "  color: #fff;" +
-    "}" +
-    ".focusfeed-sig:hover { background: rgba(0,0,0,0.9); transform: scale(1.08); }" +
-    ".focusfeed-sig-up.active { background: rgba(45, 158, 95, 0.9); border-color: #2d9e5f; }" +
-    ".focusfeed-sig-down.active { background: rgba(204, 51, 51, 0.9); border-color: #c33; }";
-
-  function injectStaticCss() {
-    if (document.getElementById("focusfeed-static-css")) return;
-    var s = document.createElement("style");
-    s.id = "focusfeed-static-css";
-    s.textContent = SIGNAL_CSS;
-    (document.head || document.documentElement).appendChild(s);
-  }
-
-  function findThumbnailContainer(card) {
-    // Prefer the thumbnail wrapper so positioning is relative to it
-    return (
-      card.querySelector("ytd-thumbnail") ||
-      card.querySelector("yt-thumbnail-view-model") ||
-      card.querySelector("yt-image") ||
-      card.querySelector("#thumbnail") ||
-      null
-    );
-  }
-
-  function injectSignalButtons(card, channelName) {
-    if (!channelName) return;
-    var existing = card.querySelector(".focusfeed-signals");
-    if (existing) {
-      existing.dataset.channel = channelName;
-      updateSignalButtonState(card, channelName);
-      return;
-    }
-    var thumb = findThumbnailContainer(card);
-    if (!thumb) return;
-
-    // Ensure parent is positioned (most thumbnails already are, but be safe)
-    var cs = window.getComputedStyle(thumb);
-    if (cs.position === "static") thumb.style.position = "relative";
-
-    var wrap = document.createElement("div");
-    wrap.className = "focusfeed-signals";
-    wrap.dataset.channel = channelName;
-
-    var up = document.createElement("button");
-    up.type = "button";
-    up.className = "focusfeed-sig focusfeed-sig-up";
-    up.title = "Show more from " + channelName;
-    up.textContent = "👍"; // 👍
-    up.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var ch = wrap.dataset.channel;
-      applyChannelSignal(ch, +1);
-      updateAllButtonsForChannel(ch);
-    });
-
-    var down = document.createElement("button");
-    down.type = "button";
-    down.className = "focusfeed-sig focusfeed-sig-down";
-    down.title = "Show less from " + channelName;
-    down.textContent = "👎"; // 👍
-    down.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      var ch = wrap.dataset.channel;
-      applyChannelSignal(ch, -1);
-      updateAllButtonsForChannel(ch);
-    });
-
-    wrap.appendChild(up);
-    wrap.appendChild(down);
-    thumb.appendChild(wrap);
-    updateSignalButtonState(card, channelName);
-  }
-
-  function updateSignalButtonState(card, channelName) {
-    var wrap = card.querySelector(".focusfeed-signals");
-    if (!wrap) return;
-    var sig = getChannelSignal(channelName);
-    var up = wrap.querySelector(".focusfeed-sig-up");
-    var down = wrap.querySelector(".focusfeed-sig-down");
-    if (up) up.classList.toggle("active", sig > 0);
-    if (down) down.classList.toggle("active", sig < 0);
-    // Keep visible while a signal is set so the user can see/undo at a glance
-    wrap.classList.toggle("focusfeed-active", sig !== 0);
-  }
-
-  function updateAllButtonsForChannel(channelName) {
-    if (!channelName) return;
-    var safe = (channelName + "").replace(/"/g, '\\"');
-    var wraps = document.querySelectorAll('.focusfeed-signals[data-channel="' + safe + '"]');
-    for (var i = 0; i < wraps.length; i++) {
-      var card = wraps[i].closest("ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-compact-video-renderer") || wraps[i];
-      updateSignalButtonState(card, channelName);
-    }
+  function extractChannelIdentityFromCard(card) {
+    var link = card.querySelector('a[href*="/channel/"]') || card.querySelector('a[href*="/@"]');
+    if (!link) return "";
+    return normalizeChannelIdentity(link.getAttribute("href") || "");
   }
 
   function extractDurationFromCard(card) {
@@ -548,14 +371,20 @@
     return el ? (el.innerText || el.textContent || "").trim() : "";
   }
 
+  function extractDescriptionFromCard(card) {
+    var element = card.querySelector("#description-text") ||
+      card.querySelector("yt-formatted-string.metadata-snippet-text") ||
+      card.querySelector(".metadata-snippet-text") ||
+      card.querySelector("[class*='description-snippet']");
+    return element ? (element.innerText || element.textContent || "").trim() : "";
+  }
+
   function removeLegacyFormatCss() {
     var legacy = document.getElementById("focusfeed-css");
     if (legacy) legacy.remove();
   }
 
-  function applyFiltersToDOM() {
-    // Each card must pass through the shared evaluator so an explicit allow can
-    // win. Unconditional format CSS used to bypass that precedence.
+  function scanCards() {
     removeLegacyFormatCss();
     if (!enabled) return;
 
@@ -565,18 +394,11 @@
     }
   }
 
-  function applyExplicitDecision(card, video) {
-    var decision = shouldHideVideo(video);
-    var workflow = decision.workflow;
-    card.dataset.focusfeedRoute = workflow ? workflow.route : "semantic_not_connected";
-    card.dataset.focusfeedRule = workflow ? workflow.ruleId : "none";
-    card.dataset.focusfeedAction = decision.hide ? "hide" : "show";
-    if (decision.hide) {
-      hideCard(card, decision.reason);
-      return true;
-    }
+  function clearRetiredDecision(card) {
+    delete card.dataset.focusfeedRoute;
+    delete card.dataset.focusfeedRule;
+    delete card.dataset.focusfeedAction;
     showCard(card);
-    return false;
   }
 
   function processCard(card) {
@@ -593,7 +415,7 @@
 
     var videoId = getVideoIdFromCard(card);
 
-    // API data path — evaluate with current preferences
+    // API data path — merge intercepted and rendered metadata for Jev.
     if (videoId && videoDataMap[videoId]) {
       var apiVideo = videoDataMap[videoId];
       // DOM format badges/URLs can supply explicit flags that are absent from
@@ -601,39 +423,38 @@
       var video = Object.assign({}, apiVideo, {
         title: extractTitleFromCard(card) || apiVideo.title,
         channel: extractChannelFromCard(card) || apiVideo.channel,
+        channelId: extractChannelIdentityFromCard(card) || apiVideo.channelId || "",
+        description: extractDescriptionFromCard(card) || apiVideo.description || "",
         duration: extractDurationFromCard(card) || apiVideo.duration,
         isShort: apiVideo.isShort === true || isCardAShort(card),
         isLive: apiVideo.isLive === true || !!card.querySelector("[overlay-style='LIVE']"),
         isPremiere: apiVideo.isPremiere === true || !!card.querySelector("[overlay-style='UPCOMING']"),
       });
-      injectSignalButtons(card, video.channel);
-      applyExplicitDecision(card, video);
+      clearRetiredDecision(card);
       if (liveFeed) liveFeed.observe(card, video);
-      updateSignalButtonState(card, video.channel);
       return;
     }
 
-    // DOM fallback path. Build the same video shape as the API path, then pass
-    // it through the shared rule evaluator.
+    // DOM fallback path. Build the same video shape for Jev.
     var isPlaylist = card.tagName === "YTD-RADIO-RENDERER" ||
       card.tagName === "YTD-PLAYLIST-RENDERER" ||
       card.tagName === "YTD-COMPACT-RADIO-RENDERER" ||
       card.tagName === "YTD-COMPACT-PLAYLIST-RENDERER";
     var channel = isPlaylist ? extractPlaylistChannel(card) : extractChannelFromCard(card);
     var title = isPlaylist ? extractPlaylistTitle(card) : extractTitleFromCard(card);
-    injectSignalButtons(card, channel);
     var fallbackVideo = {
       videoId: videoId || "",
       title: title,
       channel: channel,
+      channelId: extractChannelIdentityFromCard(card),
+      description: extractDescriptionFromCard(card),
       duration: extractDurationFromCard(card),
       isShort: isCardAShort(card),
       isLive: !!card.querySelector("[overlay-style='LIVE']"),
       isPremiere: !!card.querySelector("[overlay-style='UPCOMING']"),
     };
-    applyExplicitDecision(card, fallbackVideo);
+    clearRetiredDecision(card);
     if (liveFeed) liveFeed.observe(card, fallbackVideo);
-    updateSignalButtonState(card, channel);
   }
 
   function isCardAShort(card) {
@@ -687,22 +508,11 @@
     return (el.innerText || el.textContent || "").trim();
   }
 
-  function hideCard(card, reason) {
-    if (card.dataset.focusfeedHidden === "true") return;
-    card.style.display = "none";
-    card.dataset.focusfeedHidden = "true";
-    card.dataset.focusfeedReason = reason || "";
-    feedItemsHidden++;
-    console.log("[FocusFeed] Hidden:", reason);
-    updateBadge();
-  }
-
   function showCard(card) {
     if (card.dataset.focusfeedHidden !== "true") return;
     card.style.display = "";
     delete card.dataset.focusfeedHidden;
     delete card.dataset.focusfeedReason;
-    feedItemsHidden = Math.max(0, feedItemsHidden - 1);
     updateBadge();
   }
 
@@ -713,8 +523,7 @@
       delete allHidden[h].dataset.focusfeedHidden;
       delete allHidden[h].dataset.focusfeedReason;
     }
-    feedItemsHidden = 0;
-    applyFiltersToDOM();
+    scanCards();
     updateBadge();
     console.log("[FocusFeed] Reprocessed with updated preferences");
   }
@@ -748,7 +557,7 @@
   function updateBadge() {
     chrome.runtime.sendMessage({
       type: "FOCUSFEED_STATS",
-      hidden: feedItemsHidden,
+      hidden: 0,
       total: feedItemsReceived,
     }).catch(function () {});
   }
@@ -769,7 +578,7 @@
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
     if (msg.type === "GET_STATS") {
       sendResponse({
-        hidden: feedItemsHidden,
+        hidden: 0,
         total: feedItemsReceived,
         enabled: enabled,
         trackedVideos: Object.keys(videoDataMap).length,
@@ -782,26 +591,22 @@
   });
 
   // --- Init ---
-  liveFeed = FocusFeedLiveContent.create({
-    scan: applyFiltersToDOM,
-    rule: function (video) { return FocusFeedWorkflow.evaluateExplicitRules(video, preferenceSnapshot()); },
-  });
+  liveFeed = FocusFeedLiveContent.create({ scan: scanCards });
   var liveScanTimer = null;
   var metadataObserver = new MutationObserver(function (mutations) {
     if (!document.documentElement.dataset.focusfeedSession) return;
     if (!mutations.some(function (mutation) {
       var node = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
-      return node && !node.closest(".focusfeed-live-label, .focusfeed-signals, #focusfeed-live-panel");
+      return Boolean(node);
     })) return;
     clearTimeout(liveScanTimer);
-    liveScanTimer = setTimeout(applyFiltersToDOM, 150);
+    liveScanTimer = setTimeout(scanCards, 150);
   });
   metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["href", "title"] });
-  injectStaticCss();
   loadPreferences().then(function () {
     observeFeed();
-    setTimeout(applyFiltersToDOM, 1500);
-    setTimeout(applyFiltersToDOM, 4000);
+    setTimeout(scanCards, 1500);
+    setTimeout(scanCards, 4000);
   });
 
   // --- Diagnostic ---
@@ -825,7 +630,7 @@
     console.log("YT elements:", ytTags);
     console.log("Tracked videos:", Object.keys(videoDataMap).length);
     console.log("Cards matching selectors:", document.querySelectorAll(CARD_SELECTORS).length);
-    console.log("State:", { enabled, hideShorts, hideLiveStreams, hidePremieres, minDurationSec, maxDurationSec });
+    console.log("State:", { enabled: enabled, liveSession: Boolean(liveFeed) });
   }
 
   console.log("[FocusFeed] Content script loaded");

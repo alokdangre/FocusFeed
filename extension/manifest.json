@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FocusFeed",
-  "version": "0.6.2",
-  "description": "Shape your YouTube feed around the goal that matters right now.",
+  "version": "0.10.0",
+  "description": "Confirm predefined topics, filter with observable Jev judgments, and approve channel blocks.",
   "permissions": [
     "storage",
     "activeTab",
@@ -24,7 +24,7 @@
     },
     {
       "matches": ["*://*.youtube.com/*"],
-      "js": ["workflow-core.js", "live/engine.js", "live/content.js", "content.js"],
+      "js": ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"],
       "world": "ISOLATED",
       "run_at": "document_start"
     }

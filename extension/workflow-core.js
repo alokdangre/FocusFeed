@@ -1,15 +1,17 @@
-// FocusFeed workflow core — deterministic routing, cache identity, and feed policy.
+// FocusFeed workflow core — shared normalization, validation, and feed policy.
 // This file is shared by the YouTube content script and the workflow replay page.
 
 (function (root) {
   "use strict";
 
-  var WORKFLOW_VERSION = "workflow-v1.1";
-  var CACHE_SCHEMA_VERSION = "assessment-cache-v2";
+  var WORKFLOW_VERSION = "workflow-v2.1";
+  var CACHE_SCHEMA_VERSION = "assessment-cache-v3";
   var DEFAULT_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-  var GOAL_RELEVANCE_VALUES = ["directly_useful", "supporting", "unrelated", "unclear"];
-  var UNWANTED_MATCH_VALUES = ["yes", "no", "unclear"];
-  var EVIDENCE_SUFFICIENCY_VALUES = ["sufficient", "insufficient"];
+  var OBJECTIVE_TYPES = [
+    "topic", "creator_or_channel", "content_format", "content_purpose",
+    "language", "audience_level", "style_or_tone", "other_matchable"
+  ];
+  var OUTCOMES = ["match", "no_match", "uncertain"];
 
   function normalizeText(value) {
     var text = value === null || value === undefined ? "" : String(value);
@@ -33,9 +35,7 @@
   }
 
   function parseDurationSec(value) {
-    if (typeof value === "number" && isFinite(value) && value >= 0) {
-      return Math.floor(value);
-    }
+    if (typeof value === "number" && isFinite(value) && value >= 0) return Math.floor(value);
     var text = String(value || "").trim();
     if (!text || !/^\d{1,3}:\d{2}(?::\d{2})?$/.test(text)) return null;
     var parts = text.split(":").map(function (part) { return Number(part); });
@@ -57,8 +57,6 @@
     }
   }
 
-  // Literal phrase matching with word boundaries. Regex characters in a user rule
-  // have no special meaning, and "car" does not match "cartoon".
   function matchesLiteralKeyword(text, keyword) {
     var haystack = normalizeText(text);
     var needle = normalizeText(keyword);
@@ -82,6 +80,7 @@
       videoId: String(source.videoId || "").trim(),
       title: String(source.title || "").replace(/\s+/g, " ").trim(),
       channel: String(source.channel || "").replace(/\s+/g, " ").trim(),
+      channelId: String(source.channelId || "").trim(),
       duration: source.duration === null || source.duration === undefined ? "" : String(source.duration).trim(),
       isShort: source.isShort === true,
       isLive: source.isLive === true,
@@ -133,30 +132,22 @@
     var preferences = normalizePreferences(preferencesInput);
     var channelIdentity = normalizeChannelIdentity(video.channel);
 
-    if (!preferences.enabled) {
-      return resolvedRule("show", "extension_disabled", "Filtering is disabled.");
-    }
-
+    if (!preferences.enabled) return resolvedRule("show", "extension_disabled", "Filtering is disabled.");
     if (exactChannelMatch(video.channel, preferences.whitelistedChannels)) {
       return resolvedRule("show", "channel_allow_exact", "Exact allowed channel match.", [video.channel]);
     }
-
     if (channelIdentity && Number(preferences.channelSignals[channelIdentity] || 0) <= -2) {
       return resolvedRule("hide", "channel_feedback_hide", "The user marked this exact channel as less useful at least twice.", [video.channel]);
     }
-
     if (preferences.hideShorts && video.isShort === true) {
       return resolvedRule("hide", "format_short", "Verified Short filtered.", ["isShort=true"]);
     }
-
     if (preferences.hideLiveStreams && video.isLive === true) {
       return resolvedRule("hide", "format_live", "Verified live stream filtered.", ["isLive=true"]);
     }
-
     if (preferences.hidePremieres && video.isPremiere === true) {
       return resolvedRule("hide", "format_premiere", "Verified premiere filtered.", ["isPremiere=true"]);
     }
-
     if (!video.isLive && (preferences.minDurationSec > 0 || preferences.maxDurationSec > 0)) {
       var durationSec = parseDurationSec(video.duration);
       if (durationSec !== null && preferences.minDurationSec > 0 && durationSec < preferences.minDurationSec) {
@@ -166,25 +157,31 @@
         return resolvedRule("hide", "duration_above_max", "Video is longer than the selected maximum.", [durationSec + " seconds"]);
       }
     }
-
     for (var i = 0; i < preferences.blockedKeywords.length; i++) {
       if (matchesLiteralKeyword(video.title, preferences.blockedKeywords[i])) {
         return resolvedRule("hide", "keyword_literal", "Title matches an explicit literal keyword rule.", [preferences.blockedKeywords[i]]);
       }
     }
-
     if (exactChannelMatch(video.channel, preferences.blockedChannels)) {
       return resolvedRule("hide", "channel_block_exact", "Exact blocked channel match.", [video.channel]);
     }
-
     return null;
   }
 
+  function assessmentOutcome(assessment) {
+    return assessment && OUTCOMES.indexOf(assessment.outcome) !== -1
+      ? assessment.outcome
+      : "uncertain";
+  }
+
+  function uncertaintyAction(mode) {
+    return mode === "focus" ? "hide" : "show";
+  }
+
   function policyDecision(assessment, mode) {
-    if (!assessment || assessment.evidenceSufficiency !== "sufficient") return "show";
-    if (assessment.unwantedMatch === "yes") return "hide";
-    if (mode === "focus" && assessment.goalRelevance === "unrelated") return "hide";
-    return "show";
+    var outcome = assessmentOutcome(assessment);
+    if (mode === "focus") return outcome === "match" ? "show" : "hide";
+    return outcome === "match" ? "hide" : "show";
   }
 
   function stableCopy(value) {
@@ -215,16 +212,15 @@
   function normalizeProfileForAssessment(profile) {
     var source = profile || {};
     return {
-      id: String(source.id || "default"),
-      version: Number(source.version) || 0,
-      goal: normalizeText(source.goal),
-      usefulTopics: normalizeList(source.usefulTopics),
-      unwantedTopics: normalizeList(source.unwantedTopics),
-      exceptions: normalizeList(source.exceptions),
-      languages: normalizeList(source.languages),
-      // Mode is currently sent to both provider prompts, so it remains part of
-      // compatibility until the semantic request contract becomes mode-independent.
-      mode: source.mode === "balanced" ? "balanced" : "focus",
+      objectives: (Array.isArray(source.objectives) ? source.objectives : []).map(function (objective) {
+        return {
+          id: String(objective && objective.id || ""),
+          text: normalizeText(objective && objective.text),
+          contentType: String(objective && objective.contentType || ""),
+          taxonomyId: String(objective && objective.taxonomyId || ""),
+          taxonomyVersion: String(objective && objective.taxonomyVersion || ""),
+        };
+      }),
     };
   }
 
@@ -234,7 +230,7 @@
       provider: String(source.provider || "unknown"),
       model: String(source.model || "unknown"),
       promptVersion: String(source.promptVersion || "unknown"),
-      assessmentSchemaVersion: String(source.assessmentSchemaVersion || "assessment-v1"),
+      assessmentSchemaVersion: String(source.assessmentSchemaVersion || "taxonomy-match-v2"),
     };
   }
 
@@ -246,13 +242,14 @@
         videoId: video.videoId,
         title: normalizeText(video.title),
         channel: normalizeChannelIdentity(video.channel),
+        channelId: video.channelId,
         duration: video.duration,
         isShort: video.isShort,
         isLive: video.isLive,
         isPremiere: video.isPremiere,
         description: normalizeText(video.description),
       },
-      profile: normalizeProfileForAssessment(profile),
+      objectives: normalizeProfileForAssessment(profile).objectives,
       classifier: normalizeClassifierIdentity(classifier),
     });
     return {
@@ -276,10 +273,21 @@
   function isValidDecisionAssessment(assessment, expectedVideoId) {
     if (!assessment || typeof assessment !== "object" || Array.isArray(assessment)) return false;
     if (!expectedVideoId || assessment.videoId !== expectedVideoId) return false;
-    if (GOAL_RELEVANCE_VALUES.indexOf(assessment.goalRelevance) === -1) return false;
-    if (UNWANTED_MATCH_VALUES.indexOf(assessment.unwantedMatch) === -1) return false;
-    if (EVIDENCE_SUFFICIENCY_VALUES.indexOf(assessment.evidenceSufficiency) === -1) return false;
+    if (!Array.isArray(assessment.objectiveMatches) || !assessment.objectiveMatches.length) return false;
+    var seen = {};
+    for (var i = 0; i < assessment.objectiveMatches.length; i++) {
+      var match = assessment.objectiveMatches[i];
+      if (!match || typeof match.objectiveId !== "string" || !match.objectiveId || seen[match.objectiveId]) return false;
+      if (typeof match.text !== "string" || OBJECTIVE_TYPES.indexOf(match.contentType) === -1) return false;
+      if (typeof match.matchProbability !== "number" || !isFinite(match.matchProbability) ||
+          match.matchProbability < 0 || match.matchProbability > 1) return false;
+      seen[match.objectiveId] = true;
+    }
+    if (typeof assessment.evidenceProbability !== "number" || !isFinite(assessment.evidenceProbability) ||
+        assessment.evidenceProbability < 0 || assessment.evidenceProbability > 1) return false;
+    if (OUTCOMES.indexOf(assessment.outcome) === -1) return false;
     if (assessment.evidence !== undefined && !Array.isArray(assessment.evidence)) return false;
+    if (typeof assessment.reason !== "string") return false;
     return true;
   }
 
@@ -306,7 +314,7 @@
     var startedAt = typeof performance !== "undefined" && performance.now ? performance.now() : Date.now();
     var video = normalizeVideo(input.video);
     var trace = [{ stage: "normalize", status: "complete" }];
-    var mode = input.profile && input.profile.mode === "balanced" ? "balanced" : "focus";
+    var mode = input.profile && input.profile.mode === "focus" ? "focus" : "general";
     var rule = evaluateExplicitRules(video, input.preferences);
     if (rule) {
       trace.push({ stage: "rule", status: "resolved", detail: rule.ruleId });
@@ -332,7 +340,7 @@
         route: "cache",
         action: cachedAction,
         ruleId: "assessment_cache_hit",
-        reason: "Compatible assessment reused; current " + mode + " policy was applied.",
+        reason: "Compatible raw Jev judgments reused; current " + mode + " policy was applied.",
         evidence: Array.isArray(entry.assessment.evidence) ? entry.assessment.evidence.slice(0, 3) : [],
         assessment: entry.assessment,
         cacheStatus: "hit",
@@ -347,7 +355,7 @@
       return {
         status: "unresolved",
         route: "metadata",
-        action: "show",
+        action: uncertaintyAction(mode),
         ruleId: "insufficient_metadata",
         reason: "A video ID and meaningful title are required before semantic classification.",
         evidence: [],
@@ -363,7 +371,7 @@
     return {
       status: "pending",
       route: "model_pending",
-      action: "show",
+      action: uncertaintyAction(mode),
       ruleId: "semantic_assessment_required",
       reason: "No explicit rule or compatible cached assessment resolved this video.",
       evidence: [],
@@ -400,6 +408,8 @@
     normalizeVideo: normalizeVideo,
     normalizePreferences: normalizePreferences,
     evaluateExplicitRules: evaluateExplicitRules,
+    assessmentOutcome: assessmentOutcome,
+    uncertaintyAction: uncertaintyAction,
     policyDecision: policyDecision,
     stableStringify: stableStringify,
     buildCacheIdentity: buildCacheIdentity,

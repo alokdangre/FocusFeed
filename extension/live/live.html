@@ -6,34 +6,57 @@
   <link rel="stylesheet" href="../lab/lab.css"><link rel="stylesheet" href="live.css">
 </head>
 <body>
-  <header class="topbar"><div class="brand"><strong>FocusFeed</strong><span>YouTube session</span></div>
-    <div class="topbar-actions"><button id="back" class="button">Back to YouTube</button><button id="export" class="button" disabled>Export session</button></div>
+  <header class="topbar">
+    <div class="brand"><strong>FocusFeed</strong><span>YouTube session</span></div>
+    <div class="topbar-actions">
+      <button id="back" class="button">Back to YouTube</button>
+      <button id="export" class="button" disabled>Export session</button>
+    </div>
   </header>
   <main class="live-shell">
     <section class="panel">
-      <h1>Your feed, one batch at a time</h1>
-      <p id="profile">Reading your saved goal…</p>
-      <p>Rules → compatible cache → AI for the remaining videos. Start with 12 recommendations and at most 3 model calls. Use <strong>Load 12 more</strong> in the FocusFeed toolbar on YouTube when you want another allowance; hidden videos do not automatically replace themselves.</p>
+      <h1>Your feed is starting automatically</h1>
+      <p id="profile">Reading your confirmed topic intent…</p>
+      <p>Every eligible recommendation goes to TypeSafe Jev. The first 12 recommendations are admitted with at most 3 four-video calls, and hide decisions apply directly on YouTube. Use <strong>Load 12 more</strong> at the end of YouTube Home to unlock the next batch.</p>
       <p id="providerNote"></p>
-      <div class="controls"><button class="button" id="prepare">Check / prepare provider</button><button class="button primary" id="start">Start preview on YouTube</button><button class="button" id="stop" disabled>Stop and restore AI hides</button></div>
-      <label class="mode"><input type="checkbox" id="apply" disabled> Apply AI hides on YouTube</label>
+      <div class="controls">
+        <button class="button primary" id="retry" hidden>Retry session</button>
+        <button class="button" id="stop" disabled>Stop and restore AI hides</button>
+      </div>
       <p id="status" role="status">Connecting to your YouTube tab…</p>
-      <p class="muted">Keep this session tab open; the popup can close. Start in preview, inspect the decisions, then enable AI hiding if wanted. Stop, closing this tab, or changing your goal restores AI hides and returns normal pagination. Your explicit filters remain active.</p>
+      <p class="muted">General mode hides confident avoid matches; Focus mode hides non-matches and uncertain cards. Every hidden card remains restorable from its session row, and all raw scores are saved to Jev observability.</p>
     </section>
     <section class="metrics" aria-label="Session metrics">
       <article><span>Admitted / allowance</span><strong id="admitted">0 / 12</strong></article>
-      <article><span>Rules / cache</span><strong id="fast">0 / 0</strong></article>
-      <article><span>AI / pending / unresolved</span><strong id="resolved">0 / 0 / 0</strong></article>
+      <article><span>Jev / blocked / pending / unresolved</span><strong id="resolved">0 / 0 / 0 / 0</strong></article>
       <article><span>Calls / allowance</span><strong id="calls">0 / 3</strong></article>
-      <article><span>AI videos / allowance</span><strong id="videos">0 / 12</strong></article>
+      <article><span>Jev videos / allowance</span><strong id="videos">0 / 12</strong></article>
       <article><span>Queue / in flight</span><strong id="queue">0 / 0</strong></article>
-      <article><span>AI hidden / held page requests</span><strong id="display">0 / 0</strong></article>
+      <article><span>Hidden / held page requests</span><strong id="display">0 / 0</strong></article>
       <article><span>Provider p95</span><strong id="latency">—</strong></article>
     </section>
-    <section class="panel"><h2>Real recommendation decisions</h2>
-      <p>Review title, route, assessment, and proposed action. Mark the action you wanted before exporting. A failed classification stays visible. Restoring a card is a session override.</p>
-      <div class="table-scroll"><table><thead><tr><th>Video</th><th>Route / result</th><th>Evidence and assessment</th><th>Timing</th><th>Your review</th></tr></thead><tbody id="results"></tbody></table></div>
+    <section class="panel" id="channelSuggestionsPanel" hidden>
+      <h2>Repeated unwanted channels</h2>
+      <p class="muted">Only confident unwanted decisions count. FocusFeed never blocks a channel until you approve it.</p>
+      <div id="channelSuggestions" class="channel-suggestions"></div>
+    </section>
+    <section class="panel">
+      <h2>Real recommendation decisions</h2>
+      <p>Each Jev row exposes every direct taxonomy-match Noul and the diagnostic evidence Noul. The separate observability tab also includes every intent-to-topic Noul.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Video</th><th>Route / result</th><th>Raw Jev judgments</th><th>Timing</th><th>Your review</th></tr></thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
     </section>
   </main>
-  <script src="../workflow-core.js"></script><script src="../workflow-cache.js"></script><script src="../workflow-scheduler.js"></script><script src="../local-classifier.js"></script><script src="engine.js"></script><script src="provider.js"></script><script src="bootstrap.js"></script><script src="live.js"></script>
-</body></html>
+  <script src="../workflow-core.js"></script>
+  <script src="../channel-policy.js"></script>
+  <script src="../workflow-scheduler.js"></script>
+  <script src="engine.js"></script>
+  <script src="provider.js"></script>
+  <script src="bootstrap.js"></script>
+  <script src="live.js"></script>
+</body>
+</html>

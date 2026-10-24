@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FocusFeed · Jev observability</title>
+  <link rel="stylesheet" href="observability.css">
+</head>
+<body>
+  <header>
+    <div>
+      <strong>FocusFeed</strong>
+      <span>Jev observability</span>
+    </div>
+    <div class="actions">
+      <button id="refresh">Refresh</button>
+      <button id="export">Export latest</button>
+    </div>
+  </header>
+  <main>
+    <section class="intro">
+      <h1>Every classification, visible</h1>
+      <p>This view shows raw Jev probabilities and the resulting mode-policy action. A probability is not an accuracy claim.</p>
+      <p id="updated" class="muted">Waiting for saved judgments…</p>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>Intent validation</h2>
+          <p>Jev independently scores every user entry against the versioned topic taxonomy. The checked suggestions still require user confirmation.</p>
+        </div>
+        <div id="objectiveMeta" class="pill">No validation yet</div>
+      </div>
+      <div id="objectiveError" class="error" hidden></div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Objective</th>
+              <th>Status</th>
+              <th>Suggested topics</th>
+              <th>Highest topic Noul</th>
+              <th>Understood Noul</th>
+              <th>Every topic Noul</th>
+            </tr>
+          </thead>
+          <tbody id="objectives"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <h2>YouTube video decisions</h2>
+          <p>Every admitted card appears here, including user-confirmed channel blocks, pending work, failures, and Jev results.</p>
+        </div>
+        <div id="runMeta" class="pill">No live run yet</div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Video</th>
+              <th>Mode action</th>
+              <th>Route / state</th>
+              <th>Evidence Noul (diagnostic only)</th>
+              <th>Every direct taxonomy-match Noul</th>
+              <th>Reason / metadata</th>
+            </tr>
+          </thead>
+          <tbody id="videos"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="observability.js"></script>
+</body>
+</html>

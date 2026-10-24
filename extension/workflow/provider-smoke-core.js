@@ -1,9 +1,16 @@
-// FocusFeed provider-smoke scoring shared by the page and automated checks.
+// FocusFeed provider-smoke scoring for archived four-label local-model reports.
 
 (function (root) {
   "use strict";
 
   var FIELDS = ["contentPurpose", "goalRelevance", "unwantedMatch", "evidenceSufficiency"];
+
+  function legacyPolicyDecision(assessment, mode) {
+    if (!assessment || assessment.evidenceSufficiency !== "sufficient") return "show";
+    if (assessment.unwantedMatch === "yes") return "hide";
+    if (mode === "focus" && assessment.goalRelevance === "unrelated") return "hide";
+    return "show";
+  }
 
   function copy(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -22,8 +29,8 @@
       expected: expected,
       labelNote: testCase.labelNote,
       tags: copy(testCase.tags || []),
-      expectedDecision: root.FocusFeedWorkflow.policyDecision(expected, scenario.profile.mode),
-      expectedFocusDecision: root.FocusFeedWorkflow.policyDecision(expected, "focus"),
+      expectedDecision: legacyPolicyDecision(expected, scenario.profile.mode),
+      expectedFocusDecision: legacyPolicyDecision(expected, "focus"),
     };
   }
 
@@ -32,15 +39,19 @@
     var actual = copy(schedulerResult.assessment);
     record.status = "resolved";
     record.actual = actual;
-    record.actualDecision = root.FocusFeedWorkflow.policyDecision(actual, scenario.profile.mode);
-    record.actualFocusDecision = root.FocusFeedWorkflow.policyDecision(actual, "focus");
-    record.exactMatch = FIELDS.every(function (field) { return actual[field] === record.expected[field]; });
+    record.actualDecision = legacyPolicyDecision(actual, scenario.profile.mode);
+    record.actualFocusDecision = legacyPolicyDecision(actual, "focus");
+    record.exactMatch = FIELDS.every(function (field) {
+      return actual[field] === record.expected[field];
+    });
     record.decisionMatch = record.actualDecision === record.expectedDecision;
     record.focusDecisionMatch = record.actualFocusDecision === record.expectedFocusDecision;
     record.falseHide = record.expectedDecision === "show" && record.actualDecision === "hide";
     record.falseShow = record.expectedDecision === "hide" && record.actualDecision === "show";
-    record.focusFalseHide = record.expectedFocusDecision === "show" && record.actualFocusDecision === "hide";
-    record.focusFalseShow = record.expectedFocusDecision === "hide" && record.actualFocusDecision === "show";
+    record.focusFalseHide =
+      record.expectedFocusDecision === "show" && record.actualFocusDecision === "hide";
+    record.focusFalseShow =
+      record.expectedFocusDecision === "hide" && record.actualFocusDecision === "show";
     record.schedulerTiming = copy(schedulerResult.timing || null);
     record.failure = null;
     return record;
@@ -82,14 +93,22 @@
       failed: failed.length,
       coverage: ratio(resolved.length, records.length),
       exactMatches: resolved.filter(function (record) { return record.exactMatch; }).length,
-      exactMatchAccuracy: ratio(resolved.filter(function (record) { return record.exactMatch; }).length, records.length),
+      exactMatchAccuracy: ratio(
+        resolved.filter(function (record) { return record.exactMatch; }).length,
+        records.length
+      ),
       decisionMatches: resolved.filter(function (record) { return record.decisionMatch; }).length,
-      decisionAccuracy: ratio(resolved.filter(function (record) { return record.decisionMatch; }).length, records.length),
+      decisionAccuracy: ratio(
+        resolved.filter(function (record) { return record.decisionMatch; }).length,
+        records.length
+      ),
       falseHides: resolved.filter(function (record) { return record.falseHide; }).length,
       falseShows: resolved.filter(function (record) { return record.falseShow; }).length,
       focusFalseHides: resolved.filter(function (record) { return record.focusFalseHide; }).length,
       focusFalseShows: resolved.filter(function (record) { return record.focusFalseShow; }).length,
-      unresolvedExpectedHide: failed.filter(function (record) { return record.expectedDecision === "hide"; }).length,
+      unresolvedExpectedHide: failed.filter(function (record) {
+        return record.expectedDecision === "hide";
+      }).length,
       providerRequests: Number(stats.providerRequests || 0),
       providerVideos: Number(stats.providerVideos || 0),
       peakQueueDepth: Number(stats.peakQueueDepth || 0),

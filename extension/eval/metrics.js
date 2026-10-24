@@ -5,7 +5,15 @@
   var RELEVANCE_LABELS = ["directly_useful", "supporting", "unrelated", "unclear"];
   var UNWANTED_LABELS = ["yes", "no", "unclear"];
   if (!root.FocusFeedWorkflow) throw new Error("FocusFeedWorkflow must load before evaluation metrics.");
-  var policyDecision = root.FocusFeedWorkflow.policyDecision;
+  // Archived local-classifier reports use the pre-0.8 assessment schema.
+  // Keep their metrics reproducible without sending those labels into the
+  // current raw-Noul General/Focus policy.
+  function policyDecision(assessment, mode) {
+    if (!assessment || assessment.evidenceSufficiency !== "sufficient") return "show";
+    if (assessment.unwantedMatch === "yes") return "hide";
+    if (mode === "focus" && assessment.goalRelevance === "unrelated") return "hide";
+    return "show";
+  }
 
   function ratio(numerator, denominator) {
     return denominator ? numerator / denominator : null;

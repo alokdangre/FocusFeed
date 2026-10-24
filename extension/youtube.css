@@ -1,0 +1,32 @@
+/* Isolated names; native YouTube typography and theme variables. */
+[data-focusfeed-auto-hidden="true"] { display: none !important; }
+[data-focusfeed-auto-pending="true"] { visibility: hidden !important; }
+.focusfeed-menu-action {
+  display: flex; align-items: center; gap: 16px; width: 100%; box-sizing: border-box;
+  padding: 12px 16px; margin: 6px 0 0; border: 0; border-top: 1px solid var(--yt-spec-10-percent-layer, #ddd);
+  background: transparent; color: var(--yt-spec-text-primary, #202124); text-align: start;
+  font: 14px/20px Roboto, Arial, sans-serif; cursor: pointer;
+}
+.focusfeed-menu-action > span:first-child { width: 24px; font: 28px/28px Arial, sans-serif; text-align: center; }
+.focusfeed-menu-action small { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--yt-spec-text-secondary, #666); font-size: 12px; }
+.focusfeed-menu-action:hover { background: var(--yt-spec-10-percent-layer, #eee); }
+.focusfeed-menu-action:focus-visible, .focusfeed-toast button:focus-visible, .focusfeed-playback button:focus-visible, .focusfeed-playback a:focus-visible {
+  outline: 2px solid var(--yt-spec-call-to-action, #065fd4); outline-offset: -3px;
+}
+.focusfeed-menu-action:disabled { opacity: .55; cursor: default; }
+.focusfeed-toast { position: fixed; z-index: 220000; bottom: 28px; left: 24px; max-width: min(440px, calc(100vw - 48px));
+  display: flex; align-items: center; gap: 24px; box-sizing: border-box; padding: 14px 18px; border-radius: 10px;
+  background: var(--yt-spec-menu-background, #f8f8f8); color: var(--yt-spec-text-primary, #202124);
+  border: 1px solid var(--yt-spec-10-percent-layer, #ddd); box-shadow: 0 4px 24px #0002; font: 14px/20px Roboto, Arial, sans-serif; }
+.focusfeed-toast button, .focusfeed-playback button, .focusfeed-playback a { border: 0; border-radius: 20px; padding: 9px 16px;
+  background: var(--yt-spec-badge-chip-background, #eee); color: var(--yt-spec-call-to-action, #065fd4); font: 500 14px/20px Roboto, Arial, sans-serif;
+  cursor: pointer; text-decoration: none; white-space: nowrap; }
+[data-focusfeed-playback="true"] video { visibility: hidden !important; }
+.focusfeed-playback { position: fixed; z-index: 210000; inset: 72px 24px auto; margin: 0 auto; max-width: 560px;
+  padding: 32px; box-sizing: border-box; border-radius: 16px; border: 1px solid var(--yt-spec-10-percent-layer, #ddd);
+  background: var(--yt-spec-menu-background, #f8f8f8); color: var(--yt-spec-text-primary, #202124);
+  box-shadow: 0 8px 40px #0003; font: 14px/1.5 Roboto, Arial, sans-serif; }
+.focusfeed-playback strong { font-size: 22px; font-weight: 600; }
+.focusfeed-playback p { color: var(--yt-spec-text-secondary, #666); margin: 12px 0 24px; }
+.focusfeed-playback a { display: inline-block; margin-inline-start: 8px; }

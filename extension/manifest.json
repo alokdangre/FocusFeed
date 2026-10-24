@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FocusFeed",
-  "version": "0.10.0",
-  "description": "Confirm predefined topics, filter with observable Jev judgments, and approve channel blocks.",
+  "version": "0.11.0",
+  "description": "Always-on YouTube topic filtering and channel blocking, with an optional Focus timer.",
   "permissions": [
     "storage",
     "activeTab",
@@ -10,27 +10,50 @@
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
-    "http://localhost/*"
+    "http://localhost/*",
+    "*://*.youtube.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
-      "js": ["page-gate.js", "interceptor.js"],
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "page-gate.js",
+        "interceptor.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": ["*://*.youtube.com/*"],
-      "js": ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"],
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "workflow-core.js",
+        "channel-policy.js",
+        "settings.js",
+        "live/engine.js",
+        "live/provider.js",
+        "auto-runtime.js",
+        "youtube-ui.js",
+        "content.js"
+      ],
       "world": "ISOLATED",
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "css": [
+        "youtube.css"
+      ]
     }
   ],
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "FocusFeed"
-  }
+  },
+  "optional_host_permissions": [
+    "https://*/*"
+  ]
 }

@@ -43,7 +43,9 @@
   function matchesBlock(block, video, profile) {
     var blockId = normalizeChannelId(block && block.channelId);
     var videoId = normalizeChannelId(video && video.channelId);
-    if (!blockId || !videoId || blockId !== videoId) return false;
+    var blockIds = [blockId].concat(block && block.aliases || []).map(normalizeChannelId).filter(Boolean);
+    var videoIds = [videoId].concat(video && video.aliases || []).map(normalizeChannelId).filter(Boolean);
+    if (!blockIds.some(function (id) { return videoIds.indexOf(id) !== -1; })) return false;
     if (block.scope === "global") return true;
     if (block.scope !== "topics") return false;
     if ((block.mode === "focus" ? "focus" : "general") !==

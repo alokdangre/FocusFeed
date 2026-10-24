@@ -26,7 +26,7 @@ async function main() {
     {
       target: { tabId: 42 },
       world: "ISOLATED",
-      files: ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"],
+      files: ["workflow-core.js", "channel-policy.js", "settings.js", "live/engine.js", "live/provider.js", "auto-runtime.js", "youtube-ui.js", "content.js"],
     },
   ]);
 

@@ -23,7 +23,7 @@
   function cloudRequest(request) {
     return {
       requestId: request.requestId,
-      profile: request.profile,
+      profile: { id: request.profile.id, version: request.profile.version, mode: request.profile.mode, objectives: request.profile.objectives },
       videos: request.videos.map(function (video) {
         return {
           videoId: video.videoId,

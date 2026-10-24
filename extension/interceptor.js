@@ -9,6 +9,8 @@
     "/youtubei/v1/browse",
     "/youtubei/v1/next",
     "/youtubei/v1/search",
+    "/youtubei/v1/player",
+    "/youtubei/v1/reel/reel_item_watch",
   ];
 
   var pageGate = FocusFeedPageGate.create(function (state) {
@@ -135,6 +137,7 @@
 
   // --- Capture ytInitialData (homepage first load embeds feed data in HTML) ---
   function captureInitialData() {
+    if (window.ytInitialPlayerResponse) window.postMessage({ type: "FOCUSFEED_FEED_DATA", data: window.ytInitialPlayerResponse, endpoint: "ytInitialPlayerResponse" }, "*");
     if (window.ytInitialData) {
       window.postMessage(
         {

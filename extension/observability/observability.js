@@ -106,8 +106,8 @@
     var target = $("videos");
     target.textContent = "";
     if (!snapshot || !snapshot.report) {
-      $("runMeta").textContent = "No live run yet";
-      emptyRow(target, 6, "Start a YouTube session to populate video judgments.");
+      $("runMeta").textContent = "No connected YouTube tab";
+      emptyRow(target, 6, "Open YouTube to see automatic filtering decisions.");
       return;
     }
     var report = snapshot.report;
@@ -116,7 +116,7 @@
       return event.type === "provider_response";
     });
     var videoThresholds = responses[0] && responses[0].diagnostics && responses[0].diagnostics.thresholds ||
-      { matchYes: 0.6, matchNo: 0.2, evidence: 0.7 };
+      { matchYes: 0.5, matchNo: 0.2, evidence: 0.7 };
     var inputTokens = 0;
     var outputTokens = 0;
     responses.forEach(function (event) {
@@ -190,8 +190,22 @@
       : "Waiting for saved judgments…";
   }
 
-  function refresh() {
-    chrome.storage.local.get([KEYS.objectives, KEYS.live]).then(render);
+  async function refresh() {
+    var values = await chrome.storage.local.get([KEYS.objectives, KEYS.live]);
+    var tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" });
+    var snapshots = await Promise.all(tabs.map(async function (tab) {
+      try {
+        var response = await chrome.tabs.sendMessage(tab.id, { type: "GET_STATS" });
+        return response && response.runtime ? { tabId: tab.id, runtime: response.runtime } : null;
+      } catch (_) { return null; }
+    }));
+    snapshots = snapshots.filter(Boolean);
+    if (snapshots.length) {
+      values[KEYS.live] = { savedAt: Date.now(), report: { profile: { mode: snapshots.map(function (s) { return "Tab " + s.tabId + ": " + s.runtime.mode; }).join(" · ") },
+        records: snapshots.flatMap(function (s) { return s.runtime.records; }), events: [] } };
+      values.automaticTabs = snapshots;
+    } else delete values[KEYS.live];
+    render(values);
   }
 
   $("refresh").addEventListener("click", refresh);
@@ -208,5 +222,6 @@
     if (area !== "local" || (!changes[KEYS.objectives] && !changes[KEYS.live])) return;
     refresh();
   });
-  refresh();
+  setInterval(function () { refresh().catch(function () {}); }, 5000);
+  refresh().catch(function () {});
 })();

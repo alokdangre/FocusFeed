@@ -2,7 +2,7 @@
   "use strict";
 
   var MAIN_FILES = ["page-gate.js", "interceptor.js"];
-  var ISOLATED_FILES = ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"];
+  var ISOLATED_FILES = ["workflow-core.js", "channel-policy.js", "settings.js", "live/engine.js", "live/provider.js", "auto-runtime.js", "youtube-ui.js", "content.js"];
 
   function isMissingReceiver(error) {
     var message = typeof error === "string" ? error : error && error.message || "";
@@ -19,6 +19,7 @@
       world: "MAIN",
       files: MAIN_FILES.slice(),
     });
+    if (chromeApi.scripting.insertCSS) await chromeApi.scripting.insertCSS({ target: { tabId: tabId }, files: ["youtube.css"] });
     await chromeApi.scripting.executeScript({
       target: { tabId: tabId },
       world: "ISOLATED",

@@ -321,6 +321,11 @@
     .connection-result.success { color: #72d69b; }
     .connection-result.error { color: #ef7777; }
 
+    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #76baff; outline-offset: 3px; }
+    button:disabled { cursor: default; opacity: .55; }
+    button:active { transform: scale(.98); }
+    [hidden] { display: none !important; }
+
     /* Tags */
     .tag-list {
       display: flex;
@@ -412,7 +417,7 @@
   <div class="header">
     <h1>FocusFeed</h1>
     <label class="toggle">
-      <input type="checkbox" id="enableToggle" checked>
+      <input type="checkbox" id="enableToggle" aria-label="Enable FocusFeed on YouTube" checked>
       <span class="toggle-slider"></span>
     </label>
   </div>
@@ -440,7 +445,7 @@
           </select>
         </div>
         <div>
-          <label class="field-label" for="sessionDuration">Session minutes</label>
+          <label class="field-label" for="sessionDuration">Focus minutes (0 = until ended)</label>
           <input class="text-field" type="number" id="sessionDuration" min="0" max="480" value="45">
         </div>
       </div>
@@ -453,13 +458,13 @@
 
       <div class="goal-actions">
         <button class="btn btn-primary" id="saveGoal">Validate &amp; save</button>
-        <button class="btn btn-secondary" id="toggleSession">Start session</button>
+        <button class="btn btn-secondary" id="toggleSession">Start Focus</button>
       </div>
 
       <div class="profile-feedback" id="profileFeedback" aria-live="polite"></div>
       <div class="profile-meta">
         <span id="profileVersion">Unsaved profile</span>
-        <span class="session-badge" id="sessionBadge">No active session</span>
+        <span class="session-badge" id="sessionBadge">General always on</span>
       </div>
     </div>
   </div>
@@ -467,7 +472,7 @@
   <div class="section">
     <div class="section-title">Confirmed channel blocks</div>
     <div class="tag-list" id="channelBlocks"></div>
-    <div class="field-hint">Suggestions appear only after at least three confident unwanted decisions across two sessions. Blocks use a channel ID or handle and can always be undone here.</div>
+    <div class="field-hint">Use Block channel in a YouTube video or channel menu. Blocks apply everywhere, including when the API is offline. Unblock here at any time.</div>
   </div>
 
   <div class="section">
@@ -480,9 +485,9 @@
       <button class="btn btn-primary" id="testClassification">Test Jev</button>
     </div>
     <button class="btn btn-secondary classifier-lab-button" id="openObservability">Open Jev observability</button>
-    <button class="btn btn-primary classifier-lab-button" id="openYouTubeSession">Open YouTube session</button>
+    <button class="btn btn-primary classifier-lab-button" id="openYouTubeSession">View current YouTube decisions</button>
     <button class="btn btn-secondary classifier-lab-button" id="clearGeneratedData">Clear cached data &amp; reports</button>
-    <div class="field-hint">The first 12 recommendations load as one bounded batch. The next batch appears only after you click Load 12 more at the end of the feed.</div>
+    <div class="field-hint">Saved General preferences apply on every YouTube visit. Focus temporarily overrides General. Videos are checked continuously as you browse; no session tab is needed.</div>
     <div class="connection-result" id="classifierResult" aria-live="polite"></div>
   </div>
 
@@ -490,6 +495,7 @@
     <span id="statusText" class="status-active">Active on YouTube</span>
   </div>
 
+  <script src="../settings.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -8,7 +8,7 @@ const extensionRoot = path.resolve(__dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, "manifest.json"), "utf8"));
 assert.ok(manifest.permissions.includes("scripting"), "live-session recovery requires bounded programmatic injection");
 const isolatedScriptGroup = manifest.content_scripts.find((entry) => entry.world === "ISOLATED");
-assert.deepEqual(isolatedScriptGroup.js, ["workflow-core.js", "channel-policy.js", "live/engine.js", "live/content.js", "content.js"]);
+assert.deepEqual(isolatedScriptGroup.js, ["workflow-core.js", "channel-policy.js", "settings.js", "live/engine.js", "live/provider.js", "auto-runtime.js", "youtube-ui.js", "content.js"]);
 
 const workflowHtml = fs.readFileSync(path.join(extensionRoot, "workflow", "workflow.html"), "utf8");
 const scriptOrder = [
@@ -42,13 +42,11 @@ assert.match(popupHtml, /id="saveGoal"/);
 assert.match(popupHtml, /id="taxonomyMapping"/);
 assert.match(popupJs, /OBJECTIVES_CLASSIFY_CLOUD/);
 assert.match(popupJs, /Save confirmed topics/);
-assert.match(popupJs, /activeProfile: prefs\.activeProfile/);
+assert.match(popupJs, /FF_SETTINGS_UPDATE/);
 assert.match(popupHtml, /id="channelBlocks"/);
 assert.doesNotMatch(popupHtml, /value="balanced"/);
 assert.match(popupHtml, /id="openYouTubeSession"/);
-assert.match(popupJs, /live\/live\.html/);
-assert.match(popupJs, /active:\s*false/, "the controller must open behind the active YouTube tab");
-assert.match(popupJs, /window\.close\(\)/, "the popup must return focus to YouTube after launch");
+assert.match(popupJs, /observability\/observability\.html/);
 assert.match(popupHtml, /id="openObservability"/);
 assert.match(popupJs, /observability\/observability\.html/);
 assert.match(popupHtml, /id="clearGeneratedData"/);
@@ -70,31 +68,14 @@ assert.deepEqual(manifest.content_scripts.find(entry => entry.world === "MAIN").
 const liveHtml = fs.readFileSync(path.join(extensionRoot, "live/live.html"), "utf8");
 const liveJs = fs.readFileSync(path.join(extensionRoot, "live/live.js"), "utf8");
 const liveEngine = fs.readFileSync(path.join(extensionRoot, "live/engine.js"), "utf8");
-const liveOrder = ["../workflow-core.js", "../channel-policy.js", "../workflow-scheduler.js", "engine.js", "provider.js", "bootstrap.js", "live.js"]
-  .map(script => liveHtml.indexOf(`src="${script}"`));
-assert.ok(liveOrder.every(index => index >= 0));
-assert.deepEqual(liveOrder, liveOrder.slice().sort((a,b) => a-b));
-assert.doesNotMatch(liveHtml, /workflow-cache\.js/);
-assert.doesNotMatch(liveJs, /FocusFeedAssessmentCache|cacheEntries/);
+assert.match(liveHtml, /Filtering now runs in YouTube/);
+assert.doesNotMatch(liveHtml, /src="live.js"/, "legacy session controller must not compete with automatic filtering");
 assert.doesNotMatch(liveEngine, /evaluateExplicitRules|cacheEntryStatus|\.cache\.put/);
 assert.match(liveEngine, /matchingBlock/);
-assert.match(liveJs, /predates the current taxonomy/);
-assert.match(liveHtml, /id="channelSuggestions"/);
-assert.doesNotMatch(liveHtml, /id="start"/, "the session must not require a manual Start action");
-assert.doesNotMatch(liveHtml, /id="apply"/, "AI hides must not require a separate apply control");
-assert.match(liveHtml, /id="retry"/, "failed automatic startup must remain retryable");
-assert.match(liveJs, /\n\s*start\(\);\n\}\)\(\);\s*$/, "the session must start automatically after loading");
-assert.doesNotMatch(liveHtml, /id="more"/, "Load more belongs on the YouTube page, not the session tab");
-assert.doesNotMatch(liveJs, /type:\s*"MODE"/, "the session must not expose preview/apply switching");
-const liveContent = fs.readFileSync(path.join(extensionRoot, "live/content.js"), "utf8");
-assert.doesNotMatch(liveContent, /focusfeed-live-panel|Apply AI hides|Preview only/,
-  "YouTube must not render the fixed lower action bar");
-assert.doesNotMatch(liveContent, /focusfeed-live-label|pending Jev judgment/,
-  "YouTube cards must not render internal filter diagnostics");
-assert.match(liveContent, /data-focusfeed-ai-pending/, "pending cards must remain hidden");
-assert.match(liveContent, /yt-navigate-finish/, "the Home filter must resume after SPA navigation");
-assert.doesNotMatch(liveContent, /type:\s*"NAVIGATED"/,
-  "SPA navigation must not terminate the controller session");
+assert.ok(isolatedScriptGroup.css.includes("youtube.css"));
+const runtime = fs.readFileSync(path.join(extensionRoot, "auto-runtime.js"), "utf8");
+assert.match(runtime, /FF_AUTO_CLASSIFY/);
+assert.doesNotMatch(isolatedScriptGroup.js.join(","), /live\/content.js/);
 
 const lifecycleHtml = fs.readFileSync(path.join(extensionRoot, "workflow", "lifecycle.html"), "utf8");
 const lifecycleScriptOrder = [

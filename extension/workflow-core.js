@@ -409,6 +409,7 @@
     normalizePreferences: normalizePreferences,
     evaluateExplicitRules: evaluateExplicitRules,
     assessmentOutcome: assessmentOutcome,
+    hasMinimumModelMetadata: hasMinimumModelMetadata,
     uncertaintyAction: uncertaintyAction,
     policyDecision: policyDecision,
     stableStringify: stableStringify,

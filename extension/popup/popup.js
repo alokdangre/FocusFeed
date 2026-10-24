@@ -59,10 +59,12 @@
     "focusfeedObjectiveValidationV1",
     "focusfeedLiveObservabilityV1",
     "focusFeedChannelEvidenceV1",
+    "focusfeedAutoObservabilityV1",
   ];
   var MAX_OBJECTIVE_LENGTH = 160;
   var TAXONOMY_VERSION = "focusfeed-topics-v1";
 
+  var settings = null;
   var prefs = Object.assign({}, DEFAULTS);
   var draftObjectives = [];
   var pendingMapping = null;
@@ -119,36 +121,39 @@
       version: objectives.length ? Number(source.version) || 0 : 0,
       mode: mode,
       objectives: objectives,
-      sessionDurationMinutes: Number(source.sessionDurationMinutes) || 45,
+      sessionDurationMinutes: Number.isFinite(Number(source.sessionDurationMinutes)) && source.sessionDurationMinutes !== undefined ? Number(source.sessionDurationMinutes) : 45,
       updatedAt: source.updatedAt || null,
     };
   }
 
-  function loadPrefs() {
-    chrome.storage.local.get(DEFAULTS, function (result) {
+  async function settingsAction(action) {
+    var response = await chrome.runtime.sendMessage({ type: "FF_SETTINGS_UPDATE", action: action });
+    if (!response || !response.ok) throw new Error(response && response.error && response.error.message || "Could not save settings");
+    settings = response.data;
+    prefs.enabled = settings.enabled;
+    prefs.focusSession = settings.focusSession;
+    renderSession(); updateStatus();
+    return settings;
+  }
+  async function loadPrefs() {
+    try {
+      var result = await chrome.storage.local.get(DEFAULTS);
+      var response = await chrome.runtime.sendMessage({ type: "FF_SETTINGS_GET" });
+      if (!response || !response.ok) throw new Error("Could not load saved settings");
+      settings = response.data;
       prefs = Object.assign({}, DEFAULTS, result);
-      prefs.classifierProvider = "typesafe";
-      prefs.activeProfile = migrateProfile(result.activeProfile);
-      prefs.focusSession = Object.assign({}, DEFAULT_SESSION, result.focusSession || {});
+      prefs.enabled = settings.enabled;
+      prefs.activeProfile = migrateProfile(FocusFeedSettings.effective(settings));
+      prefs.focusSession = settings.focusSession;
       ui.enableToggle.checked = prefs.enabled;
       ui.classifierEndpoint.value = prefs.classifierEndpoint || DEFAULTS.classifierEndpoint;
-      renderProfile();
-      renderSession();
-      renderChannelBlocks();
-      updateStatus();
-      chrome.storage.local.set({
-        classifierProvider: "typesafe",
-        activeProfile: prefs.activeProfile,
-      });
-    });
-  }
-
-  function savePrefs() {
-    chrome.storage.local.set(prefs);
+      renderProfile(); renderSession(); renderChannelBlocks(); updateStatus();
+    } catch (error) { setProfileFeedback(error.message, true); }
   }
 
   function renderModeCopy() {
     var focus = ui.filterMode.value === "focus";
+    ui.sessionDuration.parentElement.hidden = !focus;
     ui.objectiveLabel.textContent = focus ? "Things to watch only" : "Things to avoid";
     ui.objectiveInput.placeholder = focus
       ? "DSA tutorials, system design interviews"
@@ -205,12 +210,12 @@
       remove.setAttribute("aria-label", "Unblock " + (block.channelLabel || block.channelId));
       remove.textContent = "×";
       remove.addEventListener("click", function () {
-        prefs.focusFeedChannelBlocksV1 = blocks.filter(function (item) {
-          return item.id !== block.id;
-        });
-        chrome.storage.local.set({ focusFeedChannelBlocksV1: prefs.focusFeedChannelBlocksV1 }, function () {
+        chrome.runtime.sendMessage({ type: "FF_BLOCK_REMOVE", id: block.id }).then(async function (response) {
+          if (!response || !response.ok) throw new Error("Could not unblock channel");
+          var saved = await chrome.storage.local.get({ focusFeedChannelBlocksV1: [] });
+          prefs.focusFeedChannelBlocksV1 = saved.focusFeedChannelBlocksV1;
           renderChannelBlocks();
-        });
+        }).catch(function (error) { setProfileFeedback(error.message, true); });
       });
       tag.appendChild(remove);
       ui.channelBlocks.appendChild(tag);
@@ -341,29 +346,33 @@
       nextProfile.version = (prefs.activeProfile.version || 0) + 1;
       nextProfile.updatedAt = new Date().toISOString();
     }
-    prefs.activeProfile = nextProfile;
-    draftObjectives = texts.slice();
-    chrome.storage.local.set({ activeProfile: nextProfile }, function () {
-      if (chrome.runtime.lastError) {
-        setProfileFeedback("Could not save the confirmed topic intent.", true);
-        return;
-      }
-      resetPendingMapping();
-      renderProfile();
-      setProfileFeedback(
-        "Saved " + nextProfile.objectives.length + " confirmed taxonomy topic" +
-        (nextProfile.objectives.length === 1 ? "" : "s") + ".",
-        false
-      );
+    settingsAction({ type: "saveProfile", profile: nextProfile }).then(function () {
+      prefs.activeProfile = settings[mode];
+      draftObjectives = texts.slice();
+      resetPendingMapping(); renderProfile();
+      setProfileFeedback(mode === "general" ? "General preferences saved and applied automatically." : "Focus topics saved. Start Focus when ready.", false);
       if (callback) callback();
-    });
+    }).catch(function (error) { setProfileFeedback(error.message, true); });
   }
 
   function saveEndpoint(callback) {
-    var value = ui.classifierEndpoint.value.trim().replace(/\/+$/, "");
-    if (!value) value = DEFAULTS.classifierEndpoint;
-    prefs.classifierEndpoint = value;
-    chrome.storage.local.set({ classifierEndpoint: value }, callback);
+    function fail(message) {
+      ui.saveGoal.disabled = false; ui.toggleSession.disabled = false;
+      setClassifierResult(message, "error");
+      setProfileFeedback(message, true);
+    }
+    var value = ui.classifierEndpoint.value.trim().replace(/\/+$/, "") || DEFAULTS.classifierEndpoint;
+    var url;
+    try {
+      url = new URL(value);
+      if (url.username || url.password || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) throw new Error();
+    } catch (_) { fail("Use HTTPS, or HTTP on localhost, without embedded credentials."); return; }
+    function save() { prefs.classifierEndpoint = value; chrome.storage.local.set({ classifierEndpoint: value }, callback); }
+    if (url.protocol === "https:") {
+      chrome.permissions.request({ origins: [url.origin + "/*"] }, function (granted) {
+        if (granted) save(); else fail("Endpoint access was not granted.");
+      });
+    } else save();
   }
 
   function saveActiveProfile(callback) {
@@ -389,6 +398,16 @@
       return;
     }
 
+    if (!pendingMapping && settings && FocusFeedSettings.valid(settings[mode]) &&
+        texts.join(", ") === draftObjectives.join(", ")) {
+      var saved = Object.assign({}, settings[mode], { sessionDurationMinutes: Math.min(480, Math.max(0, Number(ui.sessionDuration.value) || 0)) });
+      settingsAction({ type: "saveProfile", profile: saved }).then(function () {
+        prefs.activeProfile = settings[mode]; renderProfile();
+        setProfileFeedback(mode === "general" ? "General preferences applied automatically." : "Focus preferences saved.", false);
+        if (callback) callback();
+      }).catch(function (error) { setProfileFeedback(error.message, true); });
+      return;
+    }
     var fingerprint = draftFingerprint(mode, texts);
     if (pendingMapping && pendingMapping.fingerprint === fingerprint) {
       saveConfirmedProfile(mode, texts, callback);
@@ -443,47 +462,25 @@
   }
 
   function renderSession() {
-    var session = prefs.focusSession;
-    var remaining = remainingSessionMinutes(session);
-    if (session.active && remaining === 0) {
-      prefs.focusSession = Object.assign({}, DEFAULT_SESSION);
-      chrome.storage.local.set({ focusSession: prefs.focusSession });
-      session = prefs.focusSession;
-    }
-    if (session.active) {
-      ui.toggleSession.textContent = "End session";
-      ui.toggleSession.className = "btn btn-session-active";
-      ui.sessionBadge.textContent = remaining === null ? "Session active" : remaining + " min left";
-      ui.sessionBadge.className = "session-badge active";
-    } else {
-      ui.toggleSession.textContent = "Start session";
-      ui.toggleSession.className = "btn btn-secondary";
-      ui.sessionBadge.textContent = "No active session";
-      ui.sessionBadge.className = "session-badge";
-    }
+    if (!settings) return;
+    var active = FocusFeedSettings.focusActive(settings);
+    var editingFocus = ui.filterMode.value === "focus";
+    ui.toggleSession.hidden = !editingFocus && !active;
+    ui.toggleSession.textContent = active ? "End Focus" : "Start Focus";
+    ui.toggleSession.className = active ? "btn btn-session-active" : "btn btn-secondary";
+    var remaining = remainingSessionMinutes(settings.focusSession);
+    ui.sessionBadge.textContent = !settings.enabled ? "Paused" : active ?
+      "Focus active" + (remaining !== null ? " · " + remaining + " min" : "") : "General always on";
+    ui.sessionBadge.className = "session-badge" + (settings.enabled ? " active" : "");
   }
-
   function startSession() {
-    var duration = prefs.activeProfile.sessionDurationMinutes || 0;
-    var startedAt = new Date();
-    prefs.focusSession = {
-      active: true,
-      startedAt: startedAt.toISOString(),
-      endsAt: duration > 0 ? new Date(startedAt.getTime() + duration * 60000).toISOString() : null,
-      profileVersion: prefs.activeProfile.version,
-    };
-    chrome.storage.local.set({ focusSession: prefs.focusSession }, function () {
-      renderSession();
-      setProfileFeedback("Session started with the confirmed " + prefs.activeProfile.mode + " topic intent.", false);
-    });
+    settingsAction({ type: "startFocus" }).catch(function (error) { setProfileFeedback(error.message, true); });
   }
-
   function endSession() {
-    prefs.focusSession = Object.assign({}, DEFAULT_SESSION);
-    chrome.storage.local.set({ focusSession: prefs.focusSession }, function () {
-      renderSession();
-      setProfileFeedback("Session ended.", false);
-    });
+    settingsAction({ type: "endFocus" }).then(function () {
+      prefs.activeProfile = migrateProfile(settings.general); renderProfile(); renderSession();
+      setProfileFeedback("Focus ended. General preferences are active.", false);
+    }).catch(function (error) { setProfileFeedback(error.message, true); });
   }
 
   function runHealthCheck() {
@@ -576,7 +573,7 @@
 
   function updateStatus() {
     if (prefs.enabled) {
-      ui.statusText.textContent = "Active on YouTube";
+      ui.statusText.textContent = "General applies automatically on YouTube";
       ui.statusText.className = "status-active";
     } else {
       ui.statusText.textContent = "Filtering disabled";
@@ -591,18 +588,20 @@
         if (chrome.runtime.lastError || !response) return;
         ui.totalCount.textContent = response.total || 0;
         ui.trackedCount.textContent = response.trackedVideos || 0;
+        if (response.runtime) ui.statusText.textContent = response.runtime.status;
       });
     });
   }
 
   ui.filterMode.addEventListener("change", function () {
     resetPendingMapping();
-    renderModeCopy();
+    if (settings) prefs.activeProfile = migrateProfile(settings[ui.filterMode.value]);
+    renderProfile(); renderSession();
   });
   ui.objectiveInput.addEventListener("input", resetPendingMapping);
   ui.saveGoal.addEventListener("click", function () { saveActiveProfile(); });
   ui.toggleSession.addEventListener("click", function () {
-    if (prefs.focusSession.active) endSession();
+    if (settings && FocusFeedSettings.focusActive(settings)) endSession();
     else saveActiveProfile(startSession);
   });
   ui.checkClassifier.addEventListener("click", function () { saveEndpoint(runHealthCheck); });
@@ -615,33 +614,23 @@
         setClassifierResult("Could not clear generated data: " + chrome.runtime.lastError.message, "error");
         return;
       }
+      chrome.tabs.query({ url: "*://*.youtube.com/*" }).then(function (tabs) {
+        tabs.forEach(function (tab) { chrome.tabs.sendMessage(tab.id, { type: "FF_RESET_RUNTIME" }).catch(function () {}); });
+      });
       setClassifierResult("Cleared every assessment cache, report, observability snapshot, and learned channel-evidence tally. Your intent and confirmed channel blocks were kept.", "success");
     });
   });
   $("openObservability").addEventListener("click", function () {
     chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") });
   });
-  $("openYouTubeSession").addEventListener("click", async function () {
-    var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    var tab = tabs[0];
-    var url;
-    try { url = new URL(tab && tab.url); } catch (_error) {}
-    if (!url || !/(^|\.)youtube\.com$/.test(url.hostname) || url.pathname !== "/") {
-      setClassifierResult("Open YouTube Home first, then open the session here.", "error");
-      return;
-    }
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL("live/live.html") + "?tab=" + tab.id,
-      active: false,
-    });
-    window.close();
+  $("openYouTubeSession").addEventListener("click", function () {
+    chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") });
   });
-
   ui.enableToggle.addEventListener("change", function () {
-    prefs.enabled = ui.enableToggle.checked;
-    savePrefs();
-    updateStatus();
+    settingsAction({ type: "setEnabled", enabled: ui.enableToggle.checked })
+      .catch(function (error) { setProfileFeedback(error.message, true); });
   });
+  setInterval(function () { renderSession(); fetchStats(); }, 5000);
   loadPrefs();
   fetchStats();
 })();

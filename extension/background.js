@@ -2,6 +2,8 @@
 
 "use strict";
 
+if (typeof importScripts === "function") importScripts("settings.js", "channel-policy.js", "request-broker.js");
+
 var DEFAULT_CLASSIFIER_ENDPOINT = "http://127.0.0.1:3000";
 var HEALTH_TIMEOUT_MS = 8000;
 var CLASSIFY_TIMEOUT_MS = 25000;
@@ -209,3 +211,73 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   });
   return true;
 });
+
+// Serialize read-modify-write operations so simultaneous tabs cannot lose a block.
+var policyWrite = Promise.resolve();
+function withPolicyWrite(operation) {
+  var result = policyWrite.then(operation);
+  policyWrite = result.catch(function () {});
+  return result;
+}
+async function readSettings() {
+  var prefs = await chrome.storage.local.get(null);
+  var state = FocusFeedSettings.migrate(prefs);
+  if (!prefs[FocusFeedSettings.KEY]) await chrome.storage.local.set({ focusfeedSettingsV2: state });
+  return state;
+}
+function trustedYouTube(sender) {
+  try { return !!sender.tab && /(^|\.)youtube\.com$/.test(new URL(sender.url).hostname); }
+  catch (_) { return false; }
+}
+var autoBroker = typeof FocusFeedRequestBroker !== "undefined"
+  ? FocusFeedRequestBroker.create(classify) : null;
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (!message || !/^(FF_SETTINGS_GET|FF_SETTINGS_UPDATE|FF_BLOCK_ADD|FF_BLOCK_REMOVE|FF_AUTO_CLASSIFY|FF_AUTO_CANCEL)$/.test(message.type)) return false;
+  var internal = sender && sender.url && sender.url.indexOf(chrome.runtime.getURL("")) === 0;
+  if (!internal && !trustedYouTube(sender)) return false;
+  var operation;
+  if (message.type === "FF_SETTINGS_GET") operation = withPolicyWrite(readSettings);
+  if (message.type === "FF_SETTINGS_UPDATE") operation = withPolicyWrite(async function () {
+    var next = FocusFeedSettings.update(await readSettings(), message.action);
+    await chrome.storage.local.set({ focusfeedSettingsV2: next, enabled: next.enabled,
+      activeProfile: FocusFeedSettings.effective(next), focusSession: next.focusSession });
+    return next;
+  });
+  if (message.type === "FF_BLOCK_ADD" || message.type === "FF_BLOCK_REMOVE") operation = withPolicyWrite(async function () {
+    var prefs = await chrome.storage.local.get({ focusFeedChannelBlocksV1: [] });
+    var blocks = prefs.focusFeedChannelBlocksV1;
+    if (message.type === "FF_BLOCK_REMOVE") blocks = blocks.filter(function (b) { return b.id !== message.id; });
+    else {
+      var candidate = message.channel || {};
+      if (!FocusFeedChannelPolicy.normalizeChannelId(candidate.channelId)) throw new Error("Channel identity is unavailable.");
+      var block = FocusFeedChannelPolicy.createBlock(candidate, message.scope || "global");
+      block.aliases = (candidate.aliases || []).map(FocusFeedChannelPolicy.normalizeChannelId).filter(Boolean);
+      var existing = blocks.find(function (b) { return b.scope === block.scope && b.channelId === block.channelId &&
+        (b.scope === "global" || (b.mode === block.mode && JSON.stringify(b.taxonomyIds) === JSON.stringify(block.taxonomyIds))); });
+      if (existing) return { block: existing, created: false };
+      blocks.push(block);
+      await chrome.storage.local.set({ focusFeedChannelBlocksV1: blocks });
+      return { block: block, created: true };
+    }
+    await chrome.storage.local.set({ focusFeedChannelBlocksV1: blocks });
+    return { removed: true };
+  });
+  if (message.type === "FF_AUTO_CANCEL") {
+    if (trustedYouTube(sender)) autoBroker.cancel(sender.tab.id, message.requestId);
+    sendResponse({ ok: true }); return false;
+  }
+  if (message.type === "FF_AUTO_CLASSIFY") {
+    if (!trustedYouTube(sender)) return false;
+    operation = (async function () {
+      var state = await withPolicyWrite(readSettings);
+      if (!state.enabled || state.revision !== message.revision) throw new Error("Settings changed.");
+      var profile = FocusFeedSettings.effective(state);
+      if (!FocusFeedSettings.valid(profile)) throw new Error("Save confirmed topics first.");
+      return autoBroker.submit(sender.tab.id, Object.assign({}, message.request, { profile: { id: profile.id, version: profile.version, mode: profile.mode, objectives: profile.objectives } }));
+    })();
+  }
+  Promise.resolve(operation).then(function (data) { sendResponse({ ok: true, data: data }); })
+    .catch(function (error) { sendResponse({ ok: false, error: serializeError(error) }); });
+  return true;
+});
+if (chrome.tabs && chrome.tabs.onRemoved) chrome.tabs.onRemoved.addListener(function (id) { autoBroker.cancel(id); });

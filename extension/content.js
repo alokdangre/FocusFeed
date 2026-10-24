@@ -17,6 +17,8 @@
     focusSession: true,
     classifierProvider: true,
     classifierEndpoint: true,
+    focusfeedSettingsV2: true,
+    focusFeedChannelBlocksV1: true,
   };
 
   // --- Load preferences ---
@@ -241,6 +243,11 @@
 
   function processInterceptedData(data) {
     var videos = extractVideoRenderers(data);
+    if (data && data.videoDetails) {
+      var d = data.videoDetails;
+      videos.push({ videoId: d.videoId, title: d.title, channel: d.author, channelId: d.channelId,
+        description: d.shortDescription || "", duration: "", isLive: d.isLiveContent === true });
+    }
     feedItemsReceived += videos.length;
 
     for (var i = 0; i < videos.length; i++) {
@@ -265,6 +272,8 @@
       "Total tracked: " + Object.keys(videoDataMap).length
     );
 
+    var trackedIds = Object.keys(videoDataMap);
+    trackedIds.slice(0, Math.max(0, trackedIds.length - 1500)).forEach(function (id) { delete videoDataMap[id]; });
     scanCards();
     updateBadge();
   }
@@ -272,6 +281,10 @@
   // --- DOM manipulation ---
   var CARD_SELECTORS = [
     "ytd-rich-item-renderer",
+    "ytd-playlist-video-renderer",
+    "ytd-playlist-panel-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-channel-renderer",
     "yt-lockup-view-model",
     "ytd-compact-video-renderer",
     "ytd-video-renderer",
@@ -386,12 +399,13 @@
 
   function scanCards() {
     removeLegacyFormatCss();
-    if (!enabled) return;
-
     var cards = document.querySelectorAll(CARD_SELECTORS);
     for (var i = 0; i < cards.length; i++) {
       processCard(cards[i]);
     }
+    var playing = youtubeUI.currentVideo();
+    if (playing && liveFeed) liveFeed.observe(playing.card, playing.video);
+    youtubeUI.decorate();
   }
 
   function clearRetiredDecision(card) {
@@ -401,12 +415,7 @@
     showCard(card);
   }
 
-  function processCard(card) {
-    if (!enabled) {
-      showCard(card);
-      return;
-    }
-
+  function extractCardMetadata(card) {
     // Skip yt-lockup-view-model inside ytd-rich-item-renderer — parent handles it
     if (card.tagName === "YT-LOCKUP-VIEW-MODEL" &&
         card.closest("ytd-rich-item-renderer")) {
@@ -430,9 +439,8 @@
         isLive: apiVideo.isLive === true || !!card.querySelector("[overlay-style='LIVE']"),
         isPremiere: apiVideo.isPremiere === true || !!card.querySelector("[overlay-style='UPCOMING']"),
       });
-      clearRetiredDecision(card);
-      if (liveFeed) liveFeed.observe(card, video);
-      return;
+      video.aliases = [apiVideo.channelId, extractChannelIdentityFromCard(card)].filter(Boolean);
+      return video;
     }
 
     // DOM fallback path. Build the same video shape for Jev.
@@ -453,8 +461,18 @@
       isLive: !!card.querySelector("[overlay-style='LIVE']"),
       isPremiere: !!card.querySelector("[overlay-style='UPCOMING']"),
     };
+    var channelPage = /^\/(?:@|channel\/)/.test(location.pathname);
+    if (!fallbackVideo.channelId && channelPage) fallbackVideo.channelId = FocusFeedChannelPolicy.normalizeChannelId(location.pathname);
+    if (!fallbackVideo.channelId && card.tagName === "YTD-CHANNEL-RENDERER") fallbackVideo.channelId = extractChannelIdentityFromCard(card);
+    fallbackVideo.aliases = [fallbackVideo.channelId].filter(Boolean);
+    return fallbackVideo;
+  }
+
+  function processCard(card) {
+    var video = extractCardMetadata(card);
+    if (!video) return;
     clearRetiredDecision(card);
-    if (liveFeed) liveFeed.observe(card, fallbackVideo);
+    if (liveFeed) liveFeed.observe(card, video);
   }
 
   function isCardAShort(card) {
@@ -576,6 +594,10 @@
 
   // --- Listen for messages from popup ---
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg.type === "FF_RESET_RUNTIME") {
+      if (liveFeed) liveFeed.reload();
+      sendResponse({ ok: true });
+    }
     if (msg.type === "GET_STATS") {
       sendResponse({
         hidden: 0,
@@ -586,27 +608,33 @@
         profileVersion: activeProfile && activeProfile.version || null,
         mode: activeProfile && activeProfile.mode || "focus",
         sessionActive: !!(focusSession && focusSession.active),
+        runtime: liveFeed && liveFeed.snapshot(),
       });
     }
   });
 
   // --- Init ---
-  liveFeed = FocusFeedLiveContent.create({ scan: scanCards });
-  var liveScanTimer = null;
-  var metadataObserver = new MutationObserver(function (mutations) {
-    if (!document.documentElement.dataset.focusfeedSession) return;
-    if (!mutations.some(function (mutation) {
-      var node = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
-      return Boolean(node);
-    })) return;
-    clearTimeout(liveScanTimer);
-    liveScanTimer = setTimeout(scanCards, 150);
-  });
-  metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["href", "title"] });
-  loadPreferences().then(function () {
-    observeFeed();
-    setTimeout(scanCards, 1500);
-    setTimeout(scanCards, 4000);
+  var youtubeUI = FocusFeedYouTubeUI.create({ lookup: function (id) { return videoDataMap[id]; }, extract: extractCardMetadata });
+  liveFeed = FocusFeedAutoRuntime.create({ scan: scanCards, render: youtubeUI.render, clear: youtubeUI.clear });
+  youtubeUI.setRuntime(liveFeed);
+  var scanTimer = null;
+  function requestScan() {
+    if (!scanTimer) scanTimer = setTimeout(function () { scanTimer = null; scanCards(); }, 100);
+  }
+  var metadataObserver = new MutationObserver(requestScan);
+  metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true,
+    attributes: true, attributeFilter: ["href", "title", "is-active", "video-id", "hidden"] });
+  window.addEventListener("yt-navigate-start", function () { liveFeed.navigate(true); });
+  window.addEventListener("yt-navigate-finish", function () { liveFeed.navigate(false); requestScan(); });
+  window.addEventListener("popstate", function () { liveFeed.navigate(false); requestScan(); });
+  window.addEventListener("scroll", requestScan, { passive: true });
+  window.addEventListener("resize", requestScan, { passive: true });
+  window.addEventListener("pagehide", function () { liveFeed.navigate(true); });
+  window.addEventListener("pageshow", function () { liveFeed.navigate(false); });
+  // Also handles expired Focus sessions, autoplay and recycled list items.
+  setInterval(function () { liveFeed.tick(); }, 2000);
+  loadPreferences().then(function () { return liveFeed.reload(); }).catch(function (error) {
+    console.warn("[FocusFeed] Could not load settings", error.message);
   });
 
   // --- Diagnostic ---

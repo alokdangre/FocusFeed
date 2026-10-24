@@ -7,11 +7,29 @@ from typing import Any
 from pydantic import ValidationError
 
 try:
-    from .classifier import DEFAULT_MODEL_ID, PROMPT_VERSION, classify_videos
-    from .models import ClassificationRequest
+    from .classifier import (
+        TypeSafeAPIError,
+        TypeSafeConfigurationError,
+        TypeSafeResponseError,
+        classifier_version,
+        classify_objectives,
+        classify_videos,
+        configured_model,
+    )
+    from .models import ClassificationRequest, ObjectiveClassificationRequest
+    from .taxonomy import TAXONOMY_VERSION
 except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
-    from classifier import DEFAULT_MODEL_ID, PROMPT_VERSION, classify_videos  # type: ignore[no-redef]
-    from models import ClassificationRequest  # type: ignore[no-redef]
+    from classifier import (  # type: ignore[no-redef]
+        TypeSafeAPIError,
+        TypeSafeConfigurationError,
+        TypeSafeResponseError,
+        classifier_version,
+        classify_objectives,
+        classify_videos,
+        configured_model,
+    )
+    from models import ClassificationRequest, ObjectiveClassificationRequest  # type: ignore[no-redef]
+    from taxonomy import TAXONOMY_VERSION  # type: ignore[no-redef]
 
 
 logger = logging.getLogger(__name__)
@@ -21,53 +39,43 @@ MAX_BODY_BYTES = 32_000
 
 
 def classifier_failure(exc: Exception) -> tuple[str, str]:
-    error_response = getattr(exc, "response", {})
-    aws_error = error_response.get("Error", {}) if isinstance(error_response, dict) else {}
-    aws_code = aws_error.get("Code", "") if isinstance(aws_error, dict) else ""
-    error_name = type(exc).__name__
-    error_text = str(exc).lower()
-
-    if aws_code == "ValidationException" and "model identifier is invalid" in error_text:
-        model_id = os.getenv("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID)
-        region = os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1"))
+    if isinstance(exc, TypeSafeConfigurationError):
+        return "typesafe_configuration_error", str(exc)
+    if isinstance(exc, TypeSafeAPIError):
+        if exc.status_code == 401:
+            return (
+                "typesafe_authentication_failed",
+                "TypeSafe rejected the server API key. Check TYPESAFE_API_KEY and restart the API.",
+            )
+        if exc.status_code == 422:
+            return (
+                "typesafe_request_rejected",
+                "TypeSafe rejected the Jev request contract. Check the backend log for details.",
+            )
+        if exc.status_code == 429:
+            return (
+                "typesafe_rate_limited",
+                "TypeSafe rate-limited this request. Wait briefly before explicitly trying again.",
+            )
+        if exc.status_code == 529:
+            return (
+                "typesafe_overloaded",
+                "TypeSafe is temporarily overloaded. No automatic filtering decision was applied.",
+            )
+        if exc.status_code == 0:
+            return (
+                "typesafe_unreachable",
+                "The backend could not reach the TypeSafe API. Check its network connection.",
+            )
         return (
-            "invalid_model_configuration",
-            f"Bedrock rejected model '{model_id}' in region '{region}'. "
-            "Use a compatible model and region, then restart the API.",
+            "typesafe_api_error",
+            f"TypeSafe returned HTTP {exc.status_code}. Check the backend log for details.",
         )
-
-    if aws_code == "ValidationException" and "operation not allowed" in error_text:
+    if isinstance(exc, TypeSafeResponseError):
         return (
-            "bedrock_account_restricted",
-            "Amazon Bedrock rejected model invocation for this AWS account. "
-            "If the us-east-1 playground shows the same error, contact AWS Account and Billing support.",
+            "typesafe_invalid_response",
+            "TypeSafe returned an invalid response. No automatic filtering decision was applied.",
         )
-
-    if error_name in {"NoCredentialsError", "PartialCredentialsError", "ProfileNotFound"}:
-        return (
-            "aws_credentials_missing",
-            "AWS credentials were not found. Check AWS_PROFILE and your AWS CLI configuration, then restart the API.",
-        )
-
-    if aws_code in {
-        "AccessDenied",
-        "AccessDeniedException",
-        "UnauthorizedException",
-        "UnrecognizedClientException",
-        "InvalidClientTokenId",
-        "ExpiredTokenException",
-    }:
-        return (
-            "bedrock_access_denied",
-            "AWS rejected the Bedrock request. Check the profile credentials and bedrock:InvokeModel permission.",
-        )
-
-    if error_name in {"EndpointConnectionError", "ConnectTimeoutError", "ReadTimeoutError"}:
-        return (
-            "aws_endpoint_unreachable",
-            "The backend could not reach Amazon Bedrock. Check the configured region and network connection.",
-        )
-
     return (
         "classification_unavailable",
         "The classifier is temporarily unavailable. Check the backend terminal for details.",
@@ -107,6 +115,13 @@ def event_body(event: dict[str, Any]) -> bytes:
     return raw.encode("utf-8")
 
 
+def validated_request(event: dict[str, Any], model: type) -> Any:
+    body = event_body(event)
+    if len(body) > MAX_BODY_BYTES:
+        raise OverflowError
+    return model.model_validate(json.loads(body))
+
+
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     method = event_method(event)
     path = event_path(event)
@@ -115,33 +130,43 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         return response(204, {})
 
     if method == "GET" and path.endswith("/health"):
+        try:
+            model = configured_model()
+        except TypeSafeConfigurationError as exc:
+            return response(
+                503,
+                {"error": {"code": "typesafe_configuration_error", "message": str(exc)}},
+            )
         return response(
             200,
             {
                 "status": "ok",
                 "service": "focusfeed-classifier",
-                "provider": "amazon-bedrock",
-                "model": os.getenv("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID),
-                "region": os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1")),
-                "promptVersion": PROMPT_VERSION,
+                "provider": "typesafe-jev",
+                "model": model,
+                "promptVersion": classifier_version("video"),
+                "objectivePromptVersion": classifier_version("objective"),
+                "taxonomyVersion": TAXONOMY_VERSION,
+                "configured": bool(os.getenv("TYPESAFE_API_KEY", "").strip()),
             },
         )
 
-    if method != "POST" or not path.endswith("/classify"):
+    request_model: type
+    classify: Any
+    if method == "POST" and path.endswith("/objectives/classify"):
+        request_model = ObjectiveClassificationRequest
+        classify = classify_objectives
+    elif method == "POST" and path.endswith("/classify"):
+        request_model = ClassificationRequest
+        classify = classify_videos
+    else:
         return response(404, {"error": {"code": "not_found", "message": "Route not found."}})
 
     try:
-        body = event_body(event)
-    except (ValueError, TypeError):
-        return response(400, {"error": {"code": "invalid_body", "message": "Request body is invalid."}})
-
-    if len(body) > MAX_BODY_BYTES:
+        request = validated_request(event, request_model)
+    except OverflowError:
         return response(413, {"error": {"code": "body_too_large", "message": "Request body is too large."}})
-
-    try:
-        payload = json.loads(body)
-        request = ClassificationRequest.model_validate(payload)
-    except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
+    except (ValueError, TypeError, json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
         details = exc.errors(include_input=False, include_url=False) if isinstance(exc, ValidationError) else []
         return response(
             400,
@@ -155,18 +180,17 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         )
 
     try:
-        result = classify_videos(request)
+        result = classify(request)
     except Exception as exc:
-        logger.exception("Bedrock classification failed", extra={"request_id": request.request_id})
+        if isinstance(exc, (TypeSafeAPIError, TypeSafeConfigurationError, TypeSafeResponseError)):
+            logger.warning(
+                "TypeSafe Jev classification failed: %s",
+                exc,
+                extra={"request_id": request.request_id},
+            )
+        else:
+            logger.exception("TypeSafe Jev classification failed", extra={"request_id": request.request_id})
         error_code, error_message = classifier_failure(exc)
-        return response(
-            502,
-            {
-                "error": {
-                    "code": error_code,
-                    "message": error_message,
-                }
-            },
-        )
+        return response(502, {"error": {"code": error_code, "message": error_message}})
 
     return response(200, result.model_dump(by_alias=True))

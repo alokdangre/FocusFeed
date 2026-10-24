@@ -1,15 +1,27 @@
-# FocusFeed classifier backend
+# FocusFeed TypeSafe Jev backend
 
-This service validates video batches and classifies them with Strands Agents SDK and Amazon Bedrock. AWS credentials remain outside the browser extension.
+The backend exposes a small server-side adapter for TypeSafe System One. It maps user intent to a versioned topic taxonomy, then classifies YouTube metadata against the user-confirmed topics. `TYPESAFE_API_KEY` stays on the server and is never stored in the extension.
+
+## Current Jev design
+
+Intent mapping uses one independent `Noul` per taxonomy topic plus one understood `Noul` per entry:
+
+- multiple topics can be suggested for the same entry and no topic is forced;
+- topics at or above `0.60` are preselected suggestions;
+- the popup shows all topic scores and requires the user to confirm or edit the mapping before saving;
+- the taxonomy ID and `focusfeed-topics-v1` version are stored in the profile.
+
+Video classification uses one diagnostic evidence Noul per video and one direct match Noul per video/topic pair. The match question explicitly compares title, description, and channel with the canonical topic definition, inclusions, and exclusions. Application code computes:
+
+- match: any direct topic match >= 0.50;
+- no match: all direct topic matches <= 0.20;
+- uncertain: otherwise.
+
+The evidence Noul remains observable but is not a decision gate.
+
+The backend returns raw probabilities and diagnostics. The extension owns the final General/Focus action.
 
 ## Local setup
-
-Install AWS CLI v2 if `aws --version` is not available. On Linux/WSL, AWS's user-local installer does not require `sudo`:
-
-```bash
-curl -fsSL https://awscli.amazonaws.com/v2/install.sh | bash
-aws --version
-```
 
 From the repository root:
 
@@ -19,67 +31,109 @@ backend/.venv/bin/pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` and set `AWS_PROFILE` to the AWS CLI profile you want to use. The example deliberately contains no access key or secret. Configure credentials through the AWS CLI instead:
-
-```bash
-aws configure --profile focusfeed
-```
-
-If your AWS account uses IAM Identity Center, use `aws configure sso --profile focusfeed` followed by `aws sso login --profile focusfeed` instead. The profile needs permission to invoke the selected Bedrock model. Never put AWS credentials in the extension.
-
-Confirm that the profile works before starting FocusFeed:
-
-```bash
-aws sts get-caller-identity --profile focusfeed
-```
-
-The IAM user or role behind that profile must also allow `bedrock:InvokeModel` for the Nova Micro inference profile and its US destination models. A least-privilege example is available at `backend/iam/focusfeed-bedrock-invoke-policy.example.json`. Replace `<ACCOUNT_ID>` with your AWS account ID and have an AWS administrator attach it to the local development identity. The Lambda deployment gets its own execution-role permission from `template.yaml`.
-
-The defaults are:
+Edit `backend/.env`:
 
 ```text
-BEDROCK_REGION=us-east-1
-BEDROCK_MODEL_ID=us.amazon.nova-micro-v1:0
+TYPESAFE_API_KEY=...
+TYPESAFE_MODEL=jev-1.13.0
+TYPESAFE_TIMEOUT_SECONDS=20
 ```
 
-The `us.` inference profile must be called from a supported US source region. Keep `BEDROCK_REGION=us-east-1` for this default model profile. Changing only the AWS CLI profile's default region does not override `BEDROCK_REGION` in this service.
-
-Run the lightweight local adapter. The launcher reads `backend/.env` before starting Python:
+Start the API:
 
 ```bash
 bash backend/run_local.sh
 ```
 
-The health endpoint is `http://127.0.0.1:3000/health`. Health checks do not invoke Bedrock or validate AWS credentials. `POST /classify` invokes the configured model and is the real credentials/model-access test.
+The default base URL is `http://127.0.0.1:3000`.
 
-## Bedrock troubleshooting
+## Endpoints
 
-- `AccessDeniedException` for `bedrock:InvokeModel` means the AWS identity is missing the IAM permission described above.
-- `ValidationException: Operation not allowed` in both the API and the `us-east-1` playground indicates an AWS account/service eligibility restriction. Serverless model access is automatic for commercial accounts with valid permissions, so create a free AWS Account and Billing support case when the playground also fails.
+### `GET /health`
+
+Returns the provider, configured model, video prompt version, objective prompt version, taxonomy version, and whether a key is present. It does not call TypeSafe, so `configured: true` proves only that a value is set.
+
+### `POST /objectives/classify`
+
+Request:
+
+```json
+{
+  "requestId": "objective-1720000000000",
+  "mode": "general",
+  "objectives": ["gaming streams", "celebrity gossip"]
+}
+```
+
+The request accepts 1-8 unique entries of 1-160 characters. The response includes the full taxonomy, taxonomy version, every topic Noul, suggested topics, understood probability, reason, thresholds, raw judgments, model, prompt version, timing, and usage.
+
+The response never silently saves a model choice. The extension renders editable topic checkboxes and saves only the user's confirmed selection.
+
+### `POST /classify`
+
+Request:
+
+```json
+{
+  "requestId": "run-1-batch-1",
+  "profile": {
+    "id": "profile-1",
+    "version": 1,
+    "mode": "general",
+    "objectives": [
+      {
+        "id": "topic.gaming",
+        "text": "Gaming",
+        "contentType": "topic",
+        "taxonomyId": "topic.gaming",
+        "taxonomyVersion": "focusfeed-topics-v1",
+        "sourceText": "gaming streams"
+      }
+    ]
+  },
+  "videos": [
+    {
+      "videoId": "abc123",
+      "title": "Ranked game stream highlights",
+      "channel": "Example Channel",
+      "channelId": "@examplechannel",
+      "duration": "12:30",
+      "isShort": false,
+      "isLive": false,
+      "isPremiere": false,
+      "descriptionSnippet": "Highlights from last night's ranked stream."
+    }
+  ]
+}
+```
+
+A batch accepts 1-12 unique videos. The response contains one assessment per video with the diagnostic `evidenceProbability`, every `objectiveMatches[].matchProbability`, the computed outcome, metadata evidence, and a reason. Diagnostics retain thresholds, raw judgments, missing IDs, unexpected question IDs, timing, and TypeSafe usage.
+
+## Safety and failure behavior
+
+- Video metadata is explicitly treated as untrusted data, never instructions.
+- Only the active typed objectives and current batch metadata are sent.
+- Strict request and response validation rejects unknown fields and malformed probabilities.
+- Missing or invalid video judgments become uncertain.
+- Authentication, validation, rate-limit, overload, network, and malformed-response failures return stable error codes.
+- There is no automatic provider fallback or automatic retry.
+- Noul probabilities are uncertainty signals, not measured accuracy.
 
 ## Tests
 
-The contract and handler tests use a fake agent and make no AWS calls:
+Tests use fake TypeSafe responses and make no network calls:
 
 ```bash
 python3 -m unittest discover -s backend/tests -v
 ```
 
-## SAM
+## SAM blueprint
 
-`template.yaml` is an infrastructure-as-code blueprint for the deployed backend. It tells AWS SAM to create an API Gateway HTTP API, a Python Lambda function, the `/health` and `/classify` routes, Lambda environment variables, and the IAM permission that lets the Lambda invoke Bedrock. The template does not deploy anything until `sam deploy` is run.
-
-After installing AWS SAM CLI:
+`template.yaml` defines API Gateway routes for health, objective validation, and video classification plus one Python 3.12 Lambda. It deploys nothing until `sam deploy` runs.
 
 ```bash
 sam build --template-file backend/template.yaml
-sam local start-api
-```
-
-For the first cloud deployment, use the guided flow:
-
-```bash
 sam deploy --guided
 ```
 
-SAM transforms the template into AWS CloudFormation resources and prints the deployed API URL from the `ApiUrl` output. Deployment requires Bedrock model access in the configured region. Authentication and per-user allowances must be added before treating the API as public production infrastructure.
+The guided deployment asks for `TypeSafeApiKey` and `TypeSafeModel`. `NoEcho` masks the key in normal CloudFormation output. Before public deployment, use managed secrets, authenticated clients, per-user quotas, restricted CORS, logs with redaction, and a retention policy.

@@ -1,1 +1,1 @@
-"""FocusFeed Bedrock classification backend."""
+"""FocusFeed TypeSafe Jev classification backend."""

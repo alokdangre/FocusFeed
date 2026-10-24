@@ -1,14 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: FocusFeed Bedrock classification API
+Description: FocusFeed TypeSafe Jev objective and video classification API
 
 Parameters:
-  BedrockModelId:
+  TypeSafeApiKey:
     Type: String
-    Default: us.amazon.nova-micro-v1:0
-  BedrockRegion:
+    NoEcho: true
+  TypeSafeModel:
     Type: String
-    Default: us-east-1
+    Default: jev-1.13.0
 
 Globals:
   Function:
@@ -20,8 +20,8 @@ Globals:
     Tracing: Active
     Environment:
       Variables:
-        BEDROCK_MODEL_ID: !Ref BedrockModelId
-        BEDROCK_REGION: !Ref BedrockRegion
+        TYPESAFE_API_KEY: !Ref TypeSafeApiKey
+        TYPESAFE_MODEL: !Ref TypeSafeModel
 
 Resources:
   FocusFeedApi:
@@ -43,15 +43,6 @@ Resources:
     Properties:
       CodeUri: .
       Handler: handler.lambda_handler
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-                - bedrock:InvokeModelWithResponseStream
-              Resource:
-                - arn:aws:bedrock:*::foundation-model/*
-                - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
       Events:
         Health:
           Type: HttpApi
@@ -59,6 +50,12 @@ Resources:
             ApiId: !Ref FocusFeedApi
             Path: /health
             Method: GET
+        ObjectiveClassify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /objectives/classify
+            Method: POST
         Classify:
           Type: HttpApi
           Properties:

@@ -25,3 +25,17 @@ test("duplicate queued work per tab is rejected instead of growing without bound
   await assert.rejects(broker.submit(2, { requestId: "c" }), /busy/);
   assert.equal(await a, "done"); assert.equal(await b, "done");
 });
+
+test("clear cancels active and queued work before starting the next generation", async () => {
+  let entered;
+  const started = new Promise(r => { entered = r; });
+  const broker = FocusFeedRequestBroker.create((_request, signal) => new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(new Error("aborted")));
+    entered();
+  }), { spacing: 0 });
+  const first = broker.submit(1, { requestId: "a" }).catch(e => e.message);
+  const queued = broker.submit(2, { requestId: "b" }).catch(e => e.message);
+  await started; broker.cancelAll();
+  assert.equal(await first, "aborted");
+  assert.equal(await queued, "Request cancelled.");
+});

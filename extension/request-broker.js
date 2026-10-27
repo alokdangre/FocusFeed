@@ -1,4 +1,4 @@
-// One bounded provider queue shared by YouTube tabs. No durable assessment cache.
+// One bounded provider queue shared by YouTube tabs; the backend caches raw scores.
 (function (root) {
   "use strict";
   function create(dispatch, options) {
@@ -31,7 +31,12 @@
       });
       if (active && active.owner === owner && (!id || active.request.requestId === id)) active.controller.abort();
     }
-    return { submit: submit, cancel: cancel };
+    function cancelAll() {
+      var owners = new Set(queue.map(function (job) { return job.owner; }));
+      if (active) owners.add(active.owner);
+      owners.forEach(function (owner) { cancel(owner); });
+    }
+    return { submit: submit, cancel: cancel, cancelAll: cancelAll };
   }
   root.FocusFeedRequestBroker = { create: create };
 })(globalThis);

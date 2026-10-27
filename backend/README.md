@@ -1,23 +1,20 @@
 # FocusFeed TypeSafe Jev backend
 
-The backend exposes a small server-side adapter for TypeSafe System One. It maps user intent to a versioned topic taxonomy, then classifies YouTube metadata against the user-confirmed topics. `TYPESAFE_API_KEY` stays on the server and is never stored in the extension.
+The backend validates user-defined content preferences, then classifies YouTube metadata against their exact wording. `TYPESAFE_API_KEY` stays on the server and is never stored in the extension. See [specific preferences and Focus discovery](../docs/INTENT_AND_FOCUS.md) for the current flow and browser checks.
 
 ## Current Jev design
 
-Intent mapping uses one independent `Noul` per taxonomy topic plus one understood `Noul` per entry:
+Validation asks two independent `Noul` questions per entry: is the content preference recognizable, and is it concrete enough to match against video metadata in the selected mode? Both must reach `0.70` before an entry is accepted. Niche subjects do not need to fit a fixed taxonomy. Unclear entries return a clarification reason without a saveable objective.
 
-- multiple topics can be suggested for the same entry and no topic is forced;
-- topics at or above `0.60` are preselected suggestions;
-- the popup shows all topic scores and requires the user to confirm or edit the mapping before saving;
-- the taxonomy ID and `focusfeed-topics-v1` version are stored in the profile.
+Accepted entries retain the user's text with `matchScope: intent` and `validationVersion: focusfeed-intent-v1`. Video classification uses one direct match Noul per video/preference pair, respecting the subject, format, purpose and exceptions together. Previously confirmed category profiles retain their canonical definitions until the user validates and saves them again.
 
-Video classification uses one diagnostic evidence Noul per video and one direct match Noul per video/topic pair. The match question explicitly compares title, description, and channel with the canonical topic definition, inclusions, and exclusions. Application code computes:
+Application code computes:
 
 - match: any direct topic match >= 0.50;
 - no match: all direct topic matches <= 0.20;
 - uncertain: otherwise.
 
-The evidence Noul remains observable but is not a decision gate.
+There is no separate evidence-sufficiency question. A batch with N videos and K confirmed topics asks N × K questions.
 
 The backend returns raw probabilities and diagnostics. The extension owns the final General/Focus action.
 
@@ -65,9 +62,9 @@ Request:
 }
 ```
 
-The request accepts 1-8 unique entries of 1-160 characters. The response includes the full taxonomy, taxonomy version, every topic Noul, suggested topics, understood probability, reason, thresholds, raw judgments, model, prompt version, timing, and usage.
+The request accepts 1-8 unique entries of 1-160 characters. Each result contains understood and matchable probabilities, a status, a clarification reason, and a `validatedObjective` only when accepted. Copy that objective into the profile without changing its text. The response also includes thresholds, raw judgments, model, prompt version, timing and usage.
 
-The response never silently saves a model choice. The extension renders editable topic checkboxes and saves only the user's confirmed selection.
+The popup saves after an explicit Save preferences, Save topics, or Start Focus action, only if every entry passes and the draft still matches the response.
 
 ### `POST /classify`
 
@@ -82,11 +79,11 @@ Request:
     "mode": "general",
     "objectives": [
       {
-        "id": "topic.gaming",
-        "text": "Gaming",
+        "id": "intent-gaming-streams",
+        "text": "gaming streams",
         "contentType": "topic",
-        "taxonomyId": "topic.gaming",
-        "taxonomyVersion": "focusfeed-topics-v1",
+        "matchScope": "intent",
+        "validationVersion": "focusfeed-intent-v1",
         "sourceText": "gaming streams"
       }
     ]
@@ -107,7 +104,36 @@ Request:
 }
 ```
 
-A batch accepts 1-12 unique videos. The response contains one assessment per video with the diagnostic `evidenceProbability`, every `objectiveMatches[].matchProbability`, the computed outcome, metadata evidence, and a reason. Diagnostics retain thresholds, raw judgments, missing IDs, unexpected question IDs, timing, and TypeSafe usage.
+A batch accepts 1-12 unique videos. The response contains one assessment per video with every `objectiveMatches[].matchProbability`, the computed outcome, metadata evidence, and a reason. Diagnostics retain thresholds, raw judgments, missing IDs, unexpected question IDs, timing, and TypeSafe usage.
+
+## Batching and cache
+
+Automatic filtering now batches up to 12 videos / 96 video-topic questions. The
+backend sends only missing video/topic pairs to Jev and compacts the shared state.
+It splits calls at 96 questions, 48,000 serialized UTF-8 JSON bytes per request, or
+24,000 bytes for state plus one question. These are conservative byte budgets, not
+exact token accounting. Jev remains responsible for enforcing its token limits.
+
+Validated raw probabilities are cached in SQLite, keyed by video ID, exact metadata,
+individual topic/source text, question, pinned model, prompt/taxonomy version, and
+provider endpoint. Scores can be reused across tabs, reloads, and mode switches;
+show/hide policy is recomputed. Changed metadata or category definitions miss the
+cache. New categories require only their missing questions. Moving model aliases,
+invalid/missing scores, and failed requests do not create persistent entries.
+
+TTL: 5 minutes for live/premiere videos or scores between 0.1 and 0.7; otherwise
+1 hour for sparse metadata and 24 hours for complete metadata. Reads never extend
+expiry. The cache holds at most 10,000 score pairs, storing hashes/probabilities/
+timestamps, without raw video metadata. It defaults to
+`backend/.cache/judgments.sqlite3`; see `.env.example` for overrides or disabling it.
+Local cache persistence is across restarts; Lambda `/tmp` is per environment only.
+
+`POST /cache/clear` clears this database. The extension's **Refresh video decisions**
+button clears it together with local decisions and validation diagnostics and preserves preferences
+and blocks. Old in-flight requests cannot refill a cleared generation. Cache
+storage failure falls back to a provider call; clear failure is reported explicitly.
+Diagnostics includes hits, shared in-flight scores, provider calls/questions, and
+actual token usage. A full cache hit makes zero Jev calls and reports zero provider tokens.
 
 ## Safety and failure behavior
 
@@ -129,7 +155,7 @@ python3 -m unittest discover -s backend/tests -v
 
 ## SAM blueprint
 
-`template.yaml` defines API Gateway routes for health, objective validation, and video classification plus one Python 3.12 Lambda. It deploys nothing until `sam deploy` runs.
+`template.yaml` defines API Gateway routes for health, objective validation, video classification, and cache clearing plus one Python 3.12 Lambda. It deploys nothing until `sam deploy` runs.
 
 ```bash
 sam build --template-file backend/template.yaml
@@ -143,5 +169,5 @@ The guided deployment asks for `TypeSafeApiKey` and `TypeSafeModel`. `NoEcho` ma
 `bash backend/install_autostart.sh --print` previews a per-user systemd unit.
 After stopping any manual process on port 3000, run
 `bash backend/install_autostart.sh --install` to enable it at login and start it.
-See `../docs/ALWAYS_ON_ARCHITECTURE.md` for status, logs, removal, and limitations.
+See [architecture and autostart](../docs/ARCHITECTURE.md) for status, logs, removal, and limitations.
 This is separate from the extension's automatic activation on YouTube.

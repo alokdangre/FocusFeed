@@ -10,3 +10,9 @@ backend/iam/*.local.json
 
 # AWS SAM build output
 .aws-sam/
+
+# Local Jev probability cache
+backend/.cache/
+
+# DOM-only extension test dependencies
+extension/node_modules/

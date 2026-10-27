@@ -1,6 +1,6 @@
-"""Versioned, server-owned topic taxonomy used by FocusFeed and Jev."""
+"""Definitions for previously saved category profiles; new preferences use direct intents."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 
 TAXONOMY_VERSION = "focusfeed-topics-v1"
@@ -14,11 +14,6 @@ class Topic:
     includes: tuple[str, ...]
     excludes: tuple[str, ...]
 
-    def as_public_dict(self) -> dict:
-        value = asdict(self)
-        value["includes"] = list(self.includes)
-        value["excludes"] = list(self.excludes)
-        return value
 
 
 TOPICS = (
@@ -109,7 +104,3 @@ TOPICS = (
 )
 
 TOPICS_BY_ID = {topic.id: topic for topic in TOPICS}
-
-
-def public_taxonomy() -> list[dict]:
-    return [topic.as_public_dict() for topic in TOPICS]

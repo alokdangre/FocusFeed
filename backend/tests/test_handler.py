@@ -21,7 +21,7 @@ from models import (  # noqa: E402
     VideoAssessment,
 )
 from test_classifier import objective_payload, request_payload  # noqa: E402
-from taxonomy import TAXONOMY_VERSION, public_taxonomy  # noqa: E402
+from taxonomy import TAXONOMY_VERSION  # noqa: E402
 
 
 def event(method: str, path: str, body: str = "", encoded: bool = False) -> dict:
@@ -43,10 +43,18 @@ class HandlerTests(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertEqual(body["provider"], "typesafe-jev")
         self.assertEqual(body["model"], "jev-1.13.0")
-        self.assertIn("taxonomy-video-match", body["promptVersion"])
-        self.assertIn("taxonomy-map", body["objectivePromptVersion"])
+        self.assertIn("intent-video-match", body["promptVersion"])
+        self.assertIn("intent-validation", body["objectivePromptVersion"])
         self.assertEqual(body["taxonomyVersion"], TAXONOMY_VERSION)
         self.assertTrue(body["configured"])
+
+    def test_cache_clear_does_not_invoke_jev(self) -> None:
+        with patch.object(handler, "default_cache") as store, patch.object(handler, "classify_videos") as classify:
+            result = handler.lambda_handler(event("POST", "/cache/clear"), None)
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(json.loads(result["body"]), {"cleared": True})
+        store.return_value.clear.assert_called_once()
+        classify.assert_not_called()
 
     def test_invalid_video_request_is_rejected(self) -> None:
         result = handler.lambda_handler(event("POST", "/classify", "{}"), None)
@@ -67,19 +75,13 @@ class HandlerTests(unittest.TestCase):
                     text="gaming streams",
                     contentType="topic",
                     status="ready_for_confirmation",
-                    typeConfidence=0.9,
-                    typeProbabilities={"topic.gaming": 0.9, "topic.sports": 0.1},
                     understoodProbability=0.96,
-                    suggestedTopics=[{
-                        "taxonomyId": "topic.gaming",
-                        "label": "Gaming",
-                        "probability": 0.9,
-                    }],
+                    matchableProbability=0.95,
+                    validatedObjective={"id": "intent-gaming", "text": "gaming streams", "contentType": "topic",
+                        "matchScope": "intent", "validationVersion": "focusfeed-intent-v1"},
                     reason="Understood.",
                 )
             ],
-            taxonomyVersion=TAXONOMY_VERSION,
-            taxonomy=public_taxonomy(),
             timing=TimingInfo(totalMs=25),
         )
         with patch.object(handler, "classify_objectives", return_value=fake_response):
@@ -90,7 +92,8 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(result["statusCode"], 200)
         body = json.loads(result["body"])
         self.assertEqual(body["objectives"][0]["contentType"], "topic")
-        self.assertEqual(body["objectives"][0]["suggestedTopics"][0]["taxonomyId"], "topic.gaming")
+        self.assertEqual(body["objectives"][0]["validatedObjective"]["text"], "gaming streams")
+        self.assertNotIn("taxonomy", body)
         self.assertEqual(body["objectives"][0]["understoodProbability"], 0.96)
 
     def test_valid_video_request_returns_observable_scores(self) -> None:
@@ -112,7 +115,6 @@ class HandlerTests(unittest.TestCase):
                             matchProbability=0.94,
                         )
                     ],
-                    evidenceProbability=0.91,
                     outcome="match",
                     evidence=["Title: Interview Problems"],
                     reason="Matched.",
@@ -128,6 +130,7 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(result["statusCode"], 200)
         body = json.loads(result["body"])
         self.assertEqual(body["assessments"][0]["outcome"], "match")
+        self.assertNotIn("evidenceProbability", body["assessments"][0])
         self.assertEqual(body["assessments"][0]["objectiveMatches"][0]["matchProbability"], 0.94)
 
     def test_missing_api_key_returns_actionable_error(self) -> None:

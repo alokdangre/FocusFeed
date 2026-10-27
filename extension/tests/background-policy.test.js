@@ -9,8 +9,8 @@ function setup() {
   const listeners = [], data = {}, requests = [];
   const context = vm.createContext({ URL, AbortController, setTimeout, clearTimeout, console,
     fetch: async (_url, options) => {
-      requests.push(JSON.parse(options.body));
-      return { ok: true, json: async () => ({ assessments: [] }) };
+      if (options.body) requests.push(JSON.parse(options.body));
+      return { ok: true, json: async () => _url.endsWith("/cache/clear") ? { cleared: true } : { assessments: [] } };
     }, chrome: { runtime: { getURL: p => "chrome-extension://test/" + p, onMessage: { addListener: l => listeners.push(l) } },
       storage: { local: {
         async get(defaults) { await sleep(2); return defaults === null ? { ...data } : { ...defaults, ...data }; },
@@ -53,4 +53,15 @@ test("service worker restart restores settings; provider uses strict profile and
   await assert.rejects(h.dispatch({ type: "FF_AUTO_CLASSIFY", revision: saved.data.revision, request }, { url: "https://example.com", tab: { id: 2 } }), /not accepted/);
   const restarted = setup(); Object.assign(restarted.data, JSON.parse(JSON.stringify(h.data)));
   const read = await restarted.dispatch({ type: "FF_SETTINGS_GET" }); assert.equal(read.data.revision, saved.data.revision);
+});
+
+test("cache clear is restricted to extension pages and broadcasts invalidation", async () => {
+  const h = setup();
+  h.data.focusFeedChannelBlocksV1 = [{ id: "keep", channelId: "@kept" }];
+  await assert.rejects(h.dispatch({ type: "FF_CACHE_CLEAR" }), /not accepted/);
+  const response = await h.dispatch({ type: "FF_CACHE_CLEAR" }, { url: "chrome-extension://test/popup/popup.html" });
+  assert.equal(response.ok, true);
+  assert.equal(response.data.cleared, true);
+  assert.equal(typeof h.data.focusfeedCacheEpochV1, "number");
+  assert.equal(h.data.focusFeedChannelBlocksV1[0].id, "keep");
 });

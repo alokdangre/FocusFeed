@@ -18,6 +18,7 @@ try:
     )
     from .models import ClassificationRequest, ObjectiveClassificationRequest
     from .taxonomy import TAXONOMY_VERSION
+    from .video_cache import default_cache
 except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     from classifier import (  # type: ignore[no-redef]
         TypeSafeAPIError,
@@ -30,12 +31,13 @@ except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     )
     from models import ClassificationRequest, ObjectiveClassificationRequest  # type: ignore[no-redef]
     from taxonomy import TAXONOMY_VERSION  # type: ignore[no-redef]
+    from video_cache import default_cache  # type: ignore[no-redef]
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-MAX_BODY_BYTES = 32_000
+MAX_BODY_BYTES = 128_000
 
 
 def classifier_failure(exc: Exception) -> tuple[str, str]:
@@ -150,6 +152,14 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "configured": bool(os.getenv("TYPESAFE_API_KEY", "").strip()),
             },
         )
+
+    if method == "POST" and path.endswith("/cache/clear"):
+        try:
+            default_cache().clear()
+            return response(200, {"cleared": True})
+        except Exception as exc:
+            logger.warning("Could not clear the judgment cache: %s", type(exc).__name__)
+            return response(503, {"error": {"code": "cache_unavailable", "message": "Could not clear the server cache."}})
 
     request_model: type
     classify: Any

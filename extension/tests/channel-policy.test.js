@@ -1,59 +1,28 @@
 "use strict";
-
-const assert = require("node:assert/strict");
-delete global.FocusFeedChannelPolicy;
+const test = require("node:test"), assert = require("node:assert/strict");
 require("../channel-policy.js");
-
-const P = global.FocusFeedChannelPolicy;
-const profile = {
-  id: "default",
-  mode: "general",
-  objectives: [{ taxonomyId: "topic.gaming" }],
-};
-
-function record(videoId, outcome, channelId = "@CaseToo") {
-  return {
-    route: "model",
-    video: { videoId, channelId, channel: "THE CASETOO" },
-    assessment: { outcome },
-  };
-}
-
-assert.equal(P.normalizeChannelId("/@CaseToo/videos"), "@casetoo");
-assert.equal(P.normalizeChannelId("https://youtube.com/channel/UCAbC_def12345"), "UCAbC_def12345");
-assert.equal(P.normalizeChannelId("THE CASETOO"), "", "display names are not stable identities");
-
-let state = {};
-let update = P.recordAssessment(state, record("uncertain", "uncertain"), profile, "session-0", 100);
-state = update.state;
-assert.equal(update.candidate, null);
-update = P.recordAssessment(state, record("one", "match"), profile, "session-1", 200);
-state = update.state;
-update = P.recordAssessment(state, record("two", "match"), profile, "session-1", 300);
-state = update.state;
-assert.equal(update.candidate, null, "one session must never prompt");
-update = P.recordAssessment(state, record("three", "match"), profile, "session-2", 400);
-state = update.state;
-assert.ok(update.candidate, "three unwanted decisions across two sessions should prompt");
-assert.equal(update.candidate.unwanted, 3);
-assert.equal(update.candidate.uncertain, 1);
-assert.deepEqual(update.candidate.unwantedSessionIds, ["session-1", "session-2"]);
-
-const duplicate = P.recordAssessment(state, record("three", "match"), profile, "session-2", 500);
-assert.equal(duplicate.state[update.candidate.evidenceKey].unwanted, 3, "same session/video is counted once");
-
-const scoped = P.createBlock(update.candidate, "topics", 600);
-assert.equal(P.matchesBlock(scoped, { channelId: "@casetoo" }, profile), true);
-assert.equal(P.matchesBlock(scoped, { channelId: "@casetoo" }, {
-  mode: "general",
-  objectives: [{ taxonomyId: "topic.sports" }],
-}), false);
-assert.equal(P.matchesBlock(scoped, { channelId: "@casetoo" }, {
-  mode: "focus",
-  objectives: [{ taxonomyId: "topic.gaming" }],
-}), false, "topic-scoped blocks must not cross inverse mode semantics");
-const globalBlock = P.createBlock(update.candidate, "global", 700);
-assert.equal(P.matchesBlock(globalBlock, { channelId: "@casetoo" }, { objectives: [] }), true);
-assert.equal(P.matchesBlock(globalBlock, { channelId: "The CaseToo" }, profile), false);
-
-console.log("channel policy passed: stable IDs, evidence threshold, user-scoped/global blocks");
+const P = FocusFeedChannelPolicy;
+test("only stable channel identities match, including observed aliases", () => {
+  assert.equal(P.normalizeChannelId("/@CaseToo/videos"), "@casetoo");
+  assert.equal(P.normalizeChannelId("https://youtube.com/channel/UCAbC_def12345"), "UCAbC_def12345");
+  assert.equal(P.normalizeChannelId("THE CASETOO"), "");
+  const block = P.createBlock({ channelId: "UCAbC_def12345", channelLabel: "CaseToo" }, "global", 500);
+  block.aliases = ["@casetoo"];
+  assert.equal(P.matchesBlock(block, { channelId: "@CaseToo" }, { objectives: [] }), true);
+  assert.equal(P.matchesBlock(block, { channelId: "THE CASETOO" }, { objectives: [] }), false);
+  assert.equal(P.matchesBlock(block, { channelId: "@unrelated" }, { objectives: [] }), false);
+});
+test("saved category-scoped blocks preserve their scope and inverse mode semantics", () => {
+  const profile = { mode: "general", objectives: [{ taxonomyId: "topic.gaming" }] };
+  const block = P.createBlock({ channelId: "@creator", mode: "general", taxonomyIds: P.taxonomyIds(profile) }, "topics");
+  assert.equal(P.matchesBlock(block, { channelId: "@creator" }, profile), true);
+  assert.equal(P.matchesBlock(block, { channelId: "@creator" }, { ...profile, mode: "focus" }), false);
+  assert.equal(P.matchesBlock(block, { channelId: "@creator" }, { mode: "general", objectives: [{ taxonomyId: "topic.sports" }] }), false);
+});
+test("specific preferences have distinct channel-block scopes", () => {
+  const profile = text => ({ mode: "general", objectives: [{ text, matchScope: "intent" }] });
+  const reviews = profile("movie reviews"), trailers = profile("movie trailers");
+  const block = P.createBlock({ channelId: "@creator", mode: "general", taxonomyIds: P.taxonomyIds(reviews) }, "topics");
+  assert.equal(P.matchesBlock(block, { channelId: "@creator" }, reviews), true);
+  assert.equal(P.matchesBlock(block, { channelId: "@creator" }, trailers), false);
+});

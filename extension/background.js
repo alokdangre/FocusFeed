@@ -6,14 +6,14 @@ if (typeof importScripts === "function") importScripts("settings.js", "channel-p
 
 var DEFAULT_CLASSIFIER_ENDPOINT = "http://127.0.0.1:3000";
 var HEALTH_TIMEOUT_MS = 8000;
-var CLASSIFY_TIMEOUT_MS = 25000;
-var VIDEO_PROMPT_PREFIX = "typesafe-jev-taxonomy-video-match-";
-var OBJECTIVE_PROMPT_PREFIX = "typesafe-jev-taxonomy-map-";
+var CLASSIFY_TIMEOUT_MS = 80000;
+var VIDEO_PROMPT_PREFIX = "typesafe-jev-intent-video-match-";
+var OBJECTIVE_PROMPT_PREFIX = "typesafe-jev-intent-validation-";
 var TAXONOMY_VERSION = "focusfeed-topics-v1";
-var RETIRED_CACHE_KEYS = ["focusFeedAssessmentCacheV2", "focusFeedLiveAssessmentCacheV1"];
+var RETIRED_CACHE_KEYS = ["focusFeedAssessmentCacheV2", "focusFeedLiveAssessmentCacheV1", "classifierEvalRuns",
+  "classifierLabRuns", "focusfeedLiveObservabilityV1", "focusFeedChannelEvidenceV1", "focusfeedAutoObservabilityV1"];
 
-// Classification caching was removed in 0.9. Purge entries left by earlier builds
-// whenever the service worker starts; user preferences are stored under other keys.
+// Remove obsolete generated data on upgrade. Saved preferences and blocks are separate.
 if (chrome.storage.local && typeof chrome.storage.local.remove === "function") {
   chrome.storage.local.remove(RETIRED_CACHE_KEYS).catch(function () {});
 }
@@ -164,50 +164,14 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
   if (!message || [
     "CLASSIFIER_HEALTH_CHECK",
     "OBJECTIVES_CLASSIFY_CLOUD",
-    "CLASSIFY_VIDEOS",
   ].indexOf(message.type) === -1) return false;
 
   var operation = message.type === "CLASSIFIER_HEALTH_CHECK"
     ? healthCheck()
-    : message.type === "OBJECTIVES_CLASSIFY_CLOUD"
-      ? classifyObjectives(message.request)
-      : classify(message.request);
+    : classifyObjectives(message.request);
 
   operation.then(sendResponse).catch(function (error) {
     sendResponse({ ok: false, error: serializeError(error) });
-  });
-  return true;
-});
-
-// Live sessions have a separate cancellation path. No retry or provider fallback.
-var liveCloudRequests = new Map();
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  if (!message || (message.type !== "LIVE_CLASSIFY_CLOUD" && message.type !== "LIVE_CLASSIFY_CANCEL")) return false;
-  if (!sender || !String(sender.url || "").startsWith(chrome.runtime.getURL("live/live.html"))) {
-    sendResponse({ ok: false, error: { message: "Only the live session page can dispatch this request." } });
-    return false;
-  }
-  if (message.type === "LIVE_CLASSIFY_CANCEL") {
-    var pending = liveCloudRequests.get(message.requestId);
-    if (pending && pending.owner === sender.url) pending.controller.abort();
-    sendResponse({ ok: true });
-    return false;
-  }
-  if (liveCloudRequests.size) {
-    sendResponse({ ok: false, error: { message: "Another live cloud request is still running." } });
-    return false;
-  }
-  var request = message.request;
-  if (!request || !request.requestId) {
-    sendResponse({ ok: false, error: { message: "Missing request identity." } });
-    return false;
-  }
-  var controller = new AbortController();
-  liveCloudRequests.set(request.requestId, { controller: controller, owner: sender.url });
-  classify(request, controller.signal).then(sendResponse).catch(function (error) {
-    sendResponse({ ok: false, error: serializeError(error) });
-  }).finally(function () {
-    liveCloudRequests.delete(request.requestId);
   });
   return true;
 });
@@ -232,15 +196,26 @@ function trustedYouTube(sender) {
 var autoBroker = typeof FocusFeedRequestBroker !== "undefined"
   ? FocusFeedRequestBroker.create(classify) : null;
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  if (!message || !/^(FF_SETTINGS_GET|FF_SETTINGS_UPDATE|FF_BLOCK_ADD|FF_BLOCK_REMOVE|FF_AUTO_CLASSIFY|FF_AUTO_CANCEL)$/.test(message.type)) return false;
+  if (!message || !/^(FF_SETTINGS_GET|FF_SETTINGS_UPDATE|FF_OPEN_PREFERENCES|FF_CACHE_CLEAR|FF_BLOCK_ADD|FF_BLOCK_REMOVE|FF_AUTO_CLASSIFY|FF_AUTO_CANCEL)$/.test(message.type)) return false;
   var internal = sender && sender.url && sender.url.indexOf(chrome.runtime.getURL("")) === 0;
   if (!internal && !trustedYouTube(sender)) return false;
   var operation;
+  if (message.type === "FF_OPEN_PREFERENCES") {
+    operation = chrome.tabs.create({ url: chrome.runtime.getURL("popup/popup.html?mode=focus") });
+  }
+  if (message.type === "FF_CACHE_CLEAR") {
+    if (!internal) return false;
+    operation = (async function () {
+      autoBroker.cancelAll();
+      var result = await requestJson("/cache/clear", { method: "POST" }, HEALTH_TIMEOUT_MS);
+      await chrome.storage.local.set({ focusfeedCacheEpochV1: Date.now() });
+      return result;
+    })();
+  }
   if (message.type === "FF_SETTINGS_GET") operation = withPolicyWrite(readSettings);
   if (message.type === "FF_SETTINGS_UPDATE") operation = withPolicyWrite(async function () {
     var next = FocusFeedSettings.update(await readSettings(), message.action);
-    await chrome.storage.local.set({ focusfeedSettingsV2: next, enabled: next.enabled,
-      activeProfile: FocusFeedSettings.effective(next), focusSession: next.focusSession });
+    await chrome.storage.local.set({ focusfeedSettingsV2: next });
     return next;
   });
   if (message.type === "FF_BLOCK_ADD" || message.type === "FF_BLOCK_REMOVE") operation = withPolicyWrite(async function () {

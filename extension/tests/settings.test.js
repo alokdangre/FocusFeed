@@ -24,3 +24,23 @@ test("migrate legacy Focus does not invent a General profile", () => {
   const state = S.migrate({ activeProfile: { ...general, mode: "focus" }, focusSession: { active: true } });
   assert.equal(S.effective(state).mode, "focus"); assert.equal(S.valid(state.general), false);
 });
+test("Hide Shorts is an independent persisted preference and migrates without changing confirmed profiles", () => {
+  let state = S.migrate({ activeProfile: general });
+  state = S.update(state, { type: "setHideShorts", enabled: true });
+  assert.equal(S.migrate({ focusfeedSettingsV2: JSON.parse(JSON.stringify(state)) }).hideShorts, true);
+  assert.deepEqual(state.general, general);
+  state = S.update(state, { type: "setHideShorts", enabled: false }); assert.equal(state.hideShorts, false);
+});
+
+test("validated direct preferences retain exact wording and do not require taxonomy IDs", () => {
+  const objective = { id: "intent-review", text: "movie reviews", sourceText: "movie reviews", contentType: "topic",
+    matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
+  const profile = { id: "general", mode: "general", version: 1, objectives: [objective, { ...objective, id: "intent-trailer", text: "movie trailers", sourceText: "movie trailers" }] };
+  const state = S.update(S.migrate({}), { type: "saveProfile", profile });
+  assert.deepEqual(state.general.objectives, profile.objectives);
+  assert.equal(S.valid(S.migrate({ focusfeedSettingsV2: JSON.parse(JSON.stringify(state)) }).general), true);
+  assert.equal(S.validObjective({ ...objective, validationVersion: "old" }), false);
+  assert.equal(S.validObjective({ ...objective, taxonomyId: "topic.film_tv" }), false);
+  assert.equal(S.validObjective({ ...objective, sourceText: "all movies" }), false);
+  assert.equal(S.valid({ ...profile, objectives: [objective, objective] }), false);
+});

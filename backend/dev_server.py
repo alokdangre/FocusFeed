@@ -30,12 +30,17 @@ class FocusFeedHandler(BaseHTTPRequestHandler):
             payload = json.dumps(payload)
         encoded = payload.encode("utf-8")
 
-        self.send_response(result.get("statusCode", 500))
-        for name, value in result.get("headers", {}).items():
-            self.send_header(name, value)
-        self.send_header("content-length", str(len(encoded)))
-        self.end_headers()
-        self.wfile.write(encoded)
+        try:
+            self.send_response(result.get("statusCode", 500))
+            for name, value in result.get("headers", {}).items():
+                self.send_header(name, value)
+            self.send_header("content-length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+        except (BrokenPipeError, ConnectionResetError):
+            # A cancelled/timed-out client cannot receive this response.
+            self.close_connection = True
+            self.log_message("Client disconnected before response was delivered (%s %s)", self.command, self.path)
 
     def log_message(self, message: str, *args: object) -> None:
         print("[focusfeed-api] " + (message % args))

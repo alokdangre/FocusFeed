@@ -1,636 +1,227 @@
-// popup.js — settings, Jev intent validation, and live-session launch.
-
+// Popup controller. Tag editing is isolated in topic-input.js; saved state belongs to the worker.
 (function () {
   "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var settings = null, mode = "general", drafts = {}, blocks = [], busy = false, savedEndpoint = "";
+  var DEFAULT_ENDPOINT = "http://127.0.0.1:3000";
+  var editor = FocusFeedTopicInput.create({ input: $("objectiveInput"), list: $("topicList"), onChange: edited });
 
-  function $(id) { return document.getElementById(id); }
-
-  var ui = {
-    enableToggle: $("enableToggle"),
-    totalCount: $("totalCount"),
-    trackedCount: $("trackedCount"),
-    statusText: $("statusText"),
-    filterMode: $("filterMode"),
-    objectiveInput: $("objectiveInput"),
-    objectiveLabel: $("objectiveLabel"),
-    objectiveHint: $("objectiveHint"),
-    taxonomyMapping: $("taxonomyMapping"),
-    sessionDuration: $("sessionDuration"),
-    saveGoal: $("saveGoal"),
-    toggleSession: $("toggleSession"),
-    profileFeedback: $("profileFeedback"),
-    profileVersion: $("profileVersion"),
-    sessionBadge: $("sessionBadge"),
-    classifierEndpoint: $("classifierEndpoint"),
-    checkClassifier: $("checkClassifier"),
-    testClassification: $("testClassification"),
-    clearGeneratedData: $("clearGeneratedData"),
-    channelBlocks: $("channelBlocks"),
-    classifierResult: $("classifierResult"),
-  };
-
-  var DEFAULT_PROFILE = {
-    id: "default",
-    version: 0,
-    mode: "general",
-    objectives: [],
-    sessionDurationMinutes: 45,
-    updatedAt: null,
-  };
-  var DEFAULT_SESSION = {
-    active: false,
-    startedAt: null,
-    endsAt: null,
-    profileVersion: null,
-  };
-  var DEFAULTS = {
-    enabled: true,
-    activeProfile: DEFAULT_PROFILE,
-    focusSession: DEFAULT_SESSION,
-    classifierProvider: "typesafe",
-    classifierEndpoint: "http://127.0.0.1:3000",
-    focusFeedChannelBlocksV1: [],
-  };
-  var GENERATED_DATA_KEYS = [
-    "focusFeedAssessmentCacheV2",
-    "focusFeedLiveAssessmentCacheV1",
-    "classifierEvalRuns",
-    "classifierLabRuns",
-    "focusfeedObjectiveValidationV1",
-    "focusfeedLiveObservabilityV1",
-    "focusFeedChannelEvidenceV1",
-    "focusfeedAutoObservabilityV1",
-  ];
-  var MAX_OBJECTIVE_LENGTH = 160;
-  var TAXONOMY_VERSION = "focusfeed-topics-v1";
-
-  var settings = null;
-  var prefs = Object.assign({}, DEFAULTS);
-  var draftObjectives = [];
-  var pendingMapping = null;
-
-  function parseList(value) {
-    var seen = {};
-    return String(value || "")
-      .split(/[\n,]/)
-      .map(function (item) { return item.trim(); })
-      .filter(function (item) {
-        var key = item.toLowerCase();
-        if (!item || seen[key]) return false;
-        seen[key] = true;
-        return true;
-      });
+  async function request(message) {
+    var response = await chrome.runtime.sendMessage(message);
+    if (!response || !response.ok) throw new Error(response && response.error && response.error.message || "Could not reach the extension. Reload it and try again.");
+    return response.data;
   }
-
-  function acceptedObjectives(value) {
-    return (Array.isArray(value) ? value : []).filter(function (objective) {
-      return objective && objective.id && objective.text && objective.contentType === "topic" &&
-        objective.taxonomyId && objective.taxonomyVersion === TAXONOMY_VERSION;
-    }).map(function (objective) {
-      return {
-        id: String(objective.id),
-        text: String(objective.text),
-        contentType: "topic",
-        taxonomyId: String(objective.taxonomyId),
-        taxonomyVersion: String(objective.taxonomyVersion),
-        sourceText: String(objective.sourceText || objective.text),
-      };
+  function feedback(id, message, error) {
+    var node = $(id); node.textContent = message || ""; node.hidden = !message; node.dataset.error = String(!!error);
+  }
+  function texts(profile) {
+    return (profile && profile.objectives || []).flatMap(function (o) { return (o.sourceText || o.text || "").split(/[,\n]/).map(function (s) { return s.trim(); }).filter(Boolean); });
+  }
+  function draft(profile) { return { topics: texts(profile), duration: profile && profile.sessionDurationMinutes !== undefined ? profile.sessionDurationMinutes : 45 }; }
+  function fingerprint() { return JSON.stringify([mode, editor.values(), $("sessionDuration").value]); }
+  function rememberDraft() {
+    if (settings) drafts[mode] = { topics: editor.values(), duration: $("sessionDuration").value };
+  }
+  function edited() {
+    rememberDraft(); editor.markInvalid([]); $("validationResults").hidden = true;
+    feedback("profileFeedback", ""); renderDraft();
+  }
+  function renderDraft() {
+    var topics = editor.values();
+    $("topicCount").textContent = topics.length + " / 8";
+    var error = topics.length > 8 ? "Use up to 8 topics. Remove a tag to make room." :
+      topics.some(function (s) { return s.length > 160; }) ? "Use 160 characters or fewer per topic. Use Backspace in the empty input to edit the last tag." : "";
+    $("topicError").textContent = error; $("topicError").hidden = !error;
+    $("topicEditor").dataset.invalid = String(!!error);
+    if (settings) {
+      var profile = settings[mode], same = JSON.stringify(topics) === JSON.stringify(texts(profile)) &&
+        Number($("sessionDuration").value) === Number(profile.sessionDurationMinutes);
+      $("draftState").textContent = busy ? "Checking…" : same && FocusFeedSettings.valid(profile) ? "Saved" : topics.length ? "Unsaved changes" : "Not saved yet";
+      $("profileVersion").textContent = profile.objectives.some(function (o) { return o.matchScope !== "intent"; })
+        ? "Save once to upgrade this profile to your exact wording." : "Your topics stay in your words.";
+    }
+    document.querySelectorAll("[data-minutes]").forEach(function (button) {
+      button.setAttribute("aria-pressed", String(button.dataset.minutes === $("sessionDuration").value));
     });
   }
-
-  function migrateProfile(raw) {
-    var source = raw || {};
-    var mode = source.mode === "focus" ? "focus" : "general";
-    var objectives = acceptedObjectives(source.objectives);
-    if (objectives.length) {
-      draftObjectives = parseList(objectives.map(function (objective) {
-        return objective.sourceText;
-      }).join(","));
-    } else if (Array.isArray(source.objectives) && source.objectives.length) {
-      draftObjectives = parseList(source.objectives.map(function (objective) {
-        return objective && objective.sourceText || objective && objective.text || "";
-      }).join(","));
-    } else if (mode === "focus") {
-      draftObjectives = parseList((source.usefulTopics || []).join(","));
-      if (!draftObjectives.length && source.goal) draftObjectives = [String(source.goal)];
-    } else {
-      draftObjectives = parseList((source.unwantedTopics || []).join(","));
-    }
-    return {
-      id: source.id || "default",
-      version: objectives.length ? Number(source.version) || 0 : 0,
-      mode: mode,
-      objectives: objectives,
-      sessionDurationMinutes: Number.isFinite(Number(source.sessionDurationMinutes)) && source.sessionDurationMinutes !== undefined ? Number(source.sessionDurationMinutes) : 45,
-      updatedAt: source.updatedAt || null,
-    };
-  }
-
-  async function settingsAction(action) {
-    var response = await chrome.runtime.sendMessage({ type: "FF_SETTINGS_UPDATE", action: action });
-    if (!response || !response.ok) throw new Error(response && response.error && response.error.message || "Could not save settings");
-    settings = response.data;
-    prefs.enabled = settings.enabled;
-    prefs.focusSession = settings.focusSession;
-    renderSession(); updateStatus();
-    return settings;
-  }
-  async function loadPrefs() {
-    try {
-      var result = await chrome.storage.local.get(DEFAULTS);
-      var response = await chrome.runtime.sendMessage({ type: "FF_SETTINGS_GET" });
-      if (!response || !response.ok) throw new Error("Could not load saved settings");
-      settings = response.data;
-      prefs = Object.assign({}, DEFAULTS, result);
-      prefs.enabled = settings.enabled;
-      prefs.activeProfile = migrateProfile(FocusFeedSettings.effective(settings));
-      prefs.focusSession = settings.focusSession;
-      ui.enableToggle.checked = prefs.enabled;
-      ui.classifierEndpoint.value = prefs.classifierEndpoint || DEFAULTS.classifierEndpoint;
-      renderProfile(); renderSession(); renderChannelBlocks(); updateStatus();
-    } catch (error) { setProfileFeedback(error.message, true); }
-  }
-
-  function renderModeCopy() {
-    var focus = ui.filterMode.value === "focus";
-    ui.sessionDuration.parentElement.hidden = !focus;
-    ui.objectiveLabel.textContent = focus ? "Things to watch only" : "Things to avoid";
-    ui.objectiveInput.placeholder = focus
-      ? "DSA tutorials, system design interviews"
-      : "gaming streams, celebrity gossip";
-    ui.objectiveHint.textContent = focus
-      ? "Only confident matches to your confirmed topics appear. Uncertain and non-matching videos stay restorable in observability."
-      : "Confident matches to your confirmed topics are hidden. Uncertain videos stay visible.";
-  }
-
-  function renderProfile() {
-    var profile = prefs.activeProfile;
-    ui.filterMode.value = profile.mode === "focus" ? "focus" : "general";
-    ui.objectiveInput.value = draftObjectives.join(", ");
-    ui.sessionDuration.value = String(profile.sessionDurationMinutes || 0);
-    ui.profileVersion.textContent = profile.version > 0
-      ? "Profile v" + profile.version + " · " + profile.objectives.length + " confirmed topics"
-      : "Needs topic mapping";
-    renderModeCopy();
-  }
-
-  function setProfileFeedback(message, isError) {
-    ui.profileFeedback.textContent = message || "";
-    ui.profileFeedback.className = "profile-feedback" + (isError ? " error" : "");
-  }
-
-  function setClassifierResult(message, kind) {
-    ui.classifierResult.textContent = message || "";
-    ui.classifierResult.className = "connection-result" +
-      (message ? " visible" : "") +
-      (kind ? " " + kind : "");
-  }
-
-  function renderChannelBlocks() {
-    ui.channelBlocks.textContent = "";
-    var blocks = Array.isArray(prefs.focusFeedChannelBlocksV1)
-      ? prefs.focusFeedChannelBlocksV1 : [];
-    if (!blocks.length) {
-      var empty = document.createElement("span");
-      empty.className = "empty-msg";
-      empty.textContent = "No channels blocked.";
-      ui.channelBlocks.appendChild(empty);
-      return;
-    }
-    blocks.forEach(function (block) {
-      var tag = document.createElement("span");
-      tag.className = "tag tag-signal-down";
-      var scope = block.scope === "global" ? "everywhere" :
-        "for exact intent in " + (block.mode === "focus" ? "Focus" : "General");
-      tag.appendChild(document.createTextNode((block.channelLabel || block.channelId) + " · " + scope));
-      var remove = document.createElement("button");
-      remove.className = "tag-remove";
-      remove.type = "button";
-      remove.title = "Unblock channel";
-      remove.setAttribute("aria-label", "Unblock " + (block.channelLabel || block.channelId));
-      remove.textContent = "×";
-      remove.addEventListener("click", function () {
-        chrome.runtime.sendMessage({ type: "FF_BLOCK_REMOVE", id: block.id }).then(async function (response) {
-          if (!response || !response.ok) throw new Error("Could not unblock channel");
-          var saved = await chrome.storage.local.get({ focusFeedChannelBlocksV1: [] });
-          prefs.focusFeedChannelBlocksV1 = saved.focusFeedChannelBlocksV1;
-          renderChannelBlocks();
-        }).catch(function (error) { setProfileFeedback(error.message, true); });
-      });
-      tag.appendChild(remove);
-      ui.channelBlocks.appendChild(tag);
+  function setMode(next) {
+    rememberDraft(); mode = next; var current = drafts[mode];
+    editor.set(current.topics); $("sessionDuration").value = String(current.duration);
+    $("validationResults").hidden = true; feedback("profileFeedback", "");
+    var focus = mode === "focus";
+    $("modeTitle").textContent = focus ? "One thing at a time." : "A quieter feed.";
+    $("modeDescription").textContent = focus ? "Choose a direction. Keep only the videos that fit." : "Less of what distracts you. More room for everything else.";
+    $("objectiveLabel").textContent = focus ? "What are you focusing on?" : "Keep out of your feed";
+    $("durationSection").hidden = !focus;
+    document.querySelectorAll("[data-mode]").forEach(function (button) { button.setAttribute("aria-pressed", String(button.dataset.mode === mode)); });
+    $("topicSuggestions").replaceChildren();
+    (focus ? ["DSA tutorials", "Learning Spanish", "Guitar lessons"] : ["Movie reviews", "Gaming streams", "Celebrity gossip"]).forEach(function (topic) {
+      var button = document.createElement("button"); button.type = "button"; button.textContent = topic;
+      button.addEventListener("click", function () { editor.add(topic); }); $("topicSuggestions").appendChild(button);
     });
+    render();
   }
-
-  function comparableProfile(profile) {
-    return JSON.stringify({
-      mode: profile.mode,
-      objectives: profile.objectives,
-      sessionDurationMinutes: profile.sessionDurationMinutes,
-    });
-  }
-
-  function requestId(prefix) {
-    return prefix + "-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-  }
-
-  function draftFingerprint(mode, texts) {
-    return JSON.stringify({ mode: mode, objectives: texts });
-  }
-
-  function resetPendingMapping() {
-    pendingMapping = null;
-    ui.taxonomyMapping.textContent = "";
-    ui.taxonomyMapping.className = "taxonomy-mapping";
-    ui.saveGoal.textContent = "Map with Jev";
-  }
-
-  function renderTaxonomyMapping(response, mode, texts) {
-    pendingMapping = {
-      fingerprint: draftFingerprint(mode, texts),
-      response: response,
-    };
-    ui.taxonomyMapping.textContent = "";
-    ui.taxonomyMapping.className = "taxonomy-mapping visible";
-    (response.objectives || []).forEach(function (assessment, objectiveIndex) {
-      var group = document.createElement("div");
-      group.className = "mapping-group";
-      var heading = document.createElement("div");
-      heading.className = "mapping-source";
-      heading.textContent = "“" + assessment.text + "” — confirm topics";
-      group.appendChild(heading);
-      var topics = document.createElement("div");
-      topics.className = "mapping-topics";
-      var suggested = new Set((assessment.suggestedTopics || []).map(function (topic) {
-        return topic.taxonomyId;
-      }));
-      (response.taxonomy || []).slice().sort(function (left, right) {
-        return (assessment.typeProbabilities[right.id] || 0) -
-          (assessment.typeProbabilities[left.id] || 0);
-      }).forEach(function (topic) {
-        var label = document.createElement("label");
-        label.className = "mapping-topic";
-        label.title = topic.definition + " Includes: " + topic.includes.join(", ") +
-          ". Excludes: " + topic.excludes.join(", ") + ".";
-        var checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = suggested.has(topic.id);
-        checkbox.dataset.objectiveIndex = String(objectiveIndex);
-        checkbox.dataset.taxonomyId = topic.id;
-        var name = document.createElement("span");
-        name.textContent = topic.label;
-        var score = document.createElement("span");
-        score.className = "mapping-score";
-        score.textContent = Math.round((assessment.typeProbabilities[topic.id] || 0) * 100) + "%";
-        label.appendChild(checkbox);
-        label.appendChild(name);
-        label.appendChild(score);
-        topics.appendChild(label);
-      });
-      group.appendChild(topics);
-      ui.taxonomyMapping.appendChild(group);
-    });
-    ui.saveGoal.textContent = "Save confirmed topics";
-  }
-
-  function confirmedObjectives() {
-    var response = pendingMapping.response;
-    var byId = {};
-    var missing = [];
-    (response.objectives || []).forEach(function (assessment, objectiveIndex) {
-      var checked = Array.from(ui.taxonomyMapping.querySelectorAll(
-        'input[data-objective-index="' + objectiveIndex + '"]:checked'
-      ));
-      if (!checked.length) missing.push(assessment.text);
-      checked.forEach(function (input) {
-        var topic = (response.taxonomy || []).find(function (item) {
-          return item.id === input.dataset.taxonomyId;
-        });
-        if (!topic) return;
-        if (!byId[topic.id]) byId[topic.id] = { topic: topic, sources: [] };
-        byId[topic.id].sources.push(assessment.text);
-      });
-    });
-    if (missing.length) {
-      setProfileFeedback("Choose at least one topic for: " + missing.join(", ") + ".", true);
-      return null;
-    }
-    return Object.keys(byId).map(function (taxonomyId) {
-      var entry = byId[taxonomyId];
-      return {
-        id: taxonomyId,
-        text: entry.topic.label,
-        contentType: "topic",
-        taxonomyId: taxonomyId,
-        taxonomyVersion: response.taxonomyVersion,
-        sourceText: entry.sources.join(", ").slice(0, MAX_OBJECTIVE_LENGTH),
-      };
-    });
-  }
-
-  function saveConfirmedProfile(mode, texts, callback) {
-    var objectives = confirmedObjectives();
-    if (!objectives) return;
-    var duration = parseInt(ui.sessionDuration.value, 10);
-    if (isNaN(duration) || duration < 0) duration = 0;
-    if (duration > 480) duration = 480;
-    var nextProfile = {
-      id: prefs.activeProfile.id || "default",
-      version: prefs.activeProfile.version || 0,
-      mode: mode,
-      objectives: objectives,
-      sessionDurationMinutes: duration,
-      updatedAt: prefs.activeProfile.updatedAt || null,
-    };
-    if (comparableProfile(nextProfile) !== comparableProfile(prefs.activeProfile)) {
-      nextProfile.version = (prefs.activeProfile.version || 0) + 1;
-      nextProfile.updatedAt = new Date().toISOString();
-    }
-    settingsAction({ type: "saveProfile", profile: nextProfile }).then(function () {
-      prefs.activeProfile = settings[mode];
-      draftObjectives = texts.slice();
-      resetPendingMapping(); renderProfile();
-      setProfileFeedback(mode === "general" ? "General preferences saved and applied automatically." : "Focus topics saved. Start Focus when ready.", false);
-      if (callback) callback();
-    }).catch(function (error) { setProfileFeedback(error.message, true); });
-  }
-
-  function saveEndpoint(callback) {
-    function fail(message) {
-      ui.saveGoal.disabled = false; ui.toggleSession.disabled = false;
-      setClassifierResult(message, "error");
-      setProfileFeedback(message, true);
-    }
-    var value = ui.classifierEndpoint.value.trim().replace(/\/+$/, "") || DEFAULTS.classifierEndpoint;
-    var url;
-    try {
-      url = new URL(value);
-      if (url.username || url.password || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) throw new Error();
-    } catch (_) { fail("Use HTTPS, or HTTP on localhost, without embedded credentials."); return; }
-    function save() { prefs.classifierEndpoint = value; chrome.storage.local.set({ classifierEndpoint: value }, callback); }
-    if (url.protocol === "https:") {
-      chrome.permissions.request({ origins: [url.origin + "/*"] }, function (granted) {
-        if (granted) save(); else fail("Endpoint access was not granted.");
-      });
-    } else save();
-  }
-
-  function saveActiveProfile(callback) {
-    var texts = parseList(ui.objectiveInput.value);
-    var mode = ui.filterMode.value === "focus" ? "focus" : "general";
-    if (!texts.length) {
-      setProfileFeedback(mode === "focus"
-        ? "Enter at least one thing to watch only."
-        : "Enter at least one thing to avoid.", true);
-      ui.objectiveInput.focus();
-      return;
-    }
-    if (texts.length > 8) {
-      setProfileFeedback("Use at most 8 entries so every Jev judgment stays bounded and observable.", true);
-      return;
-    }
-    var overlong = texts.find(function (text) { return text.length > MAX_OBJECTIVE_LENGTH; });
-    if (overlong) {
-      setProfileFeedback(
-        "Each entry must be 160 characters or fewer. Shorten: “" + overlong.slice(0, 80) + "…”",
-        true
-      );
-      return;
-    }
-
-    if (!pendingMapping && settings && FocusFeedSettings.valid(settings[mode]) &&
-        texts.join(", ") === draftObjectives.join(", ")) {
-      var saved = Object.assign({}, settings[mode], { sessionDurationMinutes: Math.min(480, Math.max(0, Number(ui.sessionDuration.value) || 0)) });
-      settingsAction({ type: "saveProfile", profile: saved }).then(function () {
-        prefs.activeProfile = settings[mode]; renderProfile();
-        setProfileFeedback(mode === "general" ? "General preferences applied automatically." : "Focus preferences saved.", false);
-        if (callback) callback();
-      }).catch(function (error) { setProfileFeedback(error.message, true); });
-      return;
-    }
-    var fingerprint = draftFingerprint(mode, texts);
-    if (pendingMapping && pendingMapping.fingerprint === fingerprint) {
-      saveConfirmedProfile(mode, texts, callback);
-      return;
-    }
-
-    ui.saveGoal.disabled = true;
-    ui.toggleSession.disabled = true;
-    setProfileFeedback("Jev is mapping each entry to the versioned topic taxonomy…", false);
-    saveEndpoint(function () {
-      chrome.runtime.sendMessage({
-        type: "OBJECTIVES_CLASSIFY_CLOUD",
-        request: {
-          requestId: requestId("objectives"),
-          mode: mode,
-          objectives: texts,
-        },
-      }, function (response) {
-        ui.saveGoal.disabled = false;
-        ui.toggleSession.disabled = false;
-        if (chrome.runtime.lastError || !response) {
-          setProfileFeedback("The extension service worker did not respond.", true);
-          return;
-        }
-        var observability = {
-          schemaVersion: "focusfeed-objective-observability-v1",
-          savedAt: Date.now(),
-          requestedMode: mode,
-          requestedObjectives: texts,
-          response: response.ok ? response.data : null,
-          error: response.ok ? null : response.error,
-        };
-        chrome.storage.local.set({ focusfeedObjectiveValidationV1: observability });
-        if (!response.ok) {
-          setProfileFeedback(response.error.message, true);
-          return;
-        }
-        renderTaxonomyMapping(response.data, mode, texts);
-        var noSuggestions = response.data.objectives.filter(function (objective) {
-          return !(objective.suggestedTopics || []).length;
-        });
-        setProfileFeedback(noSuggestions.length
-          ? "Jev could not confidently suggest every topic. Choose at least one topic for each entry, then save."
-          : "Review Jev's checked suggestions. Edit them if needed, then save confirmed topics.", false);
-      });
-    });
-  }
-
-  function remainingSessionMinutes(session) {
-    if (!session.active || !session.endsAt) return null;
-    return Math.max(0, Math.ceil((new Date(session.endsAt).getTime() - Date.now()) / 60000));
-  }
-
-  function renderSession() {
+  function render() {
     if (!settings) return;
     var active = FocusFeedSettings.focusActive(settings);
-    var editingFocus = ui.filterMode.value === "focus";
-    ui.toggleSession.hidden = !editingFocus && !active;
-    ui.toggleSession.textContent = active ? "End Focus" : "Start Focus";
-    ui.toggleSession.className = active ? "btn btn-session-active" : "btn btn-secondary";
-    var remaining = remainingSessionMinutes(settings.focusSession);
-    ui.sessionBadge.textContent = !settings.enabled ? "Paused" : active ?
-      "Focus active" + (remaining !== null ? " · " + remaining + " min" : "") : "General always on";
-    ui.sessionBadge.className = "session-badge" + (settings.enabled ? " active" : "");
-  }
-  function startSession() {
-    settingsAction({ type: "startFocus" }).catch(function (error) { setProfileFeedback(error.message, true); });
-  }
-  function endSession() {
-    settingsAction({ type: "endFocus" }).then(function () {
-      prefs.activeProfile = migrateProfile(settings.general); renderProfile(); renderSession();
-      setProfileFeedback("Focus ended. General preferences are active.", false);
-    }).catch(function (error) { setProfileFeedback(error.message, true); });
-  }
-
-  function runHealthCheck() {
-    ui.checkClassifier.disabled = true;
-    setClassifierResult("Checking the FocusFeed API…", "");
-    chrome.runtime.sendMessage({ type: "CLASSIFIER_HEALTH_CHECK" }, function (response) {
-      ui.checkClassifier.disabled = false;
-      if (chrome.runtime.lastError || !response) {
-        setClassifierResult("The extension service worker did not respond.", "error");
-        return;
-      }
-      if (!response.ok) {
-        setClassifierResult(response.error.message, "error");
-        return;
-      }
-      setClassifierResult(
-        "API ready\n" + response.data.provider + " · " + response.data.model +
-        "\nvideo: " + response.data.promptVersion +
-        "\nobjectives: " + response.data.objectivePromptVersion +
-        "\ntaxonomy: " + response.data.taxonomyVersion,
-        "success"
-      );
-    });
-  }
-
-  function sampleRequest() {
-    return {
-      requestId: requestId("popup"),
-      profile: {
-        id: prefs.activeProfile.id,
-        version: prefs.activeProfile.version,
-        mode: prefs.activeProfile.mode,
-        objectives: prefs.activeProfile.objectives,
-      },
-      videos: [
-        {
-          videoId: "focusfeed-sample-algorithms",
-          title: "Sliding Window: Solve These 5 Interview Problems",
-          channel: "Algorithm Academy",
-          duration: "12:30",
-          isShort: false,
-          isLive: false,
-          isPremiere: false,
-        },
-        {
-          videoId: "focusfeed-sample-gaming",
-          title: "LIVE Ranked Gaming Stream and Reactions",
-          channel: "Game Clips",
-          duration: "18:00",
-          isShort: false,
-          isLive: true,
-          isPremiere: false,
-        },
-      ],
-    };
-  }
-
-  function runSampleClassification() {
-    if (!prefs.activeProfile.objectives.length || prefs.activeProfile.version < 1) {
-      setClassifierResult("Validate and save your intent before testing Jev.", "error");
-      return;
+    $("enableToggle").checked = settings.enabled; $("hideShorts").checked = settings.hideShorts === true;
+    $("statusDot").dataset.active = String(settings.enabled);
+    $("statusText").textContent = !settings.enabled ? "Filtering is paused" : active ? "Focus is active" : "General filtering is on";
+    $("sessionCard").hidden = !active;
+    if (active) {
+      var session = settings.focusSession, remaining = session.endsAt ? Math.max(0, Date.parse(session.endsAt) - Date.now()) : null;
+      $("sessionBadge").textContent = (settings.enabled ? "" : "Paused · ") + (remaining === null ? "Until you end it" : Math.ceil(remaining / 60000) + " min left");
+      $("sessionProgress").hidden = remaining === null;
+      $("sessionProgress").value = remaining === null ? 1 : Math.min(1, remaining / Math.max(1, Date.parse(session.endsAt) - Date.parse(session.startedAt)));
     }
-    ui.testClassification.disabled = true;
-    setClassifierResult("Classifying two sample videos with Jev…", "");
-    chrome.runtime.sendMessage(
-      { type: "CLASSIFY_VIDEOS", request: sampleRequest() },
-      function (response) {
-        ui.testClassification.disabled = false;
-        if (chrome.runtime.lastError || !response) {
-          setClassifierResult("The extension service worker did not respond.", "error");
-          return;
-        }
-        if (!response.ok) {
-          setClassifierResult(response.error.message, "error");
-          return;
-        }
-        var lines = response.data.assessments.map(function (assessment) {
-          var scores = assessment.objectiveMatches.map(function (match) {
-            return match.text + " " + Math.round(match.matchProbability * 100) + "%";
-          }).join(", ");
-          return assessment.videoId.replace("focusfeed-sample-", "") + ": " +
-            assessment.outcome + " · " + scores +
-            " · evidence " + Math.round(assessment.evidenceProbability * 100) + "%";
+    $("saveGoal").textContent = busy ? "Checking topics…" : mode === "focus" ? "Save topics" : "Save preferences";
+    $("saveGoal").className = "button " + (mode === "focus" ? "button-secondary" : "button-primary");
+    $("toggleSession").hidden = mode !== "focus" && !active;
+    $("toggleSession").textContent = active ? "End Focus" : "Start Focus";
+    $("toggleSession").className = "button " + (active ? "button-secondary" : "button-primary");
+    $("saveGoal").disabled = busy; $("toggleSession").disabled = busy;
+    renderDraft();
+  }
+  async function update(action) {
+    settings = await request({ type: "FF_SETTINGS_UPDATE", action: action }); render(); return settings;
+  }
+  async function saveEndpoint() {
+    var value = $("classifierEndpoint").value.trim().replace(/\/+$/, "") || DEFAULT_ENDPOINT, url;
+    try { url = new URL(value); } catch (_) { throw new Error("Enter a valid classifier address."); }
+    if (url.username || url.password || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {
+      throw new Error("Use HTTPS, or HTTP on localhost, without embedded credentials.");
+    }
+    if (url.protocol === "https:" && !await chrome.permissions.request({ origins: [url.origin + "/*"] })) throw new Error("Connection access was not granted.");
+    if (value !== savedEndpoint) { await chrome.storage.local.set({ classifierEndpoint: value }); savedEndpoint = value; }
+  }
+  function showInvalid(assessments) {
+    var invalid = assessments.filter(function (a) { return a.status !== "ready_for_confirmation"; });
+    editor.markInvalid(invalid.map(function (a) { return a.text; }));
+    $("validationResults").replaceChildren(); $("validationResults").hidden = !invalid.length;
+    invalid.forEach(function (a) {
+      var row = document.createElement("div"); row.className = "validation-row";
+      var title = document.createElement("strong"); title.textContent = a.text;
+      var description = document.createElement("span"); description.textContent = a.reason;
+      row.append(title, description); $("validationResults").appendChild(row);
+    });
+    return invalid.length > 0;
+  }
+  async function save(startFocus) {
+    if (!settings || busy) return;
+    var topics = editor.commit(), target = mode, duration = Number($("sessionDuration").value);
+    if (!topics.length) { feedback("profileFeedback", "Add at least one topic to get started.", true); $("objectiveInput").focus(); return; }
+    if (topics.length > 8 || topics.some(function (s) { return s.length > 160; })) { renderDraft(); return; }
+    if (!Number.isInteger(duration) || duration < 0 || duration > 480) { feedback("profileFeedback", "Choose a duration from 0 to 480 minutes.", true); return; }
+    var snapshot = fingerprint(), original = settings[target], objectives;
+    busy = true; render(); feedback("profileFeedback", "Checking your topics…");
+    try {
+      var unchanged = FocusFeedSettings.valid(original) && original.objectives.every(function (o) { return o.matchScope === "intent"; }) &&
+        JSON.stringify(topics) === JSON.stringify(texts(original));
+      if (unchanged) objectives = original.objectives;
+      else {
+        await saveEndpoint();
+        var id = "objectives-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+        var result = await request({ type: "OBJECTIVES_CLASSIFY_CLOUD", request: { requestId: id, mode: target, objectives: topics } });
+        if (!result || result.requestId !== id || !Array.isArray(result.objectives) || result.objectives.length !== topics.length ||
+            result.objectives.some(function (a, i) { return !a || a.text !== topics[i]; })) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
+        await chrome.storage.local.set({ focusfeedObjectiveValidationV1: { savedAt: Date.now(), requestedMode: target, requestedObjectives: topics, response: result } });
+        if (snapshot !== fingerprint()) throw new Error("Your preferences changed during validation. Save the current topics again.");
+        if (showInvalid(result.objectives)) { feedback("profileFeedback", "Clarify the highlighted topics, then save again. Nothing has been saved.", true); return; }
+        objectives = result.objectives.map(function (a) {
+          var o = a.validatedObjective;
+          if (!FocusFeedSettings.validObjective(o) || o.matchScope !== "intent" || o.text !== a.text) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
+          return { id: o.id, text: o.text, sourceText: o.text, contentType: "topic", matchScope: "intent", validationVersion: o.validationVersion };
         });
-        lines.push("TypeSafe Jev: " + response.data.timing.totalMs + " ms");
-        setClassifierResult(lines.join("\n"), "success");
       }
-    );
+      if (snapshot !== fingerprint()) throw new Error("Your preferences changed during validation. Save the current topics again.");
+      await update({ type: "saveProfile", profile: { id: target, mode: target, version: Math.max(1, original.version + 1),
+        objectives: objectives, sessionDurationMinutes: duration } });
+      if (snapshot !== fingerprint()) { feedback("profileFeedback", "The previous version was saved. Your new edits are still unsaved."); return; }
+      drafts[target] = draft(settings[target]);
+      if (startFocus && target === "focus") {
+        await update({ type: "startFocus" }); feedback("profileFeedback", settings.enabled ? "Focus started. Your goal now filters YouTube." : "Focus started. Turn filtering on when you are ready.");
+      } else feedback("profileFeedback", target === "general" && FocusFeedSettings.focusActive(settings)
+        ? "Saved. These preferences apply when Focus ends." : target === "focus" ? "Focus topics saved." : "Saved. Your preferences now filter YouTube.");
+    } catch (error) { feedback("profileFeedback", error.message, true); }
+    finally { busy = false; render(); }
   }
-
-  function updateStatus() {
-    if (prefs.enabled) {
-      ui.statusText.textContent = "General applies automatically on YouTube";
-      ui.statusText.className = "status-active";
-    } else {
-      ui.statusText.textContent = "Filtering disabled";
-      ui.statusText.className = "status-inactive";
-    }
-  }
-
-  function fetchStats() {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (!tabs[0] || !tabs[0].url || !tabs[0].url.includes("youtube.com")) return;
-      chrome.tabs.sendMessage(tabs[0].id, { type: "GET_STATS" }, function (response) {
-        if (chrome.runtime.lastError || !response) return;
-        ui.totalCount.textContent = response.total || 0;
-        ui.trackedCount.textContent = response.trackedVideos || 0;
-        if (response.runtime) ui.statusText.textContent = response.runtime.status;
-      });
+  function renderChannels() {
+    $("channelCount").textContent = String(blocks.length); $("channelBlocks").replaceChildren();
+    if (!blocks.length) { var empty = document.createElement("p"); empty.className = "empty-message"; empty.textContent = "No channels blocked. You can block one from its video menu on YouTube."; $("channelBlocks").appendChild(empty); }
+    blocks.forEach(function (block) {
+      var row = document.createElement("div"); row.className = "channel-row";
+      var label = document.createElement("span"); label.textContent = block.channelLabel || block.channelId;
+      var scope = document.createElement("small"); scope.textContent = block.scope === "global" ? "Blocked everywhere" : "Blocked for its saved preferences"; label.appendChild(scope);
+      var button = document.createElement("button"); button.className = "text-button"; button.type = "button"; button.textContent = "Unblock";
+      button.setAttribute("aria-label", "Unblock " + (block.channelLabel || block.channelId));
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        try { await request({ type: "FF_BLOCK_REMOVE", id: block.id }); blocks = (await chrome.storage.local.get({ focusFeedChannelBlocksV1: [] })).focusFeedChannelBlocksV1; renderChannels(); }
+        catch (error) { button.disabled = false; feedback("profileFeedback", error.message, true); }
+      }); row.append(label, button); $("channelBlocks").appendChild(row);
     });
   }
-
-  ui.filterMode.addEventListener("change", function () {
-    resetPendingMapping();
-    if (settings) prefs.activeProfile = migrateProfile(settings[ui.filterMode.value]);
-    renderProfile(); renderSession();
+  async function refreshFeedStatus() {
+    try {
+      var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0] || !/^https:\/\/(www\.)?youtube\.com\//.test(tabs[0].url || "")) { $("feedStatus").textContent = "Ready when you are."; return; }
+      var stats = await chrome.tabs.sendMessage(tabs[0].id, { type: "GET_STATS" });
+      $("feedStatus").textContent = stats && stats.runtime ? stats.runtime.hidden + " cards hidden in this tab" : "Reload YouTube to connect.";
+    } catch (_) { $("feedStatus").textContent = "Reload YouTube to connect."; }
+  }
+  document.querySelectorAll("[data-mode]").forEach(function (button) { button.addEventListener("click", function () { if (settings) setMode(button.dataset.mode); }); });
+  document.querySelectorAll("[data-minutes]").forEach(function (button) { button.addEventListener("click", function () { $("sessionDuration").value = button.dataset.minutes; edited(); }); });
+  $("sessionDuration").addEventListener("input", edited);
+  $("topicEditor").addEventListener("click", function (event) { if (event.target === $("topicEditor")) $("objectiveInput").focus(); });
+  $("saveGoal").addEventListener("click", function () { save(false); });
+  $("toggleSession").addEventListener("click", async function () {
+    if (!settings || busy) return;
+    if (!FocusFeedSettings.focusActive(settings)) { save(true); return; }
+    try { await update({ type: "endFocus" }); setMode("general"); feedback("profileFeedback", "Focus ended. General preferences are active."); }
+    catch (error) { feedback("profileFeedback", error.message, true); }
   });
-  ui.objectiveInput.addEventListener("input", resetPendingMapping);
-  ui.saveGoal.addEventListener("click", function () { saveActiveProfile(); });
-  ui.toggleSession.addEventListener("click", function () {
-    if (settings && FocusFeedSettings.focusActive(settings)) endSession();
-    else saveActiveProfile(startSession);
-  });
-  ui.checkClassifier.addEventListener("click", function () { saveEndpoint(runHealthCheck); });
-  ui.testClassification.addEventListener("click", function () { saveEndpoint(runSampleClassification); });
-  ui.clearGeneratedData.addEventListener("click", function () {
-    ui.clearGeneratedData.disabled = true;
-    chrome.storage.local.remove(GENERATED_DATA_KEYS, function () {
-      ui.clearGeneratedData.disabled = false;
-      if (chrome.runtime.lastError) {
-        setClassifierResult("Could not clear generated data: " + chrome.runtime.lastError.message, "error");
-        return;
-      }
-      chrome.tabs.query({ url: "*://*.youtube.com/*" }).then(function (tabs) {
-        tabs.forEach(function (tab) { chrome.tabs.sendMessage(tab.id, { type: "FF_RESET_RUNTIME" }).catch(function () {}); });
-      });
-      setClassifierResult("Cleared every assessment cache, report, observability snapshot, and learned channel-evidence tally. Your intent and confirmed channel blocks were kept.", "success");
+  [["enableToggle", "setEnabled"], ["hideShorts", "setHideShorts"]].forEach(function (pair) {
+    $(pair[0]).addEventListener("change", async function () {
+      $(pair[0]).disabled = true;
+      try { await update({ type: pair[1], enabled: $(pair[0]).checked }); }
+      catch (error) { render(); feedback("profileFeedback", error.message, true); }
+      finally { $(pair[0]).disabled = false; }
     });
   });
-  $("openObservability").addEventListener("click", function () {
-    chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") });
+  $("checkClassifier").addEventListener("click", async function () {
+    $("checkClassifier").disabled = true; feedback("classifierResult", "Checking connection…");
+    try { await saveEndpoint(); await request({ type: "CLASSIFIER_HEALTH_CHECK" }); feedback("classifierResult", "API connected and ready for requests."); }
+    catch (error) { feedback("classifierResult", error.message, true); }
+    finally { $("checkClassifier").disabled = false; }
   });
-  $("openYouTubeSession").addEventListener("click", function () {
-    chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") });
+  $("openObservability").addEventListener("click", function () { chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") }); });
+  $("clearGeneratedData").addEventListener("click", async function () {
+    $("clearGeneratedData").disabled = true;
+    try {
+      await request({ type: "FF_CACHE_CLEAR" }); await chrome.storage.local.remove("focusfeedObjectiveValidationV1");
+      var tabs = await chrome.tabs.query({ url: "*://*.youtube.com/*" });
+      await Promise.allSettled(tabs.map(function (tab) { return chrome.tabs.sendMessage(tab.id, { type: "FF_RESET_RUNTIME" }); }));
+      feedback("classifierResult", "Video checks refreshed. Your preferences are unchanged.");
+    } catch (error) { feedback("classifierResult", error.message, true); }
+    finally { $("clearGeneratedData").disabled = false; }
   });
-  ui.enableToggle.addEventListener("change", function () {
-    settingsAction({ type: "setEnabled", enabled: ui.enableToggle.checked })
-      .catch(function (error) { setProfileFeedback(error.message, true); });
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area !== "local") return;
+    if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) { settings = changes.focusfeedSettingsV2.newValue; render(); }
+    if (changes.focusFeedChannelBlocksV1) { blocks = changes.focusFeedChannelBlocksV1.newValue || []; renderChannels(); }
   });
-  setInterval(function () { renderSession(); fetchStats(); }, 5000);
-  loadPrefs();
-  fetchStats();
+  async function load() {
+    try {
+      settings = await request({ type: "FF_SETTINGS_GET" });
+      var values = await chrome.storage.local.get({ classifierEndpoint: DEFAULT_ENDPOINT, focusFeedChannelBlocksV1: [] });
+      savedEndpoint = values.classifierEndpoint; $("classifierEndpoint").value = savedEndpoint; blocks = values.focusFeedChannelBlocksV1;
+      drafts.general = draft(settings.general); drafts.focus = draft(settings.focus);
+      mode = new URL(location.href).searchParams.get("mode") === "focus" ? "focus" : FocusFeedSettings.effective(settings).mode;
+      // The editor is still empty: set the initial mode without overwriting its loaded draft.
+      editor.set(drafts[mode].topics); $("sessionDuration").value = String(drafts[mode].duration);
+      setMode(mode); renderChannels(); refreshFeedStatus();
+    } catch (error) { feedback("profileFeedback", error.message, true); }
+  }
+  setInterval(function () { render(); refreshFeedStatus(); }, 5000);
+  load();
 })();

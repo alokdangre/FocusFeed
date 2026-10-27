@@ -90,8 +90,8 @@ function dispatch(listener, message) {
         if (url.endsWith("/health")) return {
           configured: true,
           provider: "typesafe-jev",
-          promptVersion: "typesafe-jev-taxonomy-video-match-2026-10-02.1",
-          objectivePromptVersion: "typesafe-jev-taxonomy-map-2026-10-02.1",
+          promptVersion: "typesafe-jev-intent-video-match-2026-10-27.1",
+          objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.1",
           taxonomyVersion: "focusfeed-topics-v1",
         };
         return { objectives: [{ status: "ready_for_confirmation" }] };

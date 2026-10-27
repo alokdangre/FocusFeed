@@ -1,12 +1,11 @@
 {
   "manifest_version": 3,
   "name": "FocusFeed",
-  "version": "0.11.0",
+  "version": "0.15.0",
   "description": "Always-on YouTube topic filtering and channel blocking, with an optional Focus timer.",
   "permissions": [
     "storage",
-    "activeTab",
-    "scripting"
+    "activeTab"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
@@ -33,12 +32,12 @@
         "*://*.youtube.com/*"
       ],
       "js": [
-        "workflow-core.js",
+        "video-model.js",
         "channel-policy.js",
         "settings.js",
-        "live/engine.js",
-        "live/provider.js",
         "auto-runtime.js",
+        "home-feed.js",
+        "preview-controller.js",
         "youtube-ui.js",
         "content.js"
       ],

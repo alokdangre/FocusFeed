@@ -17,6 +17,7 @@ class Element {
   addEventListener(type, listener) { this.listeners[type] = listener; }
   dispatchEvent() {}
   getClientRects() { return [{}]; }
+  getBoundingClientRect() { return { top: 10, bottom: 200 }; }
   matches(selector) { return selector.split(",").some(raw => {
     const s = raw.trim();
     if (s[0] === ".") return this.className.split(" ").includes(s.slice(1));
@@ -29,7 +30,7 @@ class Element {
   querySelectorAll(selector) { return this.children.flatMap(c => [...(c.matches(selector) ? [c] : []), ...c.querySelectorAll(selector)]); }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
-function setup() {
+function setup(overrides = {}) {
   const body = new Element("body"), listeners = {}, messages = [], restored = [];
   const menu = body.appendChild(new Element("ytd-menu-popup-renderer"));
   const items = menu.appendChild(new Element("div")); items.setAttribute("id", "items");
@@ -42,7 +43,7 @@ function setup() {
     chrome: { runtime: { sendMessage: async message => {
       messages.push(message);
       return { ok: true, data: { created: true, block: { id: "block1" } } };
-    } } } });
+    } } }, ...overrides });
   ["channel-policy.js", "youtube-ui.js"].forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context));
   const ui = context.FocusFeedYouTubeUI.create({ lookup: () => null, extract: () => null });
   ui.setRuntime({ reload: async () => {}, restore: id => restored.push(id), tick() {} });
@@ -71,16 +72,21 @@ test("reused menus cannot block a previously selected channel; keyboard and Undo
   h.listeners.keydown({ key: "Escape" }); await unknown.listeners.click(click); assert.equal(h.messages.length, 2);
   await sleep(160);
 });
-test("playback guard pauses autoplay; watch-once is offered for AI and never for channel blocks", () => {
+test("only explicit playback blocks pause media; semantic checking and errors never show a player popup", () => {
   const h = setup(), surface = h.setPlayer(), video = surface.appendChild(new Element("video"));
   video.paused = false; video.pause = () => { video.paused = true; };
+  video.play = () => { video.paused = false; return Promise.resolve(); };
   const metadata = { videoId: "v1", channelId: "@creator" };
   h.ui.render(surface, metadata, "hide", "channel_block");
   assert.equal(video.paused, true); assert.equal(surface.dataset.focusfeedPlayback, "true");
   assert.equal(h.body.querySelector(".focusfeed-playback").querySelector("button"), null);
   video.paused = false; h.listeners.play({ target: video }); assert.equal(video.paused, true);
-  h.ui.render(surface, metadata, "hide", "model");
-  h.body.querySelector(".focusfeed-playback").querySelector("button").listeners.click(); assert.deepEqual(h.restored, ["v1"]);
-  h.ui.render(surface, metadata, "show"); assert.equal(h.body.querySelector(".focusfeed-playback"), null);
-  assert.equal(surface.dataset.focusfeedPlayback, undefined);
+  h.ui.render(surface, metadata, "show");
+  assert.equal(video.paused, false); assert.equal(h.body.querySelector(".focusfeed-playback"), null);
+  for (const [action, reason] of [["pending", "model_pending"], ["hide", "model"], ["hide", "unavailable"]]) {
+    h.ui.render(surface, metadata, action, reason);
+    assert.equal(video.paused, false);
+    assert.equal(h.body.querySelector(".focusfeed-playback"), null);
+    assert.equal(surface.dataset.focusfeedPlayback, undefined);
+  }
 });

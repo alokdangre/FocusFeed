@@ -1,17 +1,15 @@
 "use strict";
 const assert = require("node:assert/strict");
 const test = require("node:test");
-require("../workflow-core.js");
+require("../video-model.js");
 require("../channel-policy.js");
 require("../settings.js");
-require("../live/engine.js");
-require("../live/provider.js");
 require("../auto-runtime.js");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const topic = { id: "topic.gaming", taxonomyId: "topic.gaming", taxonomyVersion: "focusfeed-topics-v1", text: "Gaming", contentType: "topic" };
 function profile(mode = "general") { return { id: mode, version: 1, mode, objectives: [topic], sessionDurationMinutes: 1 }; }
 function state() { return { schemaVersion: 2, revision: 1, enabled: true, general: profile(), focus: profile("focus"), focusSession: { active: false } }; }
-function assessment(id, outcome = "match") { return { videoId: id, outcome, reason: "test", evidenceProbability: .9,
+function assessment(id, outcome = "match") { return { videoId: id, outcome, reason: "test",
   objectiveMatches: [{ objectiveId: topic.id, text: topic.text, contentType: "topic", matchProbability: outcome === "match" ? .9 : .1 }] }; }
 function harness(response) {
   const prefs = { focusfeedSettingsV2: state(), focusFeedChannelBlocksV1: [] }, calls = [], cards = [];
@@ -92,16 +90,38 @@ test("expired Focus returns to saved General without opening popup", async () =>
   assert.equal(h.runtime.snapshot().mode, "general"); h.runtime.stop();
 });
 test("provider request strips UI settings and identity aliases", () => {
-  const request = FocusFeedLiveProvider.cloudRequest({ requestId: "test-123", profile: { ...profile(), updatedAt: "x" },
+  const request = FocusFeedVideo.cloudRequest({ requestId: "test-123", profile: { ...profile(), updatedAt: "x" },
     videos: [{ videoId: "v", title: "Title", aliases: ["@creator"] }] });
   assert.deepEqual(Object.keys(request.profile).sort(), ["id", "mode", "objectives", "version"]);
   assert.equal(request.videos[0].aliases, undefined);
 });
+test("Hide Shorts applies locally without topics and Watch once cannot bypass it", async () => {
+  const h = harness(() => { throw new Error("The provider must not be called"); });
+  h.prefs.focusfeedSettingsV2.hideShorts = true;
+  h.prefs.focusfeedSettingsV2.general.objectives = [];
+  const c = h.add("short"); c.video.isShort = true;
+  await h.runtime.reload(); assert.equal(c.action, "hide"); assert.equal(c.reason, "shorts_block");
+  h.runtime.restore("short"); assert.equal(c.action, "hide"); assert.equal(h.calls.length, 0);
+  h.prefs.focusfeedSettingsV2.hideShorts = false; await h.runtime.reload(); assert.equal(c.action, "show");
+  h.runtime.stop();
+});
+test("manual playback keeps explicit channel and Shorts policies without dispatching topic checks", async () => {
+  const h = harness(() => { throw new Error("Playback must not call the provider"); });
+  const c = h.add("playing"); c.video.playback = true;
+  h.prefs.focusFeedChannelBlocksV1 = [{ channelId: "@creator", scope: "global" }];
+  await h.runtime.reload(); assert.equal(c.action, "hide"); assert.equal(c.reason, "channel_block");
+  h.prefs.focusFeedChannelBlocksV1 = []; c.video.isShort = true;
+  h.prefs.focusfeedSettingsV2.hideShorts = true;
+  await h.runtime.reload(); assert.equal(c.action, "hide"); assert.equal(c.reason, "shorts_block");
+  h.prefs.focusfeedSettingsV2.hideShorts = false;
+  await h.runtime.reload(); assert.equal(c.action, "show");
+  await sleep(130); assert.equal(h.calls.length, 0); h.runtime.stop();
+});
 test("hung transport releases pending cards within its deadline", async () => {
   const fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
   const context = vm.createContext({ console, Date, clearTimeout,
-    setTimeout: (fn, ms) => setTimeout(fn, ms === 35000 ? 10 : ms) });
-  ["workflow-core.js", "channel-policy.js", "settings.js", "live/engine.js", "live/provider.js", "auto-runtime.js"]
+    setTimeout: (fn, ms) => setTimeout(fn, ms === 90000 ? 10 : ms) });
+  ["video-model.js", "channel-policy.js", "settings.js", "auto-runtime.js"]
     .forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context));
   let action, runtime;
   const card = { isConnected: true, dataset: {}, getBoundingClientRect: () => ({ top: 0, bottom: 200 }) };
@@ -114,4 +134,32 @@ test("hung transport releases pending cards within its deadline", async () => {
     render(_card, _video, value) { action = value; } }, api);
   await runtime.reload(); assert.equal(action, "pending"); await sleep(150);
   assert.equal(action, "show"); assert.equal(cancelled.length, 1); runtime.stop();
+});
+test("automatic batches admit twelve videos and obey the 96-question budget", async () => {
+  const h = harness();
+  for (let i = 0; i < 13; i++) h.add("v" + i);
+  await h.runtime.reload(); await sleep(130);
+  assert.equal(h.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 12);
+  h.runtime.stop();
+  const full = harness();
+  full.prefs.focusfeedSettingsV2.general.objectives = Array.from({ length: 12 }, (_v, i) => ({ ...topic, id: "topic-" + i, text: "Preference " + i }));
+  for (let i = 0; i < 12; i++) full.add("v" + i);
+  await full.runtime.reload(); await sleep(130);
+  assert.equal(full.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 8);
+  full.runtime.stop();
+});
+test("cached sources remain visible and expiry refreshes the existing card", async () => {
+  const h = harness(async m => ({ ok: true, data: { ok: true, data: {
+    assessments: m.request.videos.map(v => assessment(v.videoId)),
+    diagnostics: { usage: { input_tokens: 0, output_tokens: 0 }, cache: {
+      hits: 1, providerCalls: 0, providerQuestions: 0,
+      byVideo: { v1: { source: "cache", expiresAt: Date.now() + 60 } } } }
+  } } }));
+  const c = h.add("v1"); await h.runtime.reload(); await sleep(130);
+  assert.equal(c.reason, "cache");
+  assert.equal(h.runtime.snapshot().metrics.cacheHits, 1);
+  await sleep(100); h.scan(); assert.equal(c.action, "pending");
+  await sleep(130);
+  assert.equal(h.calls.filter(c => c.type === "FF_AUTO_CLASSIFY").length, 2);
+  h.runtime.stop();
 });

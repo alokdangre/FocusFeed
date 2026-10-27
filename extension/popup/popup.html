@@ -1,501 +1,90 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      width: 380px;
-      max-height: 600px;
-      overflow-y: auto;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f0f0f;
-      color: #e8e8e8;
-      font-size: 13px;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 16px;
-      border-bottom: 1px solid #272727;
-    }
-
-    .header h1 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .toggle {
-      position: relative;
-      width: 40px;
-      height: 22px;
-    }
-
-    .toggle input { opacity: 0; width: 0; height: 0; }
-
-    .toggle-slider {
-      position: absolute;
-      inset: 0;
-      background: #444;
-      border-radius: 11px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .toggle-slider::before {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      left: 3px;
-      top: 3px;
-      background: #fff;
-      border-radius: 50%;
-      transition: transform 0.2s;
-    }
-
-    .toggle input:checked + .toggle-slider { background: #3ea6ff; }
-    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
-
-    .stats {
-      display: flex;
-      gap: 10px;
-      padding: 12px 16px;
-      background: #1a1a1a;
-      border-bottom: 1px solid #272727;
-    }
-
-    .stat {
-      flex: 1;
-      text-align: center;
-      padding: 8px;
-      background: #222;
-      border-radius: 8px;
-    }
-
-    .stat-value {
-      font-size: 20px;
-      font-weight: 700;
-      color: #3ea6ff;
-    }
-
-    .stat-label {
-      font-size: 10px;
-      color: #888;
-      margin-top: 2px;
-    }
-
-    .section {
-      padding: 12px 16px;
-      border-bottom: 1px solid #1e1e1e;
-    }
-
-    .section-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      margin-bottom: 10px;
-    }
-
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 0;
-    }
-
-    .checkbox-row input[type="checkbox"] {
-      accent-color: #3ea6ff;
-      width: 15px;
-      height: 15px;
-      cursor: pointer;
-    }
-
-    .checkbox-row label { cursor: pointer; color: #ccc; }
-
-    /* Duration row */
-    .duration-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .duration-row label { color: #888; font-size: 12px; }
-
-    .duration-input {
-      width: 64px;
-      padding: 6px 8px;
-      border: 1px solid #333;
-      border-radius: 6px;
-      background: #1a1a1a;
-      color: #e8e8e8;
-      font-size: 13px;
-      outline: none;
-      text-align: center;
-    }
-
-    .duration-input:focus { border-color: #3ea6ff; }
-    .duration-unit { color: #555; font-size: 12px; }
-
-    /* Input + button */
-    .input-group {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-
-    .input-group input {
-      flex: 1;
-      padding: 7px 10px;
-      border: 1px solid #333;
-      border-radius: 6px;
-      background: #1a1a1a;
-      color: #e8e8e8;
-      font-size: 13px;
-      outline: none;
-    }
-
-    .input-group input:focus { border-color: #3ea6ff; }
-    .input-group input::placeholder { color: #444; }
-
-    .btn {
-      padding: 7px 13px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .btn-add { background: #3ea6ff; color: #000; }
-    .btn-add:hover { background: #65b8ff; }
-
-    .btn-add-green { background: #2d9e5f; color: #fff; }
-    .btn-add-green:hover { background: #37b870; }
-
-    .goal-card {
-      padding: 12px;
-      border: 1px solid #2f4252;
-      border-radius: 10px;
-      background: #151c22;
-    }
-
-    .field-label {
-      display: block;
-      margin: 10px 0 5px;
-      color: #aaa;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .field-label:first-child { margin-top: 0; }
-
-    .text-field,
-    .select-field,
-    .goal-textarea {
-      width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #354553;
-      border-radius: 7px;
-      background: #0f1418;
-      color: #eee;
-      font: inherit;
-      outline: none;
-    }
-
-    .goal-textarea {
-      min-height: 64px;
-      resize: vertical;
-      line-height: 1.4;
-    }
-
-    .text-field:focus,
-    .select-field:focus,
-    .goal-textarea:focus { border-color: #3ea6ff; }
-
-    .field-hint {
-      margin-top: 4px;
-      color: #65727c;
-      font-size: 10px;
-      line-height: 1.35;
-    }
-
-    .goal-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .goal-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .goal-actions .btn { flex: 1; }
-    .classifier-lab-button { width: 100%; margin-top: 8px; }
-    .btn-primary { background: #3ea6ff; color: #06131d; }
-    .btn-primary:hover { background: #69baff; }
-    .btn-secondary { background: #29343c; color: #ddd; }
-    .btn-secondary:hover { background: #35434d; }
-    .btn-session-active { background: #b94949; color: #fff; }
-
-    .profile-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-top: 10px;
-      color: #76848e;
-      font-size: 10px;
-    }
-
-    .profile-feedback {
-      min-height: 14px;
-      margin-top: 8px;
-      color: #66b9ff;
-      font-size: 11px;
-      white-space: pre-wrap;
-    }
-
-    .profile-feedback.error { color: #ef7777; }
-
-    .taxonomy-mapping {
-      display: none;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #2f4252;
-    }
-
-    .taxonomy-mapping.visible { display: block; }
-    .mapping-group + .mapping-group { margin-top: 12px; }
-    .mapping-source { color: #dbeeff; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
-    .mapping-topics { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-    .mapping-topic {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px;
-      border: 1px solid #2b3944;
-      border-radius: 6px;
-      color: #aebbc5;
-      font-size: 10px;
-      cursor: pointer;
-    }
-    .mapping-topic:has(input:checked) { border-color: #3ea6ff; color: #dcefff; background: #132536; }
-    .mapping-topic input { accent-color: #3ea6ff; }
-    .mapping-score { margin-left: auto; color: #71808c; font-variant-numeric: tabular-nums; }
-
-    .session-badge {
-      padding: 2px 7px;
-      border-radius: 10px;
-      background: #23303a;
-      color: #8b9aa5;
-    }
-
-    .session-badge.active {
-      background: #173625;
-      color: #65ce91;
-    }
-
-    .connection-result {
-      display: none;
-      margin-top: 8px;
-      padding: 8px;
-      border-radius: 7px;
-      background: #11171c;
-      color: #9ba9b3;
-      font-size: 11px;
-      line-height: 1.45;
-      white-space: pre-wrap;
-    }
-
-    .connection-result.visible { display: block; }
-    .connection-result.success { color: #72d69b; }
-    .connection-result.error { color: #ef7777; }
-
-    button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #76baff; outline-offset: 3px; }
-    button:disabled { cursor: default; opacity: .55; }
-    button:active { transform: scale(.98); }
-    [hidden] { display: none !important; }
-
-    /* Tags */
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-
-    .tag {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 9px;
-      background: #272727;
-      border-radius: 12px;
-      font-size: 12px;
-      color: #ccc;
-    }
-
-    .tag.tag-whitelist {
-      background: #1a2e22;
-      border: 1px solid #2d9e5f44;
-      color: #5dba87;
-    }
-
-    .tag.tag-signal-up {
-      background: #1a2e22;
-      border: 1px solid #2d9e5f44;
-      color: #5dba87;
-    }
-
-    .tag.tag-signal-down {
-      background: #2e1a1a;
-      border: 1px solid #c3333344;
-      color: #d97474;
-    }
-
-    .signal-group { margin-bottom: 8px; }
-    .signal-group:last-child { margin-bottom: 0; }
-    .signal-label {
-      color: #888;
-      font-size: 11px;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .signal-count {
-      background: #272727;
-      color: #aaa;
-      padding: 1px 6px;
-      border-radius: 8px;
-      font-size: 10px;
-    }
-    .signal-score {
-      color: #888;
-      font-size: 10px;
-      margin-left: 3px;
-      opacity: 0.7;
-    }
-
-    .tag-remove {
-      cursor: pointer;
-      color: #666;
-      font-size: 14px;
-      line-height: 1;
-      border: 0;
-      padding: 0;
-      background: transparent;
-    }
-
-    .tag-remove:hover { color: #ff4444; }
-    .tag.tag-whitelist .tag-remove:hover { color: #ff8888; }
-
-    .empty-msg { color: #444; font-size: 12px; font-style: italic; }
-
-    .status-bar {
-      padding: 10px 16px;
-      font-size: 11px;
-      color: #555;
-      text-align: center;
-    }
-
-    .status-active { color: #4caf50; }
-    .status-inactive { color: #888; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>FocusFeed</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div class="popup-shell">
+    <header class="app-header">
+      <a class="brand" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="FocusFeed · Open YouTube">
+        <svg class="brand-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="10" fill="currentColor"/><path d="M11 23V9h12M11 16h9" fill="none" stroke="var(--surface)" stroke-width="3" stroke-linecap="round"/><circle cx="23" cy="23" r="2" fill="var(--surface)"/></svg>
+        <span>FocusFeed<span class="brand-caption">A little more intention.</span></span>
+      </a>
+      <label class="switch power-switch" title="Turn filtering on or off">
+        <input id="enableToggle" type="checkbox" role="switch" aria-label="Enable FocusFeed"><span class="switch-track"></span>
+      </label>
+    </header>
 
-  <div class="header">
-    <h1>FocusFeed</h1>
-    <label class="toggle">
-      <input type="checkbox" id="enableToggle" aria-label="Enable FocusFeed on YouTube" checked>
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
+    <main>
+      <div class="status-line"><span id="statusDot" class="status-dot"></span><span id="statusText" role="status">Loading preferences…</span></div>
+      <nav class="mode-switch" aria-label="Filtering mode">
+        <button type="button" data-mode="general" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12M7 3v6M13 11v6"/></svg>General</button>
+        <button type="button" data-mode="focus" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/></svg>Focus</button>
+      </nav>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value" id="totalCount">0</div>
-      <div class="stat-label">Scanned</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="trackedCount">0</div>
-      <div class="stat-label">Tracked</div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Feed intent</div>
-    <div class="goal-card">
-      <div class="goal-grid">
-        <div>
-          <label class="field-label" for="filterMode">Mode</label>
-          <select class="select-field" id="filterMode">
-            <option value="general">General — avoid these</option>
-            <option value="focus">Focus — watch only these</option>
-          </select>
+      <section class="intent-section" aria-labelledby="modeTitle">
+        <h1 id="modeTitle">A quieter feed.</h1>
+        <p class="intro" id="modeDescription">Less of what distracts you. More room for everything else.</p>
+        <div class="field-heading"><label for="objectiveInput" id="objectiveLabel">Keep out of your feed</label><span id="topicCount" aria-live="polite">0 / 8</span></div>
+        <div class="topic-editor" id="topicEditor">
+          <div class="topic-list" id="topicList" aria-label="Your topics"></div>
+          <input id="objectiveInput" type="text" autocomplete="off" spellcheck="true" aria-describedby="objectiveHint topicError" placeholder="Try movie reviews…">
         </div>
-        <div>
-          <label class="field-label" for="sessionDuration">Focus minutes (0 = until ended)</label>
-          <input class="text-field" type="number" id="sessionDuration" min="0" max="480" value="45">
+        <div class="input-helper"><span id="objectiveHint">Add a topic, then press <kbd>Enter</kbd> or <kbd>,</kbd></span><span id="draftState">Not saved yet</span></div>
+        <p id="topicError" class="field-error" role="status" hidden></p>
+        <div class="suggestions" id="topicSuggestions" aria-label="Topic ideas"></div>
+        <div id="validationResults" class="validation-results" aria-live="polite" hidden></div>
+
+        <section class="duration-section" id="durationSection" aria-label="Focus duration" hidden>
+          <div class="field-heading"><label for="sessionDuration">Make some time</label><span>Minutes</span></div>
+          <div class="duration-options" aria-label="Duration presets">
+            <button type="button" data-minutes="25" aria-pressed="false">25 min</button>
+            <button type="button" data-minutes="45" aria-pressed="true">45 min</button>
+            <button type="button" data-minutes="60" aria-pressed="false">60 min</button>
+            <label class="custom-duration"><span class="sr-only">Custom minutes; zero means no timer</span><input id="sessionDuration" type="number" min="0" max="480" value="45" aria-label="Focus minutes; zero means no timer"></label>
+          </div>
+          <p class="subtle-note">Set 0 for a session without a timer.</p>
+        </section>
+        <div class="session-card" id="sessionCard" hidden>
+          <div><span class="session-kicker">Your focus session</span><strong id="sessionBadge">Focus active</strong></div>
+          <svg viewBox="0 0 20 20" width="24" height="24" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>
+          <progress id="sessionProgress" max="1" value="1" aria-label="Focus time remaining"></progress>
         </div>
-      </div>
+        <div class="goal-actions">
+          <button class="button button-primary" id="saveGoal" type="button">Save preferences</button>
+          <button class="button button-primary" id="toggleSession" type="button" hidden>Start Focus</button>
+        </div>
+        <p id="profileFeedback" class="feedback" role="status" hidden></p>
+        <p id="profileVersion" class="subtle-note"></p>
+      </section>
 
-      <label class="field-label" id="objectiveLabel" for="objectiveInput">Things to avoid</label>
-      <textarea class="goal-textarea" id="objectiveInput" maxlength="1000" placeholder="gaming streams, celebrity gossip"></textarea>
-      <div class="field-hint" id="objectiveHint">Separate up to 8 entries with commas or new lines. Jev suggests predefined topics; you confirm them before saving.</div>
-
-      <div class="taxonomy-mapping" id="taxonomyMapping" aria-live="polite"></div>
-
-      <div class="goal-actions">
-        <button class="btn btn-primary" id="saveGoal">Validate &amp; save</button>
-        <button class="btn btn-secondary" id="toggleSession">Start Focus</button>
-      </div>
-
-      <div class="profile-feedback" id="profileFeedback" aria-live="polite"></div>
-      <div class="profile-meta">
-        <span id="profileVersion">Unsaved profile</span>
-        <span class="session-badge" id="sessionBadge">General always on</span>
-      </div>
-    </div>
+      <section class="preferences" aria-label="Feed settings">
+        <label class="preference-row" for="hideShorts"><span><strong>Hide Shorts</strong><small>Fewer quick distractions.</small></span><span class="switch"><input type="checkbox" id="hideShorts" role="switch"><span class="switch-track"></span></span></label>
+        <details class="settings-section" id="blockedChannels">
+          <summary><span>Blocked channels</span><span class="count" id="channelCount">0</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+          <div class="channel-list" id="channelBlocks"></div>
+        </details>
+        <details class="settings-section" id="connectionSettings">
+          <summary><span>Connection & tools</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+          <div class="connection-body">
+            <label class="small-label" for="classifierEndpoint">Classifier address</label>
+            <input class="endpoint-input" type="url" id="classifierEndpoint" placeholder="http://127.0.0.1:3000" spellcheck="false" autocomplete="off">
+            <div class="tool-actions"><button class="button button-outline" type="button" id="checkClassifier">Check connection</button><button class="text-button" type="button" id="openObservability">View diagnostics ↗</button></div>
+            <p class="feedback" id="classifierResult" role="status" hidden></p>
+            <button class="text-button" type="button" id="clearGeneratedData">Refresh video decisions</button>
+            <p class="subtle-note">Clears cached checks. Your topics and channel blocks stay saved.</p>
+          </div>
+        </details>
+      </section>
+    </main>
+    <footer class="app-footer"><span id="feedStatus">Ready when you are.</span><a href="https://www.youtube.com/" target="_blank" rel="noreferrer">Open YouTube ↗</a></footer>
   </div>
-
-  <div class="section">
-    <div class="section-title">Confirmed channel blocks</div>
-    <div class="tag-list" id="channelBlocks"></div>
-    <div class="field-hint">Use Block channel in a YouTube video or channel menu. Blocks apply everywhere, including when the API is offline. Unblock here at any time.</div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">TypeSafe Jev</div>
-    <label class="field-label" for="classifierEndpoint">FocusFeed API endpoint</label>
-    <input class="text-field" type="url" id="classifierEndpoint" value="http://127.0.0.1:3000" spellcheck="false">
-    <div class="field-hint">The TypeSafe API key remains on the FocusFeed backend. Mapping an intent calls Jev; saving requires your topic confirmation.</div>
-    <div class="goal-actions">
-      <button class="btn btn-secondary" id="checkClassifier">Check API</button>
-      <button class="btn btn-primary" id="testClassification">Test Jev</button>
-    </div>
-    <button class="btn btn-secondary classifier-lab-button" id="openObservability">Open Jev observability</button>
-    <button class="btn btn-primary classifier-lab-button" id="openYouTubeSession">View current YouTube decisions</button>
-    <button class="btn btn-secondary classifier-lab-button" id="clearGeneratedData">Clear cached data &amp; reports</button>
-    <div class="field-hint">Saved General preferences apply on every YouTube visit. Focus temporarily overrides General. Videos are checked continuously as you browse; no session tab is needed.</div>
-    <div class="connection-result" id="classifierResult" aria-live="polite"></div>
-  </div>
-
-  <div class="status-bar">
-    <span id="statusText" class="status-active">Active on YouTube</span>
-  </div>
-
   <script src="../settings.js"></script>
+  <script src="topic-input.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

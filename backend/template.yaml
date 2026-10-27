@@ -56,6 +56,12 @@ Resources:
             ApiId: !Ref FocusFeedApi
             Path: /objectives/classify
             Method: POST
+        ClearCache:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /cache/clear
+            Method: POST
         Classify:
           Type: HttpApi
           Properties:

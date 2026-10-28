@@ -31,7 +31,7 @@
       if (!enabled) return;
       var item = waiting[0];
       if (item) { remove(item); released += 1; item.resolve(); }
-      else credits = 1; // Never bank multiple pages after repeated clicks.
+      else credits = 1; // Repeated release requests must not bank multiple pages.
       notify();
     }
     function configure(value, cancel) {

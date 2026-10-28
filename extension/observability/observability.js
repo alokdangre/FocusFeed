@@ -52,22 +52,25 @@
     var target = $("objectives");
     target.textContent = "";
     $("objectiveError").hidden = true;
+    $("objectiveRequest").textContent = "No request recorded yet.";
     if (!snapshot || (!snapshot.response && !snapshot.error)) {
       $("objectiveMeta").textContent = "No validation yet";
-      emptyRow(target, 6, "Validate an intent from the FocusFeed popup.");
+      emptyRow(target, 5, "Validate an intent from the FocusFeed popup.");
       return;
     }
     if (snapshot.error) {
       $("objectiveMeta").textContent = "Validation failed";
       $("objectiveError").hidden = false;
       $("objectiveError").textContent = snapshot.error.message || "Jev objective validation failed.";
-      emptyRow(target, 6, "No validated objective judgments were returned.");
+      emptyRow(target, 5, "No validated objective judgments were returned.");
       return;
     }
     var response = snapshot.response;
     var usage = response && response.diagnostics && response.diagnostics.usage || {};
-    var objectiveThresholds = response && response.diagnostics && response.diagnostics.thresholds ||
-      { matchableProbability: 0.7, understoodProbability: 0.7 };
+    var diagnostics = response.diagnostics || {};
+    var threshold = diagnostics.thresholds && diagnostics.thresholds.nonsenseProbability;
+    if (typeof threshold !== "number") threshold = 0.7;
+    $("objectiveRequest").textContent = diagnostics.jevRequest ? JSON.stringify(diagnostics.jevRequest, null, 2) : "This older snapshot did not record the question. Validate changed topics to see the current request.";
     $("objectiveMeta").textContent =
       (response.classifier && response.classifier.model || "Jev") + " · " +
       (response.objectives || []).length + " objectives · " +
@@ -77,15 +80,8 @@
       cell(row, objective.text);
       cell(row, objective.status, objective.status === "ready_for_confirmation" ? "show" : "hide");
       cell(row, objective.validatedObjective ? "Exact user preference" : "Clarification required");
-      cell(row, percent(objective.matchableProbability),
-        scoreClass(objective.matchableProbability, objectiveThresholds.matchableProbability));
-      cell(row, percent(objective.understoodProbability),
-        scoreClass(objective.understoodProbability, objectiveThresholds.understoodProbability));
-      var probabilities = cell(row);
-      scoreList(probabilities, [
-        { label: "Understandable", value: objective.understoodProbability, yesThreshold: objectiveThresholds.understoodProbability },
-        { label: "Matchable", value: objective.matchableProbability, yesThreshold: objectiveThresholds.matchableProbability },
-      ]);
+      cell(row, percent(objective.nonsenseProbability), objective.nonsenseProbability >= threshold ? "hide" : "show");
+      cell(row, objective.reason || "No reason recorded.");
       target.appendChild(row);
     });
   }
@@ -155,8 +151,15 @@
         return response && response.runtime ? { tabId: tab.id, runtime: response.runtime } : null;
       } catch (_) { return null; }
     }));
-    latest = { validation: values[VALIDATION_KEY] || null, tabs: snapshots.filter(Boolean), updatedAt: Date.now() };
+    var requests = null;
+    try { var response = await chrome.runtime.sendMessage({ type: "FF_REQUEST_STATS" }); if (response && response.ok) requests = response.data; } catch (_) {}
+    latest = { validation: values[VALIDATION_KEY] || null, tabs: snapshots.filter(Boolean), requests: requests, updatedAt: Date.now() };
+    var counts = requests && requests.metrics;
+    $("requestMeta").textContent = counts ? counts.httpAttempts + " classifier HTTP attempts · " + counts.httpFailed + " failed · " +
+      counts.providerCalls + " Jev calls · " + counts.providerQuestions + " Jev questions · " + counts.localHits + " local pair reuses · " + counts.sharedPairs + " in-flight pair shares · " + counts.inputTokens + "/" + counts.outputTokens + " Jev tokens" : "Request counters unavailable; reload the extension.";
+    $("requestHistory").textContent = JSON.stringify(requests && requests.requests || [], null, 2);
     renderObjectives(latest.validation); renderVideos(latest.tabs);
+    if (requests) $("runMeta").textContent = latest.tabs.length + " tabs · " + latest.tabs.reduce(function (n, tab) { return n + tab.runtime.records.length; }, 0) + " recent items · request totals above count shared work once";
     $("updated").textContent = "Updated " + new Date(latest.updatedAt).toLocaleTimeString();
   }
 

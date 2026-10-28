@@ -1,18 +1,21 @@
 // YouTube surfaces and menu integration. No private YouTube APIs or guessed identities.
 (function (root) {
   "use strict";
+  var PLAYER_CARDS = "a.ytp-videowall-still, a.ytp-modern-videowall-still, a.ytp-suggestion-link, a.ytp-autonav-endscreen-link-container";
   var CARDS = ["ytd-rich-item-renderer", "yt-lockup-view-model", "ytd-compact-video-renderer", "ytd-video-renderer",
+    "ytd-radio-renderer", "ytd-playlist-renderer", "ytd-compact-radio-renderer", "ytd-compact-playlist-renderer",
     "ytd-reel-item-renderer", "ytm-shorts-lockup-view-model", "ytm-shorts-lockup-view-model-v2",
-    "ytd-playlist-video-renderer", "ytd-playlist-panel-video-renderer", "ytd-grid-video-renderer", "ytd-channel-renderer"].join(",");
+    "ytd-playlist-video-renderer", "ytd-playlist-panel-video-renderer", "ytd-grid-video-renderer", "ytd-channel-renderer", PLAYER_CARDS].join(",");
   function create(adapter) {
     var runtime, target = null, menuToken = 0, toastTimer, toast, overlay, lastPlayback = null;
     var metadata = new WeakMap(), pausedByUs = new WeakSet();
     var prefs = null, configured = false, menuOwner = null, observedMenus = null, menuObserver = null;
+    var resolvedChannels = new Map(), resolvingToken = null, failedLookupToken = null;
     var previews = root.FocusFeedPreviewController ? root.FocusFeedPreviewController.create() : null;
+    var loading = root.FocusFeedLoadingUI ? root.FocusFeedLoadingUI.create() : null;
     var home = root.FocusFeedHomeFeed ? root.FocusFeedHomeFeed.create({
       requestScan: adapter.requestScan,
-      settings: settingsAction,
-      block: blockChannel,
+      retry: function () { return runtime.reload(true); },
       editGoal: async function () {
         var response = await chrome.runtime.sendMessage({ type: "FF_OPEN_PREFERENCES" });
         if (!response || !response.ok) throw new Error("Could not open Focus settings. Open the extension popup to edit your goal.");
@@ -25,6 +28,7 @@
       });
     }
     function configure(state) {
+      document.documentElement.removeAttribute("data-focusfeed-initializing");
       prefs = state;
       configured = true;
       if (previews) previews.configure(state.enabled);
@@ -53,6 +57,7 @@
       var id = new URL(location.href).searchParams.get("v") || location.pathname.split("/shorts/")[1] ||
         location.pathname.split("/live/")[1] || watch && watch.getAttribute("video-id");
       if (!id) return null;
+      if (watch && watch.getAttribute("video-id") && watch.getAttribute("video-id") !== id) return null;
       var context = watch || surface;
       var owner = context.querySelector("#owner") || context.querySelector("#channel-name") || context.querySelector(".ytd-reel-player-header-renderer") || context.querySelector("yt-reel-channel-bar-view-model") || context;
       var link = owner.querySelector('a[href*="/channel/"], a[href*="/@"]');
@@ -140,80 +145,58 @@
         else if (card.dataset[name]) delete card.dataset[name];
       }
       flag("focusfeedAutoHidden", action === "hide"); flag("focusfeedAutoPending", action === "pending");
-      nativePresentation(card, video, action, reason);
+      if (loading) loading.render(card, action);
     }
-    function nativePresentation(card, video, action, reason) {
-      card.dataset.focusfeedSurface = "native";
-      var holder = card.querySelector(".focusfeed-native-placeholder");
-      if (prefs && !prefs.enabled) {
-        if (holder) holder.remove();
-        var oldActions = card.querySelector(".focusfeed-native-actions"); if (oldActions) oldActions.remove();
-        return;
-      }
-      if (action === "show") {
-        if (holder) holder.remove();
-        if (!card.querySelector(".focusfeed-native-actions")) {
-          var details = document.createElement("details"); details.className = "focusfeed-native-actions focusfeed-card-menu";
-          details.dataset.focusfeedUi = "actions";
-          var summary = document.createElement("summary"); summary.textContent = "⋮"; summary.setAttribute("aria-label", "FocusFeed video actions");
-          var block = document.createElement("button"); block.type = "button";
-          block.addEventListener("click", async function () {
-            var current = adapter.extract(card) || metadata.get(card);
-            if (!current) return;
-            block.disabled = true;
-            try { await blockChannel(current); details.open = false; }
-            catch (error) { block.disabled = false; notify(error.message); }
-          });
-          details.append(summary, block); card.appendChild(details);
-        }
-        var button = card.querySelector(".focusfeed-native-actions button");
-        if (button) {
-          var available = !!FocusFeedChannelPolicy.normalizeChannelId(video.channelId);
-          var copy = available ? "Block channel" : "Channel identity unavailable";
-          if (button.textContent !== copy) button.textContent = copy;
-          button.disabled = !available;
-        }
-        return;
-      }
-      var actions = card.querySelector(".focusfeed-native-actions"); if (actions) actions.remove();
-      if (!holder) {
-        holder = document.createElement("div"); holder.className = "focusfeed-native-placeholder";
-        holder.dataset.focusfeedUi = "placeholder"; holder.setAttribute("role", "status"); card.appendChild(holder);
-      }
-      var key = video.videoId + ":" + action + ":" + reason;
-      if (holder.dataset.state === key) return;
-      holder.dataset.state = key;
-      holder.textContent = action === "pending" ? "Checking video…" : reason === "shorts_block" ? "Shorts hidden" : "Video filtered";
-      if (action === "hide" && reason !== "channel_block" && reason !== "shorts_block") {
-        var once = document.createElement("button"); once.type = "button"; once.textContent = "Show once";
-        once.addEventListener("click", function () { var current = adapter.extract(card) || metadata.get(card); if (current) runtime.restore(current.videoId); });
-        holder.appendChild(once);
-      }
-    }
-    function clear() {
+    function clear(preserveCards) {
+      document.documentElement.removeAttribute("data-focusfeed-initializing");
       configured = false;
-      document.querySelectorAll("[data-focusfeed-auto-hidden], [data-focusfeed-auto-pending]").forEach(function (card) {
+      if (loading) loading.clear();
+      if (!preserveCards) document.querySelectorAll("[data-focusfeed-auto-hidden], [data-focusfeed-auto-pending]").forEach(function (card) {
         delete card.dataset.focusfeedAutoHidden; delete card.dataset.focusfeedAutoPending;
       });
-      document.querySelectorAll("[data-focusfeed-surface]").forEach(function (card) { delete card.dataset.focusfeedSurface; });
       clearOverlay(); pausedByUs = new WeakSet(); target = null; menuToken++;
       menuOwner = null;
       if (home) home.suspend();
-      if (previews) previews.configure(false);
-      document.documentElement.removeAttribute("data-focusfeed-hide-shorts");
-      document.querySelectorAll(".focusfeed-menu-action, .focusfeed-native-placeholder, .focusfeed-native-actions").forEach(function (el) { el.remove(); });
+      if (!preserveCards) {
+        if (previews) previews.configure(false);
+        document.documentElement.removeAttribute("data-focusfeed-hide-shorts");
+      }
+      document.querySelectorAll(".focusfeed-menu-action").forEach(function (el) { el.remove(); });
     }
     function resolveTarget(node) {
-      var card = node.closest(CARDS);
-      if (card) return adapter.extract(card) || metadata.get(card);
+      var card = node.closest("ytd-rich-item-renderer") || node.closest(CARDS);
+      if (card) return withChannel(adapter.extract(card) || metadata.get(card));
       var surface = player();
-      if (surface && surface.contains(node)) { var playing = currentVideo(); return playing && playing.video; }
+      if (surface && (surface.contains(node) || node.closest("ytd-watch-metadata, #info #menu, #primary-inner #actions"))) { var playing = currentVideo(); return playing && playing.video; }
       var header = node.closest("ytd-c4-tabbed-header-renderer, yt-page-header-renderer, ytd-page-header-renderer, ytd-channel-tagline-renderer");
       if (header) {
         var id = FocusFeedChannelPolicy.normalizeChannelId(location.pathname);
         return id ? { channelId: id, channel: (document.querySelector("h1") || {}).textContent || id, aliases: [id] } : null;
       }
       return null;
+    }
+    function withChannel(video) {
+      var found = video && resolvedChannels.get(video.videoId);
+      return found && !FocusFeedChannelPolicy.normalizeChannelId(video.channelId)
+        ? Object.assign({}, video, { channelId: found.channelId, channel: video.channel || found.channelLabel }) : video;
+    }
+    async function findChannel(video, owner, token) {
+      if (!video || video.collection || FocusFeedChannelPolicy.normalizeChannelId(video.channelId) || !/^[A-Za-z0-9_-]{11}$/.test(video.videoId || "")) return;
+      resolvingToken = token; failedLookupToken = null;
+      try {
+        var response = await chrome.runtime.sendMessage({ type: "FF_CHANNEL_RESOLVE", videoId: video.videoId });
+        if (token !== menuToken) return;
+        var current = owner && resolveTarget(owner);
+        if (owner && (!owner.isConnected || !current || current.videoId !== video.videoId)) return;
+        if (current && FocusFeedChannelPolicy.normalizeChannelId(current.channelId)) { target = current; return; }
+        var found = response && response.ok && response.data;
+        if (!found || found.videoId !== video.videoId || !FocusFeedChannelPolicy.normalizeChannelId(found.channelId)) throw new Error("Channel lookup failed.");
+        resolvedChannels.set(video.videoId, found);
+        if (resolvedChannels.size > 100) resolvedChannels.delete(resolvedChannels.keys().next().value);
+        if (adapter.rememberChannel) adapter.rememberChannel(found);
+        target = withChannel(current || video);
+      } catch (_) { if (token === menuToken) failedLookupToken = token; }
+      finally { if (token === menuToken) { resolvingToken = null; decorate(); } }
     }
     function capture(event) {
       if (event.target.closest && event.target.closest("[data-focusfeed-ui], .focusfeed-menu-action, ytd-menu-popup-renderer, yt-sheet-view-model")) return;
@@ -224,11 +207,12 @@
           !node.matches('[aria-haspopup="true"], [aria-haspopup="menu"]') && !node.querySelector('[aria-haspopup="true"], [aria-haspopup="menu"]') &&
           !/more|menu|action/i.test(node.getAttribute("aria-label") || "")) { target = null; return; }
       target = resolveTarget(node);
-      menuOwner = node.closest(CARDS);
+      menuOwner = node.closest("ytd-rich-item-renderer") || node.closest(CARDS) || node.closest("ytd-watch-metadata, #info #menu, #primary-inner #actions");
       menuToken++;
       document.querySelectorAll(".focusfeed-menu-action").forEach(function (el) { el.remove(); });
       watchMenus();
       Promise.resolve().then(decorate);
+      findChannel(target, menuOwner, menuToken);
     }
     function watchMenus() {
       if (typeof MutationObserver === "undefined") return;
@@ -242,42 +226,59 @@
       watchMenus();
       if (previews) previews.sweep();
       if (!target) return;
-      var id = FocusFeedChannelPolicy.normalizeChannelId(target.channelId);
-      var menu = Array.from(document.querySelectorAll("ytd-menu-popup-renderer, yt-sheet-view-model [role='menu'], yt-sheet-view-model yt-list-view-model"))
+      var latest = menuOwner && resolveTarget(menuOwner);
+      if (latest && latest.videoId === target.videoId) target = latest;
+      var choices = FocusFeedChannelPolicy.creators(target);
+      var menu = Array.from(document.querySelectorAll("ytd-menu-popup-renderer, yt-sheet-view-model [role='menu'], yt-sheet-view-model yt-list-view-model, yt-contextual-sheet-layout yt-list-view-model, yt-contextual-sheet-layout [role='menu']"))
         .find(function (el) { return el.getClientRects().length && !el.closest("[hidden], [aria-hidden='true']"); });
-      if (!menu || menu.querySelector(".focusfeed-menu-action")) return;
-      var button = document.createElement("button"); button.className = "focusfeed-menu-action";
-      button.setAttribute("role", "menuitem"); button.disabled = !id;
-      var icon = document.createElement("span"); icon.textContent = "⊘"; icon.setAttribute("aria-hidden", "true");
-      var labels = document.createElement("span");
-      var main = document.createElement("span"); main.textContent = "Block channel";
-      var sub = document.createElement("small"); sub.textContent = id ? target.channel || id : "Channel identity unavailable";
-      labels.append(main, sub); button.append(icon, labels);
-      var captured = Object.assign({}, target), token = menuToken;
-      var owner = menuOwner;
-      button.addEventListener("click", async function (event) {
-        event.preventDefault(); event.stopPropagation();
-        if (token !== menuToken || !id) return;
-        var currentOwner = owner && (adapter.extract(owner) || metadata.get(owner));
-        if (owner && (!owner.isConnected || !currentOwner || currentOwner.videoId !== captured.videoId ||
-            FocusFeedChannelPolicy.normalizeChannelId(currentOwner.channelId) !== id)) {
-          notify("This video changed. Reopen its menu."); return;
-        }
-        button.disabled = true;
-        try {
-          await blockChannel(captured);
-          button.remove(); target = null;
-          // Escape closes YouTube's popup without invoking another menu item.
-          menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-        } catch (_) { button.disabled = false; notify("Could not save channel block. Try again."); }
+      if (!menu) return;
+      if (target.collection) { menu.querySelectorAll(".focusfeed-menu-action").forEach(function (node) { node.remove(); }); return; }
+      var signature = JSON.stringify([menuToken, choices, resolvingToken === menuToken, failedLookupToken === menuToken]);
+      var existing = menu.querySelector(".focusfeed-menu-action");
+      if (existing && existing.dataset.signature === signature) return;
+      menu.querySelectorAll(".focusfeed-menu-action").forEach(function (node) { node.remove(); });
+      if (!choices.length) choices = [{ channelId: "", label: "", aliases: [] }];
+      choices.forEach(function (choice) {
+        var id = choice.channelId;
+        var button = document.createElement("button"); button.className = "focusfeed-menu-action";
+        button.dataset.signature = signature;
+        button.setAttribute("role", "menuitem"); button.disabled = !id;
+        var icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        icon.setAttribute("viewBox", "0 0 24 24"); icon.setAttribute("width", "24"); icon.setAttribute("height", "24"); icon.setAttribute("aria-hidden", "true");
+        var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 1.5a8.5 8.5 0 0 1 6.52 13.95L6.55 5.48A8.46 8.46 0 0 1 12 3.5ZM5.48 6.55l11.97 11.97A8.5 8.5 0 0 1 5.48 6.55Z");
+        icon.appendChild(path);
+        var labels = document.createElement("span");
+        var main = document.createElement("span"); main.textContent = !id && resolvingToken === menuToken ? "Finding channel…" : choices.length > 1 ? "Block " + choice.label : "Block channel";
+        var sub = document.createElement("small"); sub.textContent = id ? choice.label || id : resolvingToken === menuToken ? "Finding channel…" :
+          failedLookupToken === menuToken ? "Could not identify this channel. Reopen the menu to retry." : "Channel identity unavailable";
+        labels.append(main, sub); button.append(icon, labels);
+        button.setAttribute("aria-label", "Block channel: " + sub.textContent); button.setAttribute("title", sub.textContent);
+        var captured = Object.assign({}, target, { channelId: id, channel: choice.label, aliases: choice.aliases }), token = menuToken;
+        var owner = menuOwner;
+        button.addEventListener("click", async function (event) {
+          event.preventDefault(); event.stopPropagation();
+          if (token !== menuToken || !id) return;
+          var currentOwner = owner && resolveTarget(owner);
+          if (owner && (!owner.isConnected || !currentOwner || currentOwner.videoId !== captured.videoId ||
+              !FocusFeedChannelPolicy.creators(currentOwner).some(function (creator) { return creator.channelId === id || creator.aliases.includes(id); }))) {
+            notify("This video changed. Reopen its menu."); return;
+          }
+          button.disabled = true;
+          try {
+            await blockChannel(captured);
+            button.remove(); target = null;
+            // Escape closes YouTube's popup without invoking another menu item.
+            menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+          } catch (_) { button.disabled = false; notify("Could not save channel block. Try again."); }
+        });
+        (menu.querySelector("#items") || menu).appendChild(button);
       });
-      (menu.querySelector("#items") || menu).appendChild(button);
     }
     document.addEventListener("click", capture, true);
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         target = null; menuToken++;
-        document.querySelectorAll(".focusfeed-card-menu[open]").forEach(function (details) { details.open = false; });
       }
       if (event.key === "Enter" || event.key === " ") capture(event);
     }, true);
@@ -288,10 +289,11 @@
       } else if (runtime) runtime.tick();
     }, true);
     return { setRuntime: setRuntime, render: render, clear: clear, configure: configure,
+      activity: function (value) { if (loading) loading.activity(value); },
       scanHome: function (extract) { return configured && home && home.scan(extract, runtime); },
       manages: function (card) { return home && home.owns(card); },
       currentVideo: currentVideo, decorate: decorate, cards: CARDS,
-      stop: function () { clear(); if (home) home.clear(); if (menuObserver) menuObserver.disconnect(); if (previews) previews.stop(); } };
+      stop: function () { clear(); if (loading) loading.stop(); if (home) home.clear(); if (menuObserver) menuObserver.disconnect(); if (previews) previews.stop(); } };
   }
-  root.FocusFeedYouTubeUI = { create: create };
+  root.FocusFeedYouTubeUI = { create: create, playerCards: PLAYER_CARDS };
 })(globalThis);

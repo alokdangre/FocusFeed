@@ -78,11 +78,10 @@ def noul(value: float) -> dict:
     return {"type": "noul", "noul": value}
 
 
-def objective_answers(matchable: list[float], understood: list[float]) -> dict:
+def objective_answers(nonsense: list[float]) -> dict:
     answers = {}
-    for index, score in enumerate(matchable):
-        answers[f"o{index}_matchable"] = noul(score)
-        answers[f"o{index}_understood"] = noul(understood[index])
+    for index, score in enumerate(nonsense):
+        answers[f"o{index}_nonsense"] = noul(score)
     return answers
 
 
@@ -163,18 +162,19 @@ class ClassifierTests(unittest.TestCase):
                     self.assertEqual(len(payload["questions"]), video_count * topic_count)
                     self.assertTrue(all(key.endswith("_match") for key in payload["questions"]))
 
-    def test_validates_understanding_and_matchability_without_a_category_gate(self) -> None:
+    def test_checks_only_nonsense_without_a_category_or_mode_gate(self) -> None:
         request = ObjectiveClassificationRequest.model_validate(objective_payload())
         payload = build_objective_typesafe_request(request)
-        self.assertEqual(set(payload["questions"]), {"o0_understood", "o0_matchable", "o1_understood", "o1_matchable"})
+        self.assertEqual(set(payload["questions"]), {"o0_nonsense", "o1_nonsense"})
         self.assertNotIn("taxonomy", payload["state"])
+        self.assertNotIn("mode", payload["state"])
         self.assertEqual(payload["state"]["objectives"], request.objectives)
 
     def test_valid_topics_preserve_wording_and_unclear_topics_cannot_be_saved(self) -> None:
         data = objective_payload()
         data["objectives"] = ["movie reviews", "movie trailers", "do better", "xyzzy blargh"]
         result = classify_objectives(ObjectiveClassificationRequest.model_validate(data),
-            evaluator=FakeEvaluator(objective_answers([.95, .93, .1, .1], [.96, .96, .85, .1])))
+            evaluator=FakeEvaluator(objective_answers([.05, .07, .90, .99])))
         first, second, vague, nonsense = result.objectives
         self.assertEqual(first.validated_objective.text, "movie reviews")
         self.assertEqual(first.validated_objective.match_scope, "intent")
@@ -187,21 +187,37 @@ class ClassifierTests(unittest.TestCase):
     def test_niche_topic_is_valid_without_matching_a_fixed_category(self) -> None:
         data = objective_payload(); data["objectives"] = ["Sumerian cuneiform tutorials"]
         result = classify_objectives(ObjectiveClassificationRequest.model_validate(data),
-            evaluator=FakeEvaluator(objective_answers([.9], [.9])))
+            evaluator=FakeEvaluator(objective_answers([.1])))
         self.assertEqual(result.objectives[0].status, "ready_for_confirmation")
         self.assertIsNone(result.objectives[0].validated_objective.taxonomy_id)
+
+    def test_nonsense_threshold_is_inclusive_and_mode_does_not_change_validation(self) -> None:
+        for mode in ["general", "focus"]:
+            with self.subTest(mode=mode):
+                data = objective_payload()
+                data.update(mode=mode, objectives=["review", "movie TV revisits", "random words"])
+                evaluator = FakeEvaluator(objective_answers([0.0, 0.699, 0.70]))
+                result = classify_objectives(ObjectiveClassificationRequest.model_validate(data), evaluator=evaluator)
+                self.assertEqual([a.status for a in result.objectives],
+                    ["ready_for_confirmation", "ready_for_confirmation", "needs_clarification"])
+                self.assertEqual(result.objectives[0].validated_objective.text, "review")
+                self.assertEqual(result.objectives[1].validated_objective.text, "movie TV revisits")
+                self.assertEqual(result.objectives[2].nonsense_probability, 0.70)
+                self.assertIsNone(result.objectives[2].validated_objective)
+                self.assertEqual(result.diagnostics["thresholds"], {"nonsenseProbability": 0.70})
+                self.assertEqual(result.diagnostics["jevRequest"], evaluator.payload)
 
     def test_missing_or_nonfinite_validation_never_accepts_an_intent(self) -> None:
         for value in [None, float("nan"), 1.1, True]:
             with self.subTest(value=value), self.assertRaises(TypeSafeResponseError):
-                answers = objective_answers([.9, .9], [.9, .9])
-                answers["o0_matchable"] = noul(value)
+                answers = objective_answers([.1, .1])
+                answers["o0_nonsense"] = noul(value)
                 classify_objectives(ObjectiveClassificationRequest.model_validate(objective_payload()), evaluator=FakeEvaluator(answers))
 
     def test_direct_intents_round_trip_and_go_to_video_matching_without_broadening(self) -> None:
         data = objective_payload(); data["objectives"] = ["movie reviews", "DSA tutorials except livestreams"]
         accepted = classify_objectives(ObjectiveClassificationRequest.model_validate(data),
-            evaluator=FakeEvaluator(objective_answers([.95, .95], [.95, .95])))
+            evaluator=FakeEvaluator(objective_answers([.05, .05])))
         video_request = request_payload()
         video_request["profile"]["objectives"] = [a.validated_objective.model_dump(by_alias=True) for a in accepted.objectives]
         payload = build_typesafe_request(ClassificationRequest.model_validate(video_request))

@@ -5,14 +5,29 @@
   function text(value, limit) { return String(value == null ? "" : value).replace(/\s+/g, " ").trim().slice(0, limit); }
   function videoInput(value) {
     var source = value || {};
-    return {
+    var video = {
       videoId: text(source.videoId, 80), title: text(source.title, 300), channel: text(source.channel, 200),
       channelId: text(source.channelId, 100), duration: text(source.duration, 30),
       isShort: source.isShort === true, isLive: source.isLive === true, isPremiere: source.isPremiere === true,
       description: text(source.description, 1000),
     };
+    if (source.collection || source.itemType === "collection") {
+      video.itemType = "collection"; video.collectionId = text(source.collectionId, 60);
+      video.videoId = video.collectionId ? "collection:" + video.collectionId : "";
+      video.channelId = "";
+      video.entries = (source.entries || []).slice(0, 5).map(function (entry) {
+        return { title: text(entry.title, 200), channel: text(entry.channel, 100) };
+      });
+    }
+    return video;
   }
-  function fingerprint(video) { return JSON.stringify(videoInput(video)); }
+  function fingerprint(video) { var input = videoInput(video); delete input.channelId; return JSON.stringify(input); }
+  function objectiveKey(o) { return JSON.stringify([o.matchScope || "taxonomy", o.text, o.taxonomyId || "", o.taxonomyVersion || "", o.validationVersion || ""]); }
+  function profileKey(p) { return JSON.stringify(p.objectives.map(objectiveKey).sort()); }
+  function outcome(matches) {
+    return matches.some(function (m) { return m.matchProbability >= .5; }) ? "match" :
+      matches.every(function (m) { return m.matchProbability <= .2; }) ? "no_match" : "uncertain";
+  }
   function hasMinimumModelMetadata(video) { return !!(video && video.videoId && video.title && video.title.trim()); }
   function uncertaintyAction(mode) { return mode === "focus" ? "hide" : "show"; }
   function policyDecision(assessment, mode) {
@@ -38,13 +53,15 @@
       requestId: request.requestId,
       profile: { id: request.profile.id, version: request.profile.version, mode: request.profile.mode, objectives: request.profile.objectives },
       videos: request.videos.map(function (video) {
-        return { videoId: video.videoId, title: video.title, channel: video.channel, channelId: video.channelId || undefined,
+        var item = { videoId: video.videoId, title: video.title, channel: video.channel, channelId: video.channelId || undefined,
           duration: video.duration, isShort: video.isShort, isLive: video.isLive, isPremiere: video.isPremiere,
           descriptionSnippet: video.description };
+        if (video.itemType === "collection") Object.assign(item, { itemType: "collection", collectionId: video.collectionId, entries: video.entries });
+        return item;
       }),
     };
   }
   root.FocusFeedVideo = { videoInput: videoInput, fingerprint: fingerprint, hasMinimumModelMetadata: hasMinimumModelMetadata,
     uncertaintyAction: uncertaintyAction, policyDecision: policyDecision, isValidDecisionAssessment: isValidDecisionAssessment,
-    cloudRequest: cloudRequest };
+    cloudRequest: cloudRequest, objectiveKey: objectiveKey, profileKey: profileKey, outcome: outcome };
 })(globalThis);

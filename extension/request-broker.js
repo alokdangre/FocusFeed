@@ -36,7 +36,13 @@
       if (active) owners.add(active.owner);
       owners.forEach(function (owner) { cancel(owner); });
     }
-    return { submit: submit, cancel: cancel, cancelAll: cancelAll };
+    function cancelQueued(owner) {
+      queue = queue.filter(function (job) {
+        if (job.owner !== owner) return true;
+        job.reject(new Error("Request cancelled.")); return false;
+      });
+    }
+    return { submit: submit, cancel: cancel, cancelQueued: cancelQueued, cancelAll: cancelAll };
   }
   root.FocusFeedRequestBroker = { create: create };
 })(globalThis);

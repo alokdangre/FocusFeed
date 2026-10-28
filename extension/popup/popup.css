@@ -7,7 +7,10 @@
   color: var(--ink); background: var(--canvas);
 }
 * { box-sizing: border-box; }
-body { margin: 0; inline-size: 25rem; max-inline-size: 100vw; }
+/* Chrome sizes the action popup from its document. Keep this width independent
+   of the initial viewport so popup sizing cannot collapse into a narrow strip. */
+html { min-width: 400px; }
+body { margin: 0; width: 400px; min-width: 400px; }
 button, input { font: inherit; }
 button, a, input { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
@@ -56,6 +59,8 @@ kbd { font: inherit; font-weight: 600; }
 .validation-results { margin: 12px 0; }
 .validation-row { padding: 9px 11px; margin-top: 6px; border-radius: 8px; background: var(--error-tint); font-size: 11px; color: var(--error); }
 .validation-row strong { display: block; margin-bottom: 3px; }
+.validation-row[data-accepted="true"] { background: var(--tint); color: var(--accent); }
+.validation-score { display: block; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
 .duration-section { padding-top: 1px; margin-bottom: 16px; }
 .duration-options { display: grid; grid-template-columns: repeat(3,1fr) .9fr; gap: 6px; }
 .duration-options button, .custom-duration { background: var(--surface); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; min-height: 35px; font-size: 11px; }
@@ -122,4 +127,4 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 2px
   .switch input:checked + .switch-track::after { background: var(--surface); }
   .topic-remove:hover { background: #b4d4a21a; }
 }
-@media (min-width: 600px) { body { inline-size: auto; } .popup-shell { max-inline-size: 25rem; margin: 36px auto; max-block-size: none; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 12px 50px #233a2410; } }
+@media (min-width: 600px) { body { margin-inline: auto; } .popup-shell { margin: 36px auto; max-block-size: none; border-radius: 18px; border: 1px solid var(--line); box-shadow: 0 12px 50px #233a2410; } }

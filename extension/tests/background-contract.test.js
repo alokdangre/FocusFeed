@@ -80,6 +80,23 @@ function dispatch(listener, message) {
   assert.match(stale.error.message, /run bash backend\/run_local\.sh again/);
   assert.equal(staleCalls.length, 1, "stale backend must be rejected before objective POST");
 
+  const oldValidationCalls = [];
+  const oldValidationListener = loadBackground(async function (url) {
+    oldValidationCalls.push(url);
+    return { ok: true, status: 200, async json() { return {
+      configured: true, provider: "typesafe-jev", taxonomyVersion: "focusfeed-topics-v1",
+      promptVersion: "typesafe-jev-intent-video-match-2026-10-28.1",
+      objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.1",
+    }; } };
+  });
+  const oldValidation = await dispatch(oldValidationListener, {
+    type: "OBJECTIVES_CLASSIFY_CLOUD",
+    request: { requestId: "old-validation", mode: "general", objectives: ["review"] },
+  });
+  assert.equal(oldValidation.ok, false);
+  assert.equal(oldValidation.error.code, "incompatible_backend_contract");
+  assert.equal(oldValidationCalls.length, 1, "the two-gate validator must not run after the popup upgrades");
+
   const currentCalls = [];
   const currentListener = loadBackground(async function (url) {
     currentCalls.push(url);
@@ -90,8 +107,8 @@ function dispatch(listener, message) {
         if (url.endsWith("/health")) return {
           configured: true,
           provider: "typesafe-jev",
-          promptVersion: "typesafe-jev-intent-video-match-2026-10-27.1",
-          objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.1",
+          promptVersion: "typesafe-jev-intent-video-match-2026-10-28.1",
+          objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.2",
           taxonomyVersion: "focusfeed-topics-v1",
         };
         return { objectives: [{ status: "ready_for_confirmation" }] };

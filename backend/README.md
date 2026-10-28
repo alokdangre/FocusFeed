@@ -4,7 +4,7 @@ The backend validates user-defined content preferences, then classifies YouTube 
 
 ## Current Jev design
 
-Validation asks two independent `Noul` questions per entry: is the content preference recognizable, and is it concrete enough to match against video metadata in the selected mode? Both must reach `0.70` before an entry is accepted. Niche subjects do not need to fit a fixed taxonomy. Unclear entries return a clarification reason without a saveable objective.
+Validation asks one `Noul` question per entry: is it gibberish or nonsensical as a description of video content? An entry requires editing only when `nonsenseProbability >= 0.70`. Broad subjects, single-word formats such as “review”, informal wording, understandable typos and niche subjects are allowed. There is no specificity, mode-consistency or fixed-category gate. This is a permissive topic-entry check; it does not prove videos exist in the current feed.
 
 Accepted entries retain the user's text with `matchScope: intent` and `validationVersion: focusfeed-intent-v1`. Video classification uses one direct match Noul per video/preference pair, respecting the subject, format, purpose and exceptions together. Previously confirmed category profiles retain their canonical definitions until the user validates and saves them again.
 
@@ -62,7 +62,7 @@ Request:
 }
 ```
 
-The request accepts 1-8 unique entries of 1-160 characters. Each result contains understood and matchable probabilities, a status, a clarification reason, and a `validatedObjective` only when accepted. Copy that objective into the profile without changing its text. The response also includes thresholds, raw judgments, model, prompt version, timing and usage.
+The request accepts 1-8 unique entries of 1-160 characters. Each result contains `nonsenseProbability`, a status, an application-written reason, and a `validatedObjective` only when accepted. The popup displays the probability for accepted and rejected entries. Copy that objective into the profile without changing its text. The response also includes thresholds, raw judgments, model, prompt version, timing and usage. `diagnostics.jevRequest` contains the exact state, questions and criteria sent to Jev, without API credentials; it is visible in the diagnostics page.
 
 The popup saves after an explicit Save preferences, Save topics, or Start Focus action, only if every entry passes and the draft still matches the response.
 

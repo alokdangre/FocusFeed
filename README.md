@@ -29,7 +29,7 @@ backend/.venv/bin/python -m unittest discover -s backend/tests
 ```
 
 See [architecture](docs/ARCHITECTURE.md), [topic validation and Focus discovery](docs/INTENT_AND_FOCUS.md),
-and the [manual YouTube checklist](docs/YOUTUBE_LIVE_TEST.md). Automated DOM tests do
+the [manual YouTube checklist](docs/YOUTUBE_LIVE_TEST.md), and the [page diagnostic capture](docs/YOUTUBE_DIAGNOSTICS.md). Automated DOM tests do
 not verify Chrome layout or compatibility with the current live YouTube UI.
 
 The backend is a local development service. The [deployment notes](backend/README.md#sam-blueprint)

@@ -96,10 +96,14 @@ class ObjectiveAssessment(StrictModel):
     text: str = Field(min_length=1, max_length=160)
     content_type: Literal["topic", "unclear"] = Field(alias="contentType")
     status: ObjectiveStatus
-    understood_probability: float = Field(alias="understoodProbability", ge=0, le=1)
-    matchable_probability: float = Field(alias="matchableProbability", ge=0, le=1)
+    nonsense_probability: float = Field(alias="nonsenseProbability", ge=0, le=1)
     validated_objective: TypedObjective | None = Field(default=None, alias="validatedObjective")
     reason: str = Field(min_length=1, max_length=400)
+
+
+class CollectionEntry(StrictModel):
+    title: str = Field(max_length=200)
+    channel: str = Field(default="", max_length=100)
 
 
 class VideoCandidate(StrictModel):
@@ -112,6 +116,18 @@ class VideoCandidate(StrictModel):
     is_live: bool = Field(default=False, alias="isLive")
     is_premiere: bool = Field(default=False, alias="isPremiere")
     description_snippet: str | None = Field(default=None, alias="descriptionSnippet", max_length=1000)
+    item_type: Literal["video", "collection"] = Field(default="video", alias="itemType")
+    collection_id: str | None = Field(default=None, alias="collectionId", max_length=60)
+    entries: list[CollectionEntry] = Field(default_factory=list, max_length=5)
+
+    @model_validator(mode="after")
+    def collection_identity(self) -> "VideoCandidate":
+        if self.item_type == "collection":
+            if not self.collection_id or self.video_id != "collection:" + self.collection_id:
+                raise ValueError("Collections require their own collection identity, not a seed video.")
+        elif self.collection_id or self.entries or self.video_id.startswith("collection:"):
+            raise ValueError("Collection metadata requires itemType collection.")
+        return self
 
 
 class ClassificationRequest(StrictModel):

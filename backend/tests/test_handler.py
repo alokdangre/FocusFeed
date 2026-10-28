@@ -75,8 +75,7 @@ class HandlerTests(unittest.TestCase):
                     text="gaming streams",
                     contentType="topic",
                     status="ready_for_confirmation",
-                    understoodProbability=0.96,
-                    matchableProbability=0.95,
+                    nonsenseProbability=0.04,
                     validatedObjective={"id": "intent-gaming", "text": "gaming streams", "contentType": "topic",
                         "matchScope": "intent", "validationVersion": "focusfeed-intent-v1"},
                     reason="Understood.",
@@ -94,7 +93,7 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(body["objectives"][0]["contentType"], "topic")
         self.assertEqual(body["objectives"][0]["validatedObjective"]["text"], "gaming streams")
         self.assertNotIn("taxonomy", body)
-        self.assertEqual(body["objectives"][0]["understoodProbability"], 0.96)
+        self.assertEqual(body["objectives"][0]["nonsenseProbability"], 0.04)
 
     def test_valid_video_request_returns_observable_scores(self) -> None:
         fake_response = ClassificationResponse(

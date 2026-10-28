@@ -79,6 +79,7 @@ p { color: var(--muted); }
   background: #2a171a;
 }
 .table-scroll { overflow: auto; }
+.request-details { overflow: auto; max-height: 28rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 table { width: 100%; min-width: 1100px; border-collapse: collapse; }
 th, td {
   padding: 13px 12px;

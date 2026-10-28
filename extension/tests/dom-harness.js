@@ -12,7 +12,7 @@ function dom(html, pathname = "/") {
   window.postMessage = data => messages.push(data);
   window.HTMLElement.prototype.getBoundingClientRect = function () { return { top: 10, bottom: 210, height: 200 }; };
   window.HTMLElement.prototype.getClientRects = function () { return this.closest("[hidden]") ? [] : [{}]; };
-  const context = vm.createContext({ document: window.document, window, location, URL, console,
+  const context = vm.createContext({ document: window.document, window, location, URL, console, performance,
     MutationObserver: window.MutationObserver, KeyboardEvent: window.Event, Event: window.Event,
     setTimeout(fn, ms) { const id = setTimeout(() => { timers.delete(id); fn(); }, ms); timers.add(id); return id; },
     clearTimeout(id) { clearTimeout(id); timers.delete(id); },

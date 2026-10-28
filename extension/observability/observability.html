@@ -25,10 +25,16 @@
     </section>
 
     <section>
+      <h2>Requests across YouTube tabs</h2>
+      <p id="requestMeta" class="muted">Waiting for request counters…</p>
+      <details><summary>Request history: IDs, cache reuse, dispatches and failures</summary><pre id="requestHistory" class="request-details"></pre></details>
+    </section>
+
+    <section>
       <div class="section-heading">
         <div>
           <h2>Intent validation</h2>
-          <p>Jev checks whether each preference is recognizable and specific enough to match against video metadata. Valid entries keep their original wording.</p>
+          <p>Jev checks whether an entry is gibberish or has no recognizable topic meaning. Broad topics, formats and understandable typos are allowed. A nonsense probability of 70% or higher requires editing.</p>
         </div>
         <div id="objectiveMeta" class="pill">No validation yet</div>
       </div>
@@ -40,14 +46,17 @@
               <th>Objective</th>
               <th>Status</th>
               <th>Matching scope</th>
-              <th>Matchable Noul</th>
-              <th>Understood Noul</th>
-              <th>Validation judgments</th>
+              <th>Nonsense probability</th>
+              <th>Decision reason</th>
             </tr>
           </thead>
           <tbody id="objectives"></tbody>
         </table>
       </div>
+      <details>
+        <summary>Exact request sent to Jev</summary>
+        <pre id="objectiveRequest" class="request-details"></pre>
+      </details>
     </section>
 
     <section>

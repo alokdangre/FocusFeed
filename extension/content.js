@@ -4,6 +4,7 @@
 (function () {
   "use strict";
   if (globalThis.__focusFeedContentInstalled) return;
+  document.documentElement.setAttribute("data-focusfeed-initializing", "true");
 
   // --- State ---
   var feedItemsReceived = 0;
@@ -21,6 +22,7 @@
   function extractVideoRenderers(obj, results) {
     if (!results) results = [];
     if (!obj || typeof obj !== "object") return results;
+    collectCollections(obj);
 
     if (obj.videoRenderer) {
       var vr = obj.videoRenderer;
@@ -39,7 +41,8 @@
         videoId: vr.videoId || "",
         title: extractText(vr.title),
         channel: extractText(vr.ownerText || vr.longBylineText || vr.shortBylineText),
-        channelId: extractChannelIdentity(vr.ownerText || vr.longBylineText || vr.shortBylineText),
+        channelId: extractChannelIdentity(vr.ownerText) || extractChannelIdentity(vr.longBylineText) || extractChannelIdentity(vr.shortBylineText),
+        creators: extractCreators(vr.ownerText).concat(extractCreators(vr.longBylineText), extractCreators(vr.shortBylineText)),
         description: extractDescription(vr),
         duration: extractText(vr.lengthText),
         // A missing duration is unknown, not proof that this is a Short.
@@ -49,15 +52,20 @@
       });
     }
 
-    if (obj.compactVideoRenderer) {
-      var cvr = obj.compactVideoRenderer;
+    var endElement = obj.endscreenElementRenderer;
+    var endWatch = endElement && endElement.endpoint && endElement.endpoint.watchEndpoint;
+    var endVideo = endElement && endElement.style === "VIDEO" && endWatch && endWatch.videoId
+      ? Object.assign({}, endElement, { videoId: endWatch.videoId, shortBylineText: endElement.byline }) : null;
+    if (obj.compactVideoRenderer || obj.endScreenVideoRenderer || endVideo) {
+      var cvr = obj.compactVideoRenderer || obj.endScreenVideoRenderer || endVideo;
       var cIsLive = !!(cvr.badges && cvr.badges.some &&
         cvr.badges.some(function(b) { return b.liveBadgeRenderer; }));
       results.push({
         videoId: cvr.videoId || "",
         title: extractText(cvr.title),
         channel: extractText(cvr.longBylineText || cvr.shortBylineText || cvr.ownerText),
-        channelId: extractChannelIdentity(cvr.longBylineText || cvr.shortBylineText || cvr.ownerText),
+        channelId: extractChannelIdentity(cvr.longBylineText) || extractChannelIdentity(cvr.shortBylineText) || extractChannelIdentity(cvr.ownerText),
+        creators: extractCreators(cvr.longBylineText).concat(extractCreators(cvr.shortBylineText), extractCreators(cvr.ownerText)),
         description: extractDescription(cvr),
         duration: extractText(cvr.lengthText),
         // Compact cards without duration can be live/upcoming; do not infer Shorts.
@@ -65,6 +73,22 @@
         isLive: cIsLive,
         isPremiere: false,
       });
+    }
+
+    if (obj.lockupViewModel) {
+      var lockup = obj.lockupViewModel;
+      var metadata = lockup.metadata && lockup.metadata.lockupMetadataViewModel || {};
+      var onTap = lockup.rendererContext && lockup.rendererContext.commandContext && lockup.rendererContext.commandContext.onTap || {};
+      var watch = (onTap.innertubeCommand || onTap).watchEndpoint || {};
+      if (lockup.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" || watch.videoId && !watch.playlistId && !lockup.contentType) {
+        var rows = metadata.metadata && metadata.metadata.contentMetadataViewModel && metadata.metadata.contentMetadataViewModel.metadataRows || [];
+        var creators = [];
+        if (rows[0]) (rows[0].metadataParts || []).forEach(function (part) { creators = creators.concat(extractCreators(part.text)); });
+        creators = FocusFeedChannelPolicy.creators({ creators: creators });
+        results.push({ videoId: watch.videoId || lockup.contentId || "", title: extractText(metadata.title),
+          channel: creators.map(function (creator) { return creator.label; }).join(" and "), channelId: creators[0] && creators[0].channelId || "",
+          creators: creators, description: "", duration: "", isShort: false, isLive: false, isPremiere: false });
+      }
     }
 
     if (obj.playlistVideoRenderer) {
@@ -139,9 +163,9 @@
     var keys = Object.keys(obj);
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
-      if (key === "videoRenderer" || key === "compactVideoRenderer" ||
+      if (key === "videoRenderer" || key === "compactVideoRenderer" || key === "endScreenVideoRenderer" ||
           key === "playlistVideoRenderer" || key === "reelItemRenderer" ||
-          key === "reelShelfRenderer" || key === "shortsLockupViewModel") {
+          key === "reelShelfRenderer" || key === "shortsLockupViewModel" || key === "lockupViewModel") {
         continue;
       }
       var val = obj[key];
@@ -169,28 +193,30 @@
   }
 
   function normalizeChannelIdentity(value) {
-    var text = String(value || "").trim();
-    var channelPath = text.match(/^\/?channel\/([^/?#]+)/i);
-    if (channelPath) return channelPath[1];
-    var handlePath = text.match(/^\/?(@[^/?#]+)/);
-    if (handlePath) return handlePath[1].toLowerCase();
-    if (/^UC[A-Za-z0-9_-]{10,}$/.test(text)) return text;
-    if (/^@[A-Za-z0-9._-]+$/.test(text)) return text.toLowerCase();
-    return "";
+    return FocusFeedChannelPolicy.normalizeChannelId(value);
   }
 
   function extractChannelIdentity(textObj) {
+    var creators = extractCreators(textObj); return creators[0] && creators[0].channelId || "";
+  }
+  function extractCreators(textObj) {
     var runs = textObj && Array.isArray(textObj.runs) ? textObj.runs : [];
+    var commands = textObj && Array.isArray(textObj.commandRuns) ? textObj.commandRuns : [];
+    runs = runs.concat(commands);
+    var creators = [];
     for (var index = 0; index < runs.length; index++) {
-      var endpoint = runs[index] && runs[index].navigationEndpoint || {};
+      var endpoint = runs[index] && (runs[index].navigationEndpoint || runs[index].onTap) || {};
+      endpoint = endpoint.innertubeCommand || endpoint;
       var browse = endpoint.browseEndpoint || {};
-      var identity = normalizeChannelIdentity(browse.browseId || browse.canonicalBaseUrl || "");
-      if (identity) return identity;
       var command = endpoint.commandMetadata && endpoint.commandMetadata.webCommandMetadata || {};
-      identity = normalizeChannelIdentity(command.url || "");
-      if (identity) return identity;
+      var ids = [browse.browseId, browse.canonicalBaseUrl, command.url, endpoint.urlEndpoint && endpoint.urlEndpoint.url]
+        .map(normalizeChannelIdentity).filter(Boolean);
+      if (!ids.length) continue;
+      var run = runs[index], label = run.text || extractText(textObj);
+      if (Number.isInteger(run.startIndex) && Number.isInteger(run.length)) label = extractText(textObj).slice(run.startIndex, run.startIndex + run.length);
+      creators.push({ channelId: ids[0], aliases: ids.slice(1), label: label });
     }
-    return "";
+    return FocusFeedChannelPolicy.creators({ creators: creators });
   }
 
   function extractDescription(renderer) {
@@ -210,6 +236,35 @@
 
   // --- Build a lookup map from intercepted data ---
   var videoDataMap = {};
+  var collectionDataMap = new Map();
+  function collectionId(value) { return typeof value === "string" && /^[A-Za-z0-9_-]{2,60}$/.test(value) ? value : ""; }
+  function collectCollections(obj) {
+    if (!obj || typeof obj !== "object") return;
+    var renderer = obj.playlistRenderer || obj.radioRenderer || obj.compactPlaylistRenderer || obj.compactRadioRenderer || obj.playlistPanelRenderer || obj.endScreenPlaylistRenderer;
+    var lockup = obj.lockupViewModel, meta = lockup && lockup.metadata && lockup.metadata.lockupMetadataViewModel;
+    if (lockup && lockup.contentType !== "LOCKUP_CONTENT_TYPE_VIDEO" && /PLAYLIST|PODCAST/.test(lockup.contentType || "")) renderer = lockup;
+    if (renderer) {
+      var id = collectionId(renderer.playlistId || renderer.contentId);
+      if (id) {
+        var entries = [];
+        (renderer.videos || renderer.contents || []).slice(0, 5).forEach(function (item) {
+          var v = item.childVideoRenderer || item.playlistVideoRenderer || item.playlistPanelVideoRenderer || item.compactVideoRenderer || item.videoRenderer;
+          if (v) entries.push({ title: extractText(v.title), channel: extractText(v.shortBylineText || v.longBylineText) });
+        });
+        var previous = collectionDataMap.get(id) || {};
+        collectionDataMap.set(id, { title: (typeof renderer.title === "string" ? renderer.title : extractText(renderer.title || meta && meta.title)) || previous.title || "",
+          description: extractDescription(renderer) || previous.description || "", entries: entries.length ? entries : previous.entries || [] });
+      }
+    }
+    while (collectionDataMap.size > 200) collectionDataMap.delete(collectionDataMap.keys().next().value);
+  }
+
+  function rememberChannel(identity) {
+    var previous = videoDataMap[identity.videoId] || {};
+    videoDataMap[identity.videoId] = Object.assign({}, previous, { videoId: identity.videoId,
+      channelId: identity.channelId, channel: previous.channel || identity.channelLabel || "",
+      creators: FocusFeedChannelPolicy.creators({ channelId: identity.channelId, channel: identity.channelLabel, creators: previous.creators || [] }) });
+  }
 
   function processInterceptedData(data) {
     var videos = extractVideoRenderers(data);
@@ -228,6 +283,8 @@
           title: video.title || previous.title || "",
           channel: video.channel || previous.channel || "",
           channelId: video.channelId || previous.channelId || "",
+          creators: FocusFeedChannelPolicy.creators({ channelId: video.channelId || previous.channelId, channel: video.channel || previous.channel,
+            creators: (video.creators || []).concat(previous.creators || []) }),
           description: video.description || previous.description || "",
           duration: video.duration || previous.duration || "",
           isShort: video.isShort === true || previous.isShort === true,
@@ -243,26 +300,11 @@
   }
 
   // --- DOM manipulation ---
-  var CARD_SELECTORS = [
-    "ytd-rich-item-renderer",
-    "ytd-playlist-video-renderer",
-    "ytd-playlist-panel-video-renderer",
-    "ytd-grid-video-renderer",
-    "ytd-channel-renderer",
-    "yt-lockup-view-model",
-    "ytd-compact-video-renderer",
-    "ytd-video-renderer",
-    "ytd-reel-item-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
-    "ytd-radio-renderer",
-    "ytd-playlist-renderer",
-    "ytd-compact-radio-renderer",
-    "ytd-compact-playlist-renderer",
-  ].join(", ");
+  var PLAYER_CARDS = FocusFeedYouTubeUI.playerCards;
 
   function getVideoIdFromCard(card) {
     var link =
+      (card.matches('a[href*="/watch?"], a[href*="/shorts/"]') ? card : null) ||
       card.querySelector("a#video-title-link") ||
       card.querySelector("a#video-title") ||
       card.querySelector('a[href*="/watch?v="]') ||
@@ -283,7 +325,8 @@
       card.querySelector("a#video-title-link") ||
       card.querySelector("h3 a") ||
       card.querySelector("h3") ||
-      card.querySelector("span#video-title");
+      card.querySelector("span#video-title") ||
+      card.querySelector(".ytp-videowall-still-info-title, .ytp-modern-videowall-still-info-title, .ytp-suggestion-title, .ytp-autonav-endscreen-upnext-title");
 
     if (el) {
       var title = (
@@ -295,13 +338,13 @@
       if (title) return title;
     }
 
-    var titled = card.querySelector("a[title]");
+    var titled = card.matches("a[title]") ? card : card.querySelector("a[title]");
     if (titled) {
       var t = (titled.getAttribute("title") || "").trim();
       if (t) return t;
     }
 
-    var labeled = card.querySelector("a[aria-label]");
+    var labeled = card.matches("a[aria-label]") ? card : card.querySelector("a[aria-label]");
     if (labeled) {
       return (labeled.getAttribute("aria-label") || "").trim();
     }
@@ -322,7 +365,9 @@
       card.querySelector("#channel-name a") ||
       card.querySelector("#channel-name") ||
       card.querySelector("#byline a") ||
-      card.querySelector("#byline");
+      card.querySelector("#byline") ||
+      card.querySelector(".ytContentMetadataViewModelMetadataRow .ytContentMetadataViewModelMetadataText") ||
+      card.querySelector(".ytp-videowall-still-info-author, .ytp-modern-videowall-still-info-author, .ytp-suggestion-author, .ytp-autonav-endscreen-upnext-author");
 
     if (!el) return "";
     return (el.innerText || el.textContent || "").trim();
@@ -333,6 +378,14 @@
     if (!link) return "";
     return normalizeChannelIdentity(link.getAttribute("href") || "");
   }
+  function creatorsFromCard(card) {
+    var owners = Array.from(card.querySelectorAll("ytd-channel-name, #channel-name, #byline, .ytLockupMetadataViewModelAvatar, .ytContentMetadataViewModelMetadataRow:first-child"));
+    var links = owners.length ? owners.flatMap(function (owner) { return Array.from(owner.querySelectorAll('a[href*="/channel/"], a[href*="/@"]')); })
+      : Array.from(card.querySelectorAll('a[href*="/channel/"], a[href*="/@"]'));
+    return FocusFeedChannelPolicy.creators({ creators: links.map(function (link) {
+      return { channelId: normalizeChannelIdentity(link.getAttribute("href")), label: (link.textContent || "").trim() };
+    }) });
+  }
 
   function extractDurationFromCard(card) {
     // Duration text is in the time-status overlay on the thumbnail
@@ -340,7 +393,7 @@
       "ytd-thumbnail-overlay-time-status-renderer span.ytd-thumbnail-overlay-time-status-renderer, " +
       "ytd-thumbnail-overlay-time-status-renderer #text, " +
       "span.ytp-time-duration, " +
-      "badge-shape[type='video-length'] span"
+      "badge-shape[type='video-length'] span, .ytp-videowall-still-info-duration, .ytp-modern-videowall-still-info-duration, .ytp-suggestion-duration, .ytp-autonav-endscreen-upnext-duration"
     );
     return el ? (el.innerText || el.textContent || "").trim() : "";
   }
@@ -355,7 +408,8 @@
 
   function scanCards() {
     youtubeUI.scanHome(extractCardMetadata);
-    var cards = document.querySelectorAll(CARD_SELECTORS);
+    // One surface list owns scanning and native-menu context alike.
+    var cards = document.querySelectorAll(youtubeUI.cards);
     for (var i = 0; i < cards.length; i++) {
       if (!youtubeUI.manages(cards[i])) processCard(cards[i]);
     }
@@ -365,10 +419,28 @@
   }
 
   function extractCardMetadata(card) {
+    // Some player layouts nest a suggestion link in a video-wall tile. Only
+    // the outer native tile owns visibility, so its clickable child cannot escape.
+    if (card.matches(PLAYER_CARDS) && card.parentElement && card.parentElement.closest(PLAYER_CARDS)) return;
     // Skip yt-lockup-view-model inside ytd-rich-item-renderer — parent handles it
     if (card.tagName === "YT-LOCKUP-VIEW-MODEL" &&
         card.closest("ytd-rich-item-renderer")) {
       return;
+    }
+
+    // Mixes/collections link to a seed video but do not belong to that video's
+    // channel. The collection thumbnail is explicit structural evidence.
+    if (card.matches("ytd-radio-renderer, ytd-playlist-renderer, ytd-compact-radio-renderer, ytd-compact-playlist-renderer") ||
+        card.querySelector("yt-collection-thumbnail-view-model, yt-collections-stack") ||
+        card.matches(PLAYER_CARDS) && playerCollectionId(card)) {
+      var listLink = card.matches('a[href*="list="]') ? card : card.querySelector('a[href*="list="]'), id = "";
+      try { id = collectionId(new URL(listLink.getAttribute("href"), location.origin).searchParams.get("list")); } catch (_) {}
+      var known = collectionDataMap.get(id) || {};
+      return { videoId: id ? "collection:" + id : "", collectionId: id, itemType: "collection", collection: true,
+        title: extractTitleFromCard(card) || known.title || "", channel: "", channelId: "",
+        description: known.description || extractDescriptionFromCard(card) ||
+          Array.from(card.querySelectorAll(".ytContentMetadataViewModelMetadataRow, #metadata-line, #byline")).slice(0, 3).map(function (n) { return n.textContent.trim(); }).join(" · "),
+        entries: known.entries || [] };
     }
 
     var videoId = getVideoIdFromCard(card);
@@ -390,7 +462,14 @@
         isLive: apiVideo.isLive === true || !!card.querySelector("[overlay-style='LIVE']"),
         isPremiere: apiVideo.isPremiere === true || !!card.querySelector("[overlay-style='UPCOMING']"),
       });
-      video.aliases = [apiVideo.channelId, domAgrees ? extractChannelIdentityFromCard(card) : ""].filter(Boolean);
+      var known = FocusFeedChannelPolicy.creators(apiVideo), rendered = domAgrees ? creatorsFromCard(card) : [];
+      // Only a single-channel byline can establish this cross-source alias.
+      // Collaborators are separate identities, never aliases of the publisher.
+      video.aliases = known[0] && known[0].aliases || [];
+      if (known.length <= 1 && rendered.length === 1 && !card.querySelector("yt-avatar-stack-view-model")) {
+        video.aliases = video.aliases.concat(rendered[0].channelId);
+      }
+      video.creators = FocusFeedChannelPolicy.creators({ channelId: video.channelId, channel: video.channel, aliases: video.aliases, creators: known.concat(rendered) });
       return video;
     }
 
@@ -416,7 +495,16 @@
     if (!fallbackVideo.channelId && channelPage) fallbackVideo.channelId = FocusFeedChannelPolicy.normalizeChannelId(location.pathname);
     if (!fallbackVideo.channelId && card.tagName === "YTD-CHANNEL-RENDERER") fallbackVideo.channelId = extractChannelIdentityFromCard(card);
     fallbackVideo.aliases = [fallbackVideo.channelId].filter(Boolean);
+    fallbackVideo.creators = creatorsFromCard(card);
     return fallbackVideo;
+  }
+
+  function playerCollectionId(card) {
+    var id = "";
+    try { id = collectionId(new URL(card.getAttribute("href"), location.origin).searchParams.get("list")); } catch (_) {}
+    // A watch URL can carry playlist context for an individual video. Treat it
+    // as a collection only with playlist-renderer evidence or a native list badge.
+    return id && (collectionDataMap.has(id) || card.querySelector(".ytp-videowall-still-listlabel, .ytp-modern-videowall-still-listlabel, .ytp-suggestion-playlist")) ? id : "";
   }
 
   function processCard(card) {
@@ -503,8 +591,9 @@
   });
 
   // --- Init ---
-  var youtubeUI = FocusFeedYouTubeUI.create({ lookup: function (id) { return videoDataMap[id]; }, extract: extractCardMetadata, requestScan: requestScan });
-  liveFeed = FocusFeedAutoRuntime.create({ scan: scanCards, render: youtubeUI.render, clear: youtubeUI.clear, configure: youtubeUI.configure });
+  var youtubeUI = FocusFeedYouTubeUI.create({ lookup: function (id) { return videoDataMap[id]; }, extract: extractCardMetadata,
+    rememberChannel: rememberChannel, requestScan: requestScan });
+  liveFeed = FocusFeedAutoRuntime.create({ scan: scanCards, render: youtubeUI.render, clear: youtubeUI.clear, configure: youtubeUI.configure, activity: youtubeUI.activity });
   youtubeUI.setRuntime(liveFeed);
   var scanTimer = null;
   function requestScan() {
@@ -535,6 +624,7 @@
   window.addEventListener("pageshow", function () { startObservation(); liveFeed.navigate(false); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden) requestScan(); });
   liveFeed.reload().catch(function (error) {
+    document.documentElement.removeAttribute("data-focusfeed-initializing");
     console.warn("[FocusFeed] Could not load settings", error.message);
   });
 

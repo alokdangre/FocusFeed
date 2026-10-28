@@ -94,15 +94,18 @@
     if (url.protocol === "https:" && !await chrome.permissions.request({ origins: [url.origin + "/*"] })) throw new Error("Connection access was not granted.");
     if (value !== savedEndpoint) { await chrome.storage.local.set({ classifierEndpoint: value }); savedEndpoint = value; }
   }
-  function showInvalid(assessments) {
+  function showValidation(assessments) {
     var invalid = assessments.filter(function (a) { return a.status !== "ready_for_confirmation"; });
     editor.markInvalid(invalid.map(function (a) { return a.text; }));
-    $("validationResults").replaceChildren(); $("validationResults").hidden = !invalid.length;
-    invalid.forEach(function (a) {
+    $("validationResults").replaceChildren(); $("validationResults").hidden = false;
+    assessments.forEach(function (a) {
       var row = document.createElement("div"); row.className = "validation-row";
+      row.dataset.accepted = String(a.status === "ready_for_confirmation");
       var title = document.createElement("strong"); title.textContent = a.text;
+      var score = document.createElement("span"); score.className = "validation-score";
+      score.textContent = (a.status === "ready_for_confirmation" ? "Accepted" : "Needs editing") + " · Nonsense probability: " + (a.nonsenseProbability * 100).toFixed(1) + "%";
       var description = document.createElement("span"); description.textContent = a.reason;
-      row.append(title, description); $("validationResults").appendChild(row);
+      row.append(title, score, description); $("validationResults").appendChild(row);
     });
     return invalid.length > 0;
   }
@@ -123,10 +126,14 @@
         var id = "objectives-" + Date.now() + "-" + Math.random().toString(16).slice(2);
         var result = await request({ type: "OBJECTIVES_CLASSIFY_CLOUD", request: { requestId: id, mode: target, objectives: topics } });
         if (!result || result.requestId !== id || !Array.isArray(result.objectives) || result.objectives.length !== topics.length ||
-            result.objectives.some(function (a, i) { return !a || a.text !== topics[i]; })) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
+            result.objectives.some(function (a, i) {
+              return !a || a.text !== topics[i] || !Number.isFinite(a.nonsenseProbability) || a.nonsenseProbability < 0 || a.nonsenseProbability > 1 ||
+                !["ready_for_confirmation", "needs_clarification"].includes(a.status) ||
+                (a.status === "ready_for_confirmation") !== (a.nonsenseProbability < 0.70);
+            })) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
         await chrome.storage.local.set({ focusfeedObjectiveValidationV1: { savedAt: Date.now(), requestedMode: target, requestedObjectives: topics, response: result } });
         if (snapshot !== fingerprint()) throw new Error("Your preferences changed during validation. Save the current topics again.");
-        if (showInvalid(result.objectives)) { feedback("profileFeedback", "Clarify the highlighted topics, then save again. Nothing has been saved.", true); return; }
+        if (showValidation(result.objectives)) { feedback("profileFeedback", "Edit the highlighted topics, then save again. Nothing has been saved.", true); return; }
         objectives = result.objectives.map(function (a) {
           var o = a.validatedObjective;
           if (!FocusFeedSettings.validObjective(o) || o.matchScope !== "intent" || o.text !== a.text) throw new Error("The validator returned an incomplete response. Nothing has been saved.");

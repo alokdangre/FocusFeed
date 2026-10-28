@@ -31,11 +31,11 @@ class Element {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 function setup(overrides = {}) {
-  const body = new Element("body"), listeners = {}, messages = [], restored = [];
+  const body = new Element("body"), listeners = {}, messages = [];
   const menu = body.appendChild(new Element("ytd-menu-popup-renderer"));
   const items = menu.appendChild(new Element("div")); items.setAttribute("id", "items");
   let surface = null;
-  const document = { body, documentElement: body, createElement: t => new Element(t),
+  const document = { body, documentElement: body, createElement: t => new Element(t), createElementNS: (_namespace, t) => new Element(t),
     querySelector: () => surface, querySelectorAll: s => body.querySelectorAll(s),
     addEventListener: (type, fn) => { listeners[type] = fn; } };
   const context = vm.createContext({ document, location: { pathname: "/", href: "https://www.youtube.com/" }, URL,
@@ -46,7 +46,7 @@ function setup(overrides = {}) {
     } } }, ...overrides });
   ["channel-policy.js", "youtube-ui.js"].forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context));
   const ui = context.FocusFeedYouTubeUI.create({ lookup: () => null, extract: () => null });
-  ui.setRuntime({ reload: async () => {}, restore: id => restored.push(id), tick() {} });
+  ui.setRuntime({ reload: async () => {}, tick() {} });
   function trigger(channelId) {
     const card = body.appendChild(new Element("ytd-video-renderer"));
     const control = card.appendChild(new Element("ytd-menu-renderer"));
@@ -55,7 +55,7 @@ function setup(overrides = {}) {
     listeners.click({ target: button }); ui.decorate();
     return items.querySelector(".focusfeed-menu-action");
   }
-  return { ui, trigger, items, body, messages, listeners, restored, context,
+  return { ui, trigger, items, body, messages, listeners, context,
     setPlayer: () => { context.location.pathname = "/watch"; surface = body.appendChild(new Element("div")); return surface; } };
 }
 test("reused menus cannot block a previously selected channel; keyboard and Undo work", async () => {

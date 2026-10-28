@@ -3,7 +3,7 @@ const test = require("node:test"), assert = require("node:assert/strict"), fs = 
 const { dom } = require("./dom-harness");
 const settle = () => new Promise(resolve => setImmediate(resolve));
 function accepted(text, i) {
-  return { objectiveId: "objective-" + i, text, status: "ready_for_confirmation", reason: "Clear preference.",
+  return { objectiveId: "objective-" + i, text, status: "ready_for_confirmation", nonsenseProbability: 0.02, reason: "Clear preference.",
     validatedObjective: { id: "intent-" + i, text, sourceText: text, contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" } };
 }
 async function setup(t, validate) {
@@ -50,11 +50,26 @@ test("comma and newline preferences are validated then saved distinctly in the u
 });
 test("an unclear entry blocks saving the entire draft and displays its clarification", async t => {
   const h = await setup(t, request => [accepted(request.objectives[0], 0),
-    { text: request.objectives[1], status: "needs_clarification", reason: "Describe a concrete subject.", validatedObjective: null }]);
+    { text: request.objectives[1], status: "needs_clarification", nonsenseProbability: 0.95, reason: "Describe a concrete subject.", validatedObjective: null }]);
   h.enter("movie reviews, do better"); h.save(); await settle();
   assert.equal(h.saved.length, 0); assert.match(h.feedback(), /Nothing has been saved/);
   assert.match(h.document.getElementById("validationResults").textContent, /Describe a concrete subject/);
+  assert.match(h.document.getElementById("validationResults").textContent, /Nonsense probability: 95.0%/);
+  assert.match(h.document.getElementById("validationResults").textContent, /Nonsense probability: 2.0%/);
   h.save(); await settle(); assert.equal(h.saved.length, 0);
+});
+test("broad formats save with their returned percentage; invalid probabilities cannot save", async t => {
+  const h = await setup(t);
+  h.enter("review, movie TV revisits"); h.save(); await settle();
+  assert.equal(h.saved.length, 1);
+  assert.deepEqual(Array.from(h.saved[0].objectives, o => o.text), ["review", "movie TV revisits"]);
+  assert.match(h.document.getElementById("validationResults").textContent, /Accepted · Nonsense probability: 2.0%/);
+  for (const probability of [undefined, NaN, 1.1, -0.1, true, 0.7]) {
+    const broken = await setup(t, request => [{ ...accepted(request.objectives[0], 0), nonsenseProbability: probability }]);
+    broken.enter("review"); broken.save(); await settle();
+    assert.equal(broken.saved.length, 0, "Invalid or contradictory probability: " + probability);
+    assert.match(broken.feedback(), /incomplete response/);
+  }
 });
 test("editing while validation is in flight cannot save the stale response", async t => {
   let resolve;

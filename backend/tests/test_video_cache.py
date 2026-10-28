@@ -54,6 +54,8 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(first["cache"]["hits"], 0)
         self.assertEqual(second["cache"]["hits"], 4)
         self.assertEqual(second["usage"]["input_tokens"], 0)
+        self.assertEqual(first["providerRequests"], self.calls)
+        self.assertEqual(second["providerRequests"], [])
         self.assertEqual(second["cache"]["byVideo"]["dsa-1"]["source"], "cache")
         with sqlite3.connect(self.path) as db:
             rows = db.execute("SELECT key, probability FROM judgments").fetchall()
@@ -61,10 +63,34 @@ class CacheTests(unittest.TestCase):
         self.assertTrue(all(len(key) == 64 and value == .95 for key, value in rows))
         self.assertNotIn("Sliding Window", self.path.read_bytes().decode(errors="ignore"))
 
+    def test_resolving_channel_identity_does_not_repeat_paid_topic_judgments(self):
+        self.run_cached()
+        data = request_payload()
+        data["videos"][0]["channelId"] = "UCresolved12345"
+        result = self.run_cached(data)
+        self.assertEqual(result["cache"]["hits"], 4)
+        self.assertEqual(len(self.calls), 1)
+
+    def test_collection_identity_entries_and_mode_are_separate_from_seed_video(self):
+        data = request_payload()
+        data["videos"] = [{"videoId": "collection:RDmusic", "itemType": "collection", "collectionId": "RDmusic",
+                           "title": "Mix - Songs", "entries": [{"title": "A song", "channel": "Singer"}]}]
+        first = self.run_cached(data)
+        payload = self.calls[-1]
+        self.assertEqual(payload["state"]["videos"][0]["item_type"], "collection")
+        self.assertEqual(payload["state"]["videos"][0]["entries"][0]["title"], "A song")
+        self.assertIn("isolated matching entry", str(payload["questions"]))
+        data["profile"]["mode"] = "general"
+        second = self.run_cached(data)
+        self.assertEqual(second["cache"]["hits"], 0)
+        self.assertEqual(len(self.calls), 2)
+        self.assertIn("explicitly listed playable entry", str(self.calls[-1]["questions"]))
+        self.assertEqual(first["cache"]["byVideo"]["collection:RDmusic"]["expiresAt"], 1300000)
+
     def test_metadata_model_topic_prompt_and_endpoint_changes_miss(self):
         self.run_cached()
         for field, value in [("title", "Changed title"), ("descriptionSnippet", "New description"),
-                             ("channelId", "@new"), ("duration", "22:00"), ("isShort", True)]:
+                             ("duration", "22:00"), ("isShort", True)]:
             data = request_payload()
             data["videos"][0][field] = value
             result = self.run_cached(data)
@@ -204,6 +230,8 @@ class CacheTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 1)
         self.assertEqual(second.diagnostics["cache"]["hits"], 4)
         self.assertEqual(second.diagnostics["usage"]["input_tokens"], 0)
+        self.assertEqual(first.diagnostics["jevRequests"], self.calls)
+        self.assertEqual(second.diagnostics["jevRequests"], [])
         self.assertEqual(first.assessments[0].outcome, second.assessments[0].outcome)
         self.assertEqual(second.assessments[0].outcome, "match")
         self.assertNotIn("evidenceProbability", second.model_dump(by_alias=True)["assessments"][0])

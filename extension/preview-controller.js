@@ -6,14 +6,13 @@
   function create() {
     var enabled = false;
     function isPreview(media) {
-      return !!media.closest(PREVIEWS + ", " + CARDS + ", [data-focusfeed-home-source]");
+      return !!media.closest(PREVIEWS + ", " + CARDS);
     }
     function pause(media) {
       if (!enabled || !isPreview(media)) return;
       if (!media.paused) media.pause();
-      media.dataset.focusfeedPreviewSuppressed = "true";
-      var surface = media.closest(PREVIEWS);
-      if (surface) surface.dataset.focusfeedPreviewSuppressed = "true";
+      // Pause media without hiding YouTube's thumbnail/overlay container.
+      if (media.dataset.focusfeedPreviewSuppressed !== "true") media.dataset.focusfeedPreviewSuppressed = "true";
     }
     function sweep() {
       if (enabled) document.querySelectorAll("video").forEach(pause);

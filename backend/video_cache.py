@@ -160,7 +160,9 @@ def split_requests(payload: dict, pairs: list[tuple]) -> list[dict]:
 def ttl_for(video: dict, value: float) -> int:
     if video["format"] in ("live", "premiere") or 0.1 < value < 0.7:
         return 300
-    if video["description"] == "not supplied" or video["channel_id"] == "not supplied":
+    if video.get("item_type") == "collection":
+        return 300
+    if video["description"] == "not supplied":
         return 3600
     return 86400
 
@@ -196,11 +198,13 @@ def evaluate(payload: dict, video_ids: list[str], dispatch: Callable, namespace:
     answers = {qid: {"type": "noul", "noul": hits[key][0]} for qid, _vi, _oi, key in pairs if key in hits}
     usage = {"input_tokens": 0, "output_tokens": 0}
     calls = 0
+    provider_requests = []
     resolved_model = payload["model"]
     shared = set()
     expiries = {qid: hits[key][1] for qid, _vi, _oi, key in pairs if key in hits}
     try:
         for outbound in split_requests(payload, owned):
+            provider_requests.append(outbound)
             result = dispatch(outbound)
             calls += 1
             if not isinstance(result, dict) or not isinstance(result.get("answers"), dict):
@@ -253,7 +257,9 @@ def evaluate(payload: dict, video_ids: list[str], dispatch: Callable, namespace:
         reused = sum(p[0] in shared for p in relevant)
         source = "cache" if cached == len(relevant) else "shared" if reused == len(relevant) else "model" if not cached and not reused else "mixed"
         by_video[video_id] = {"source": source, "hits": cached, "shared": reused, "questions": len(relevant),
-            "expiresAt": int(min(expiries.get(p[0], cache.clock() + 30) for p in relevant) * 1000)}
-    return {"model": resolved_model, "answers": answers, "usage": usage, "cache": {
+            "expiresAt": int(min(expiries.get(p[0], cache.clock() + 30) for p in relevant) * 1000),
+            "expiresInMs": max(0, int((min(expiries.get(p[0], cache.clock() + 30) for p in relevant) - cache.clock()) * 1000))}
+    return {"model": resolved_model, "answers": answers, "usage": usage, "providerRequests": provider_requests, "cache": {
         "enabled": enabled, "available": cache.available, "hits": len(hits), "shared": len(shared),
-        "misses": len(owned), "providerCalls": calls, "providerQuestions": len(owned), "byVideo": by_video}}
+        "misses": len(owned), "providerCalls": calls, "providerQuestions": len(owned), "byVideo": by_video,
+        "byQuestion": {qid: {"expiresInMs": max(0, int((expiry - cache.clock()) * 1000))} for qid, expiry in expiries.items()}}}

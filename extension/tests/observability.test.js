@@ -6,7 +6,8 @@ test("diagnostics use connected tab decisions and direct intent validation, with
   const h = dom(fs.readFileSync(path.join(__dirname, "../observability/observability.html"), "utf8"));
   t.after(h.cleanup);
   const validation = { response: { objectives: [{ text: "Movie reviews", status: "ready_for_confirmation",
-    understoodProbability: 0.95, matchableProbability: 0.88, validatedObjective: { text: "Movie reviews" } }] } };
+    nonsenseProbability: 0.02, reason: "Broad topics are allowed.", validatedObjective: { text: "Movie reviews" } }],
+    diagnostics: { jevRequest: { state: { objectives: ["Movie reviews"] }, questions: { o0_nonsense: { instructions: { question: "Is this gibberish?" } } } } } } };
   let connected = true;
   h.context.chrome = { storage: { local: { get: async keys => {
     assert.deepEqual(Array.from(keys), ["focusfeedObjectiveValidationV1"]);
@@ -23,7 +24,8 @@ test("diagnostics use connected tab decisions and direct intent validation, with
   } };
   h.load("observability/observability.js"); await settle();
   assert.match(h.document.getElementById("objectives").textContent, /Exact user preference/);
-  assert.match(h.document.getElementById("objectives").textContent, /88.0%/);
+  assert.match(h.document.getElementById("objectives").textContent, /2.0%/);
+  assert.match(h.document.getElementById("objectiveRequest").textContent, /Is this gibberish\?/);
   assert.match(h.document.getElementById("runMeta").textContent, /1 tabs.*19\/7 Jev tokens/);
   assert.match(h.document.getElementById("videos").textContent, /A movie review.*90.0%/);
   connected = false; h.document.getElementById("refresh").click(); await settle();

@@ -4,6 +4,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var settings = null, mode = "general", drafts = {}, blocks = [], busy = false, savedEndpoint = "";
   var DEFAULT_ENDPOINT = "http://127.0.0.1:3000";
+  var learningProfiles = [], learningData = { items: [], history: [], allowedChannels: [] };
   var editor = FocusFeedTopicInput.create({ input: $("objectiveInput"), list: $("topicList"), onChange: edited });
 
   async function request(message) {
@@ -168,6 +169,43 @@
       }); row.append(label, button); $("channelBlocks").appendChild(row);
     });
   }
+  function renderLearning() {
+    if (typeof FocusFeedLearningPolicy === "undefined" || !settings) return;
+    $("learnedChannels").replaceChildren(); $("videoCorrections").replaceChildren();
+    var count = 0;
+    learningProfiles.forEach(function (p) {
+      settings.general.objectives.forEach(function (o) {
+        var j = FocusFeedLearningPolicy.judgment(p, o, FocusFeedLearningPolicy.endpointKey(savedEndpoint), Date.now());
+        if (!j || !j.blockChannel || FocusFeedLearningPolicy.allowed(learningData, p.channelId, j.key)) return;
+        count++;
+        var row = document.createElement("div"); row.className = "channel-row";
+        var label = document.createElement("span"); label.textContent = p.title || p.channelId;
+        var topic = document.createElement("small"); topic.textContent = o.text; label.appendChild(topic);
+        var button = document.createElement("button"); button.className = "text-button"; button.textContent = "Use video checks";
+        button.addEventListener("click", async function () {
+          button.disabled = true;
+          try { await request({ type: "FF_CHANNEL_ALLOW", channelId: p.channelId, topicKey: j.key }); await loadLearning(); }
+          catch (error) { button.disabled = false; feedback("profileFeedback", error.message, true); }
+        }); row.append(label, button); $("learnedChannels").appendChild(row);
+      });
+    });
+    if (!count) { var empty = document.createElement("p"); empty.className = "empty-message"; empty.textContent = "No active channel filters learned yet."; $("learnedChannels").appendChild(empty); }
+    learningData.items.slice(-20).reverse().forEach(function (c) {
+      var row = document.createElement("div"); row.className = "channel-row";
+      var label = document.createElement("span"); label.textContent = c.title || c.videoId;
+      var topic = document.createElement("small"); topic.textContent = (c.match ? "Matches: " : "Doesn't match: ") + c.topic; label.appendChild(topic);
+      var button = document.createElement("button"); button.className = "text-button"; button.textContent = "Undo";
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        try { await request({ type: "FF_CORRECTION_UNDO", id: c.id }); await loadLearning(); }
+        catch (error) { button.disabled = false; feedback("profileFeedback", error.message, true); }
+      }); row.append(label, button); $("videoCorrections").appendChild(row);
+    });
+  }
+  async function loadLearning() {
+    var values = await chrome.storage.local.get({ focusfeedChannelProfilesV1: [], focusfeedCorrectionsV1: { items: [], history: [], allowedChannels: [] } });
+    learningProfiles = values.focusfeedChannelProfilesV1; learningData = values.focusfeedCorrectionsV1; renderLearning();
+  }
   async function refreshFeedStatus() {
     try {
       var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -202,6 +240,21 @@
     finally { $("checkClassifier").disabled = false; }
   });
   $("openObservability").addEventListener("click", function () { chrome.tabs.create({ url: chrome.runtime.getURL("observability/observability.html") }); });
+  $("reviewHidden").addEventListener("click", async function () {
+    try {
+      var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tabs[0] || !/^https:\/\/(www\.)?youtube\.com\//.test(tabs[0].url || "")) throw new Error("Open a YouTube tab first.");
+      var response = await chrome.tabs.sendMessage(tabs[0].id, { type: "FF_REVIEW_HIDDEN" });
+      if (!response || !response.reviewing) throw new Error("Switch to General and enable filtering to review topic decisions.");
+      feedback("classifierResult", "Filtered videos are visible for review. Use their ⋯ menu to correct a topic, then select Done.");
+    } catch (error) { feedback("classifierResult", error.message, true); }
+  });
+  $("exportCorrections").addEventListener("click", async function () {
+    await loadLearning();
+    var blob = new Blob([JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), corrections: learningData.items, events: learningData.history }, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "focusfeed-corrections.json"; link.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
   $("clearGeneratedData").addEventListener("click", async function () {
     $("clearGeneratedData").disabled = true;
     try {
@@ -216,6 +269,8 @@
     if (area !== "local") return;
     if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) { settings = changes.focusfeedSettingsV2.newValue; render(); }
     if (changes.focusFeedChannelBlocksV1) { blocks = changes.focusFeedChannelBlocksV1.newValue || []; renderChannels(); }
+    if (changes.classifierEndpoint) { savedEndpoint = changes.classifierEndpoint.newValue || DEFAULT_ENDPOINT; $("classifierEndpoint").value = savedEndpoint; }
+    if (changes.focusfeedChannelProfilesV1 || changes.focusfeedCorrectionsV1 || changes.classifierEndpoint || changes.focusfeedSettingsV2) loadLearning();
   });
   async function load() {
     try {
@@ -226,7 +281,7 @@
       mode = new URL(location.href).searchParams.get("mode") === "focus" ? "focus" : FocusFeedSettings.effective(settings).mode;
       // The editor is still empty: set the initial mode without overwriting its loaded draft.
       editor.set(drafts[mode].topics); $("sessionDuration").value = String(drafts[mode].duration);
-      setMode(mode); renderChannels(); refreshFeedStatus();
+      setMode(mode); renderChannels(); refreshFeedStatus(); await loadLearning();
     } catch (error) { feedback("profileFeedback", error.message, true); }
   }
   setInterval(function () { render(); refreshFeedStatus(); }, 5000);

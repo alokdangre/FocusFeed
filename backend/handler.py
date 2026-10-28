@@ -19,6 +19,7 @@ try:
     from .models import ClassificationRequest, ObjectiveClassificationRequest
     from .taxonomy import TAXONOMY_VERSION
     from .video_cache import default_cache
+    from .channel_classifier import ChannelClassificationRequest, classify_channel, CHANNEL_PROMPT_VERSION
 except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     from classifier import (  # type: ignore[no-redef]
         TypeSafeAPIError,
@@ -32,6 +33,7 @@ except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     from models import ClassificationRequest, ObjectiveClassificationRequest  # type: ignore[no-redef]
     from taxonomy import TAXONOMY_VERSION  # type: ignore[no-redef]
     from video_cache import default_cache  # type: ignore[no-redef]
+    from channel_classifier import ChannelClassificationRequest, classify_channel, CHANNEL_PROMPT_VERSION
 
 
 logger = logging.getLogger(__name__)
@@ -148,6 +150,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "model": model,
                 "promptVersion": classifier_version("video"),
                 "objectivePromptVersion": classifier_version("objective"),
+                "channelPromptVersion": CHANNEL_PROMPT_VERSION,
                 "taxonomyVersion": TAXONOMY_VERSION,
                 "configured": bool(os.getenv("TYPESAFE_API_KEY", "").strip()),
             },
@@ -163,7 +166,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
 
     request_model: type
     classify: Any
-    if method == "POST" and path.endswith("/objectives/classify"):
+    if method == "POST" and path.endswith("/channels/classify"):
+        request_model = ChannelClassificationRequest
+        classify = classify_channel
+    elif method == "POST" and path.endswith("/objectives/classify"):
         request_model = ObjectiveClassificationRequest
         classify = classify_objectives
     elif method == "POST" and path.endswith("/classify"):

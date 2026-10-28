@@ -4,6 +4,16 @@ The backend validates user-defined content preferences, then classifies YouTube 
 
 ## Current Jev design
 
+Channel learning adds `POST /channels/classify` and a `channelPromptVersion` field
+to health responses. It receives bounded public evidence from the extension and
+asks one Noul per preference for dominant match, plus shared evidence sufficiency.
+Both must reach 0.90, with at least eight distinct uploads for a new profile.
+Established topics can map to broader preferences without resending uploads.
+Compact requests carry `knownEvidenceProbability` from the established channel
+judgments and ask only the new topic relationships.
+The backend stores no channel evidence or user corrections. See
+[channel learning](../docs/CHANNEL_LEARNING.md) for the exact channel policy.
+
 Validation asks one `Noul` question per entry: is it gibberish or nonsensical as a description of video content? An entry requires editing only when `nonsenseProbability >= 0.70`. Broad subjects, single-word formats such as “review”, informal wording, understandable typos and niche subjects are allowed. There is no specificity, mode-consistency or fixed-category gate. This is a permissive topic-entry check; it does not prove videos exist in the current feed.
 
 Accepted entries retain the user's text with `matchScope: intent` and `validationVersion: focusfeed-intent-v1`. Video classification uses one direct match Noul per video/preference pair, respecting the subject, format, purpose and exceptions together. Previously confirmed category profiles retain their canonical definitions until the user validates and saves them again.

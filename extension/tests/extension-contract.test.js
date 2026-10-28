@@ -4,7 +4,7 @@ const root = path.join(__dirname, "..");
 test("every packaged script and stylesheet exists, in dependency order, with no retired runtime", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
   const isolated = manifest.content_scripts.find(group => group.world === "ISOLATED");
-  assert.deepEqual(isolated.js, ["video-model.js", "channel-policy.js", "settings.js", "auto-runtime.js", "home-feed.js", "preview-controller.js", "loading-ui.js", "youtube-ui.js", "content.js"]);
+  assert.deepEqual(isolated.js, ["video-model.js", "channel-policy.js", "settings.js", "learning-policy.js", "auto-runtime.js", "home-feed.js", "preview-controller.js", "loading-ui.js", "youtube-ui.js", "content.js"]);
   for (const group of manifest.content_scripts) for (const file of [...group.js, ...(group.css || [])]) assert.ok(fs.existsSync(path.join(root, file)), file);
   assert.ok(fs.existsSync(path.join(root, manifest.background.service_worker)));
   assert.ok(fs.existsSync(path.join(root, manifest.action.default_popup)));

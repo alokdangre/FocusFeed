@@ -76,7 +76,17 @@
             <div class="tool-actions"><button class="button button-outline" type="button" id="checkClassifier">Check connection</button><button class="text-button" type="button" id="openObservability">View diagnostics ↗</button></div>
             <p class="feedback" id="classifierResult" role="status" hidden></p>
             <button class="text-button" type="button" id="clearGeneratedData">Refresh video decisions</button>
+            <button class="text-button" type="button" id="reviewHidden">Review filtered videos on YouTube</button>
             <p class="subtle-note">Clears cached checks. Your topics and channel blocks stay saved.</p>
+          </div>
+        </details>
+        <details class="settings-section" id="learningSettings">
+          <summary><span>Corrections & channel filters</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+          <div class="connection-body">
+            <p class="subtle-note">A matching channel filter hides all its recommendations while that topic is blocked. Corrections are saved locally. Channel checks send public metadata and your selected example to the classifier.</p>
+            <div class="channel-list" id="learnedChannels"></div>
+            <div class="channel-list" id="videoCorrections"></div>
+            <button class="text-button" type="button" id="exportCorrections">Export corrections</button>
           </div>
         </details>
       </section>
@@ -84,6 +94,9 @@
     <footer class="app-footer"><span id="feedStatus">Ready when you are.</span><a href="https://www.youtube.com/" target="_blank" rel="noreferrer">Open YouTube ↗</a></footer>
   </div>
   <script src="../settings.js"></script>
+  <script src="../video-model.js"></script>
+  <script src="../channel-policy.js"></script>
+  <script src="../learning-policy.js"></script>
   <script src="topic-input.js"></script>
   <script src="popup.js"></script>
 </body>

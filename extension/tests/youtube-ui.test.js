@@ -13,6 +13,8 @@ class Element {
   remove() { this.isConnected = false; if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(c => c !== this); }
   setAttribute(k, v) { this.attributes[k] = v; }
   getAttribute(k) { return this.attributes[k] || null; }
+  hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attributes, k); }
+  toggleAttribute(k, force) { const active = force === undefined ? !this.hasAttribute(k) : force; if (active) this.setAttribute(k, ""); else this.removeAttribute(k); return active; }
   removeAttribute(k) { delete this.attributes[k]; if (k === "data-focusfeed-playback") delete this.dataset.focusfeedPlayback; }
   addEventListener(type, listener) { this.listeners[type] = listener; }
   dispatchEvent() {}

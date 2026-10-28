@@ -62,6 +62,12 @@ Resources:
             ApiId: !Ref FocusFeedApi
             Path: /cache/clear
             Method: POST
+        ChannelClassify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /channels/classify
+            Method: POST
         Classify:
           Type: HttpApi
           Properties:

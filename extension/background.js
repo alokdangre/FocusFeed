@@ -2,7 +2,7 @@
 
 "use strict";
 
-if (typeof importScripts === "function") importScripts("settings.js", "channel-policy.js", "video-model.js", "request-broker.js", "score-cache.js");
+if (typeof importScripts === "function") importScripts("settings.js", "channel-policy.js", "video-model.js", "request-broker.js", "score-cache.js", "learning-policy.js", "channel-evidence.js", "channel-learning.js");
 
 var DEFAULT_CLASSIFIER_ENDPOINT = "http://127.0.0.1:3000";
 var HEALTH_TIMEOUT_MS = 8000;
@@ -70,7 +70,8 @@ async function requestJson(path, options, timeoutMs, externalSignal, selectedEnd
     }
     if (scoreCache && path !== "/classify") scoreCache.http({ requestId: auditId, path: path, status: "completed", kind: "auxiliary", durationMs: Date.now() - started,
       usage: body.diagnostics && body.diagnostics.usage,
-      providerCalls: path === "/objectives/classify" ? 1 : 0, providerQuestions: path === "/objectives/classify" ? (body.objectives || []).length : 0 });
+      providerCalls: /\/(objectives|channels)\/classify$/.test(path) ? 1 : 0,
+      providerQuestions: path === "/objectives/classify" ? (body.objectives || []).length : path === "/channels/classify" ? Number(body.diagnostics && body.diagnostics.questionCount) || (body.matches || []).length + 1 : 0 });
     return body;
   } catch (error) {
     if (scoreCache && path !== "/classify") scoreCache.http({ requestId: auditId, path: path, status: "failed", kind: "auxiliary", durationMs: Date.now() - started, code: error.code || "network_error" });
@@ -258,9 +259,13 @@ var autoBroker = typeof FocusFeedRequestBroker !== "undefined"
 var scoreCache = typeof FocusFeedScoreCache !== "undefined" ? FocusFeedScoreCache.create(
   function (id, request) { return autoBroker.submit(id, request); },
   { storage: chrome.storage.session, cancelQueued: function (id) { autoBroker.cancelQueued(id); } }) : null;
+var channelLearning = typeof FocusFeedChannelLearning !== "undefined" ? FocusFeedChannelLearning.create({
+  storage: chrome.storage.local, write: withPolicyWrite, fetch: function (url, options) { return fetch(url, options); },
+  request: requestJson, endpoint: classifierEndpoint, contract: contractFor,
+}) : null;
 var admissions = new Map();
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  if (!message || !/^(FF_REQUEST_STATS|FF_SETTINGS_GET|FF_SETTINGS_UPDATE|FF_OPEN_PREFERENCES|FF_CACHE_CLEAR|FF_CHANNEL_RESOLVE|FF_BLOCK_ADD|FF_BLOCK_REMOVE|FF_AUTO_CLASSIFY|FF_AUTO_CANCEL)$/.test(message.type)) return false;
+  if (!message || !/^(FF_REQUEST_STATS|FF_SETTINGS_GET|FF_SETTINGS_UPDATE|FF_OPEN_PREFERENCES|FF_CACHE_CLEAR|FF_CHANNEL_RESOLVE|FF_BLOCK_ADD|FF_BLOCK_REMOVE|FF_AUTO_CLASSIFY|FF_AUTO_CANCEL|FF_CORRECTION_ADD|FF_CORRECTION_UNDO|FF_CHANNEL_LEARN|FF_CHANNEL_ALLOW)$/.test(message.type)) return false;
   var internal = sender && sender.url && sender.url.indexOf(chrome.runtime.getURL("")) === 0;
   if (!internal && !trustedYouTube(sender)) return false;
   var operation;
@@ -276,11 +281,29 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
       autoBroker.cancelAll();
       admissions.forEach(function (token) { token.active = false; });
       scoreCache.clear(); contracts.clear();
-      await chrome.storage.local.set({ focusfeedCacheEpochV1: Date.now() });
+      var invalidation = { focusfeedCacheEpochV1: Date.now() };
+      if (channelLearning) await channelLearning.clear(invalidation);
+      else await chrome.storage.local.set(invalidation);
       return result;
     })();
   }
   if (message.type === "FF_SETTINGS_GET") operation = withPolicyWrite(readSettings);
+  if (message.type === "FF_CORRECTION_UNDO") operation = channelLearning.undo(message.id);
+  if (message.type === "FF_CHANNEL_ALLOW") { if (!internal) return false; operation = channelLearning.allowChannel(message.channelId, message.topicKey); }
+  if (message.type === "FF_CORRECTION_ADD" || message.type === "FF_CHANNEL_LEARN") operation = (async function () {
+    var state = await withPolicyWrite(readSettings), profile = FocusFeedSettings.effective(state);
+    if (!state.enabled || profile.mode !== "general" || !FocusFeedSettings.valid(profile) || message.revision !== state.revision) throw new Error("Preferences changed. Reopen the video menu.");
+    if (message.type === "FF_CORRECTION_ADD") return channelLearning.correct(message, profile);
+    var video = FocusFeedVideo.videoInput(message.video);
+    if (message.triggerId) {
+      var values = await chrome.storage.local.get({ focusfeedCorrectionsV1: { items: [] } });
+      if (!values.focusfeedCorrectionsV1.items.some(function (c) { return c.id === message.triggerId && c.videoId === video.videoId; })) return { status: "cancelled" };
+    }
+    if (!video.channelId && /^[A-Za-z0-9_-]{11}$/.test(video.videoId)) {
+      var resolved = await resolveYouTubeChannel(video.videoId); video.channelId = resolved.channelId;
+    }
+    return channelLearning.learn(video, profile, message.triggerId);
+  })();
   if (message.type === "FF_SETTINGS_UPDATE") operation = withPolicyWrite(async function () {
     var next = FocusFeedSettings.update(await readSettings(), message.action);
     await chrome.storage.local.set({ focusfeedSettingsV2: next });

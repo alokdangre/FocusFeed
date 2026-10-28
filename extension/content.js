@@ -9,7 +9,7 @@
   // --- State ---
   var feedItemsReceived = 0;
   var liveFeed = null;
-  var PREFERENCE_KEYS = ["classifierEndpoint", "focusfeedSettingsV2", "focusfeedCacheEpochV1", "focusFeedChannelBlocksV1"];
+  var PREFERENCE_KEYS = ["classifierEndpoint", "focusfeedSettingsV2", "focusfeedCacheEpochV1", "focusFeedChannelBlocksV1", "focusfeedChannelProfilesV1", "focusfeedCorrectionsV1"];
   chrome.storage.onChanged.addListener(function (changes, areaName) {
     if (areaName === "local" && PREFERENCE_KEYS.some(function (key) { return !!changes[key]; }) && liveFeed) {
       liveFeed.preferencesChanged(Boolean(changes.focusfeedCacheEpochV1)).catch(function (error) {
@@ -577,6 +577,7 @@
 
   // --- Listen for messages from popup ---
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg.type === "FF_REVIEW_HIDDEN") { sendResponse(youtubeUI.reviewHidden()); }
     if (msg.type === "FF_RESET_RUNTIME") {
       if (liveFeed) liveFeed.reload(true);
       sendResponse({ ok: true });

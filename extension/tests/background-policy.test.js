@@ -99,3 +99,25 @@ test("failed or invalid author lookups do not invent a channel and can be retrie
   assert.equal((await h.dispatch(message)).data.channelId, "@realcreator");
   assert.equal(count, 2);
 });
+test("worker corrections are local writes, reject stale topics and origins, and survive generated-cache refresh", async () => {
+  const h = setup();
+  const objective = { id: "reviews", text: "Movie reviews", contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
+  const saved = await h.dispatch({ type: "FF_SETTINGS_UPDATE", action: { type: "saveProfile", profile: {
+    id: "general", mode: "general", version: 1, objectives: [objective]
+  } } });
+  const topicKey = JSON.stringify(["intent", objective.text, "", "", "focusfeed-intent-v1"]);
+  const message = { type: "FF_CORRECTION_ADD", revision: saved.data.revision, topicKey, match: true,
+    video: { videoId: "abcdefghijk", title: "A movie", channelId: "@reviewer" } };
+  await assert.rejects(h.dispatch(message, { url: "https://example.com", tab: { id: 3 } }), /not accepted/);
+  assert.equal((await h.dispatch({ ...message, revision: 0 })).ok, false);
+  assert.equal((await h.dispatch({ ...message, topicKey: "different-topic" })).ok, false);
+  const corrected = await h.dispatch(message); assert.equal(corrected.ok, true);
+  assert.equal(h.data.focusfeedCorrectionsV1.items[0].videoId, "abcdefghijk"); assert.equal(h.requests.length, 0, "no provider request is needed to honor feedback");
+  const learned = await h.dispatch({ type: "FF_CHANNEL_LEARN", revision: saved.data.revision, video: message.video, triggerId: "already-undone" });
+  assert.equal(learned.data.status, "cancelled");
+  h.data.focusfeedChannelProfilesV1 = [{ channelId: "UCreviewer12345" }];
+  await h.dispatch({ type: "FF_CACHE_CLEAR" }, { url: "chrome-extension://test/popup/popup.html" });
+  assert.equal(h.data.focusfeedChannelProfilesV1.length, 0); assert.equal(h.data.focusfeedCorrectionsV1.items.length, 1);
+  await h.dispatch({ type: "FF_CORRECTION_UNDO", id: corrected.data.id });
+  assert.equal(h.data.focusfeedCorrectionsV1.items.length, 0);
+});

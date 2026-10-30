@@ -1,7 +1,7 @@
 // Native Home cards in both modes. Only Focus gates admission and continuation requests.
 (function (root) {
   "use strict";
-  var PAGE = 12, ROUNDS = 4, MIN_MATCHES = 3, MAX_TRACKED = 1000;
+  var PAGE = 20, ROUNDS = 4, MIN_MATCHES = 3, MAX_TRACKED = 1000;
   var SELECTORS = "ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-grid-video-renderer, ytd-reel-item-renderer, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2";
   function element(tag, text) { var node = document.createElement(tag); if (text) node.textContent = text; return node; }
   function create(options) {
@@ -37,7 +37,7 @@
       if (dialog) { closeDialog(); dialog.remove(); dialog = null; }
       setStatus("");
       refreshing = Array.from(entries.values()).filter(function (entry) { return !!entry.batch; });
-      var size = Math.min(PAGE, Math.max(1, Math.floor(96 / profile().objectives.length)));
+      var size = PAGE;
       for (var index = 0; index < refreshing.length; index += size) {
         var batch = refreshing.slice(index, index + size); batches.push(batch);
         batch.forEach(function (entry) { entry.batch = batch; entry.action = "pending"; entry.reason = "refreshing"; });
@@ -161,7 +161,7 @@
       if (countVisible() >= MIN_MATCHES && !nearEnd()) return;
       var candidates = Array.from(entries.values()).filter(function (entry) { return entry.card && !entry.batch; });
       if (!candidates.length) { requestContinuation(); return; }
-      var size = Math.min(PAGE, Math.max(1, Math.floor(96 / profile().objectives.length)));
+      var size = PAGE;
       current = candidates.slice(0, size); batches.push(current);
       current.forEach(function (entry) { entry.batch = current; entry.action = "pending"; withheld(entry.card, false); });
       setStatus(""); askScan();

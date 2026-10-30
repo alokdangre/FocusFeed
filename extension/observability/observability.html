@@ -62,6 +62,31 @@
     <section>
       <div class="section-heading">
         <div>
+          <h2>Corrections and channel investigations</h2>
+          <p>Your correction hides the selected item immediately. A separate channel check must establish a match before other uploads are hidden. A personal label is not a verified fact about the creator.</p>
+        </div>
+        <div id="channelMeta" class="pill">No channel checks recorded</div>
+      </div>
+      <label for="channelFilter">Find a channel, video, collection or exact topic</label>
+      <input id="channelFilter" type="search" placeholder="For example: K-dramas and Korea" autocomplete="off">
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Corrected item</th><th>Your correction</th><th>Original model probability</th><th>Channel investigation</th></tr></thead>
+          <tbody id="corrections"></tbody>
+        </table>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Channel / triggering item</th><th>Exact topics / trigger</th><th>Result / stage</th><th>Channel judgments</th><th>Evidence / exact requests / errors</th></tr></thead>
+          <tbody id="channelInvestigations"></tbody>
+        </table>
+      </div>
+      <p class="muted">Recent investigation details are stored locally within a bounded history. Older checks may have saved judgments without a request/error trace. Export latest includes both, together with corrections and current settings.</p>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
           <h2>YouTube video decisions</h2>
           <p>The latest 100 rendered decisions per open YouTube tab, including channel blocks and pending work. This view refreshes every five seconds; decisions are kept in tab memory only.</p>
         </div>
@@ -74,7 +99,7 @@
               <th>Video</th>
               <th>Mode action</th>
               <th>Route / state</th>
-              <th>Every direct content-match Noul</th>
+              <th>Original direct content-match Noul</th>
               <th>Reason / metadata</th>
             </tr>
           </thead>

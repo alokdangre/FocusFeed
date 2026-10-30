@@ -273,7 +273,7 @@ test("the manifest's complete content pipeline renders a stable filtered Home an
 });
 
 test("a custom Focus goal survives Home discovery and filters native search results", async t => {
-  const h = dom(homePage(Array.from({ length: 48 }, (_, i) => videoCard("home" + i)).join(""))); t.after(h.cleanup);
+  const h = dom(homePage(Array.from({ length: 80 }, (_, i) => videoCard("home" + i)).join(""))); t.after(h.cleanup);
   const objective = { id: "intent-dsa", text: "DSA tutorials", sourceText: "DSA tutorials", contentType: "topic",
     matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
   const prefs = { focusfeedSettingsV2: { schemaVersion: 2, revision: 1, enabled: true,

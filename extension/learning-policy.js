@@ -2,7 +2,7 @@
 (function (root) {
   "use strict";
   var PROFILES = "focusfeedChannelProfilesV1", CORRECTIONS = "focusfeedCorrectionsV1";
-  var PROMPT = "typesafe-jev-channel-dominant-2026-10-28.3";
+  var PROMPT = "typesafe-jev-channel-dominant-2026-10-29.1";
   function endpointKey(value) {
     try {
       var url = new URL(value || "http://127.0.0.1:3000");
@@ -10,7 +10,13 @@
       return url.toString().replace(/\/$/, "");
     } catch (_) { return ""; }
   }
-  function empty() { return { revision: 0, items: [], history: [], allowedChannels: [] }; }
+  function empty() { return { revision: 0, items: [], collections: [], history: [], allowedChannels: [] }; }
+  function validTarget(video) {
+    return video.itemType === "collection" ? /^[A-Za-z0-9_-]{2,60}$/.test(video.collectionId || "") && video.videoId === "collection:" + video.collectionId : /^[A-Za-z0-9_-]{11}$/.test(video.videoId || "");
+  }
+  function collectionBlock(data, video) {
+    return video.itemType === "collection" && validTarget(video) && (data && data.collections || []).find(function (item) { return item.collectionId === video.collectionId; });
+  }
   function channelProfiles(profiles, video) {
     var ids = FocusFeedChannelPolicy.creators(video).flatMap(function (c) { return [c.channelId].concat(c.aliases); });
     return (profiles || []).filter(function (p) { return [p.channelId].concat(p.aliases || []).some(function (id) { return ids.includes(id); }); });
@@ -27,13 +33,14 @@
       j.contract === p.contract && j.expiresAt > now && j.promptVersion === PROMPT; });
   }
   function action(data, profiles, video, profile, endpoint, now) {
-    if (!profile || profile.mode !== "general" || video.itemType === "collection") return null;
+    if (!profile || profile.mode !== "general") return null;
     now = now || Date.now();
     var allCorrected = true;
     for (var objective of profile.objectives) {
       var saved = correction(data, video, objective);
       if (saved) { if (saved.match) return { action: "hide", reason: "user_correction" }; continue; }
       allCorrected = false;
+      if (video.itemType === "collection") continue;
       for (var p of channelProfiles(profiles, video)) {
         var j = judgment(p, objective, endpoint, now);
         if (j && j.blockChannel && !allowed(data, p.channelId, j.key)) return { action: "hide", reason: "channel_topic" };
@@ -51,5 +58,5 @@
     return Object.assign({}, assessment, { objectiveMatches: matches, outcome: FocusFeedVideo.outcome(matches) });
   }
   root.FocusFeedLearningPolicy = { PROFILES: PROFILES, CORRECTIONS: CORRECTIONS, PROMPT: PROMPT,
-    empty: empty, endpointKey: endpointKey, channelProfiles: channelProfiles, correction: correction, allowed: allowed, judgment: judgment, action: action, apply: apply };
+    empty: empty, validTarget: validTarget, collectionBlock: collectionBlock, endpointKey: endpointKey, channelProfiles: channelProfiles, correction: correction, allowed: allowed, judgment: judgment, action: action, apply: apply };
 })(globalThis);

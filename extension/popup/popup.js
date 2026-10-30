@@ -190,10 +190,10 @@
       });
     });
     if (!count) { var empty = document.createElement("p"); empty.className = "empty-message"; empty.textContent = "No active channel filters learned yet."; $("learnedChannels").appendChild(empty); }
-    learningData.items.slice(-20).reverse().forEach(function (c) {
+    learningData.items.concat(learningData.collections || []).sort(function (a, b) { return a.createdAt - b.createdAt; }).slice(-20).reverse().forEach(function (c) {
       var row = document.createElement("div"); row.className = "channel-row";
       var label = document.createElement("span"); label.textContent = c.title || c.videoId;
-      var topic = document.createElement("small"); topic.textContent = (c.match ? "Matches: " : "Doesn't match: ") + c.topic; label.appendChild(topic);
+      var topic = document.createElement("small"); topic.textContent = c.topic ? (c.itemType === "collection" ? "Collection · " : "") + (c.match ? "Matches: " : "Doesn't match: ") + c.topic : "Hidden collection"; label.appendChild(topic);
       var button = document.createElement("button"); button.className = "text-button"; button.textContent = "Undo";
       button.addEventListener("click", async function () {
         button.disabled = true;
@@ -251,7 +251,7 @@
   });
   $("exportCorrections").addEventListener("click", async function () {
     await loadLearning();
-    var blob = new Blob([JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), corrections: learningData.items, events: learningData.history }, null, 2)], { type: "application/json" });
+    var blob = new Blob([JSON.stringify({ schemaVersion: 2, exportedAt: new Date().toISOString(), corrections: learningData.items, hiddenCollections: learningData.collections || [], events: learningData.history }, null, 2)], { type: "application/json" });
     var url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "focusfeed-corrections.json"; link.click();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });

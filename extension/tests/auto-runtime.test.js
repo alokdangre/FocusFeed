@@ -205,17 +205,19 @@ test("hung transport releases pending cards within its deadline", async () => {
   await runtime.reload(); assert.equal(action, "pending"); await sleep(350);
   assert.equal(action, "show"); assert.equal(cancelled.length, 1); runtime.stop();
 });
-test("automatic batches admit twelve videos and obey the 96-question budget", async () => {
+test("runtime supplies a bounded refill window without multiplying it by topic count", async t => {
   const h = harness();
-  for (let i = 0; i < 13; i++) h.add("v" + i);
+  t.after(h.runtime.stop);
+  for (let i = 0; i < 45; i++) h.add("v" + i);
   await h.runtime.reload(); await sleep(330);
-  assert.equal(h.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 12);
+  assert.equal(h.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 40);
   h.runtime.stop();
   const full = harness();
+  t.after(full.runtime.stop);
   full.prefs.focusfeedSettingsV2.general.objectives = Array.from({ length: 12 }, (_v, i) => ({ ...topic, id: "topic-" + i, text: "Preference " + i }));
   for (let i = 0; i < 12; i++) full.add("v" + i);
   await full.runtime.reload(); await sleep(330);
-  assert.equal(full.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 8);
+  assert.equal(full.calls.find(c => c.type === "FF_AUTO_CLASSIFY").request.videos.length, 12);
   full.runtime.stop();
 });
 test("cached sources remain visible and expiry refreshes the existing card", async t => {
@@ -265,4 +267,30 @@ test("identified collections enter the normal classifier under their own identit
   assert.equal(request.videos[0].videoId, "collection:RDmusic");
   assert.equal(request.videos[0].itemType, "collection"); assert.equal(request.videos[0].channelId, undefined);
   assert.equal(item.reason, "model"); assert.equal(item.action, "hide");
+});
+test("individual progress frees work-window capacity and rejects stale or malformed updates", async t => {
+  const pending = [];
+  const h = harness(message => new Promise(resolve => pending.push({ message, resolve })));
+  t.after(h.runtime.stop);
+  for (let i = 0; i < 60; i++) h.add("stream-" + i);
+  await h.runtime.reload(); await sleep(350);
+  const first = h.calls.find(c => c.type === "FF_AUTO_CLASSIFY");
+  assert.equal(first.request.videos.length, 40);
+  const a = assessment(first.request.videos[0].videoId);
+  h.runtime.progress({ requestId: "stale", assessment: a });
+  assert.equal(h.cards[0].action, "pending");
+  h.runtime.progress({ requestId: first.request.requestId, assessment: { ...a, outcome: "no_match" } });
+  assert.equal(h.cards[0].action, "pending", "inconsistent scores cannot admit a card");
+  h.runtime.progress({ requestId: first.request.requestId, assessment: a, origin: { source: "model", expiresAt: Date.now() + 300000 } });
+  assert.equal(h.cards[0].action, "hide", "the first settled card is rendered before the rest of its window");
+  await sleep(350);
+  const followup = h.calls.filter(c => c.type === "FF_AUTO_CLASSIFY")[1];
+  assert.equal(followup.request.videos.length, 1, "an eligible queued card fills the freed work slot");
+  await h.runtime.reload(true);
+  h.runtime.progress({ requestId: first.request.requestId, assessment: a });
+  assert.equal(h.cards[0].action, "pending", "late progress cannot restore a cleared decision");
+  h.runtime.stop();
+  pending.forEach(({ message, resolve }) => resolve({ ok: true, data: { ok: true, data: {
+    assessments: message.request.videos.map(v => assessment(v.videoId))
+  } } }));
 });

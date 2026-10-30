@@ -577,6 +577,7 @@
 
   // --- Listen for messages from popup ---
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg.type === "FF_AUTO_PROGRESS" && liveFeed) liveFeed.progress(msg);
     if (msg.type === "FF_REVIEW_HIDDEN") { sendResponse(youtubeUI.reviewHidden()); }
     if (msg.type === "FF_RESET_RUNTIME") {
       if (liveFeed) liveFeed.reload(true);

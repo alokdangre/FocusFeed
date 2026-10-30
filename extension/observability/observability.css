@@ -43,6 +43,8 @@ button {
   cursor: pointer;
 }
 button:hover { border-color: var(--blue); }
+input[type="search"] { display: block; width: min(100%, 600px); margin: 8px 0 16px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-soft); color: var(--text); font: inherit; }
+input[type="search"]:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 main { max-width: 1540px; margin: 0 auto; padding: 28px; }
 section {
   margin-bottom: 20px;

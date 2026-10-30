@@ -95,7 +95,7 @@ html[data-focusfeed-hide-shorts] ytd-reel-item-renderer { display: none !importa
   background: var(--focusfeed-chip); color: var(--focusfeed-action); cursor: pointer; font: inherit; text-decoration: none; }
 .focusfeed-discovery a:focus-visible, .focusfeed-discovery button:focus-visible, .focusfeed-focus-status button:focus-visible {
   outline: 2px solid var(--focusfeed-action); outline-offset: 3px; }
-.focusfeed-menu-action, .focusfeed-topic-action {
+.focusfeed-menu-action, .focusfeed-topic-action, .focusfeed-collection-action {
   display: flex; align-items: center; gap: 16px; width: 100%; box-sizing: border-box;
   min-height: 40px; padding: 8px 16px; margin: 0; border: 0;
   background: transparent; color: var(--focusfeed-text); text-align: start;
@@ -103,11 +103,11 @@ html[data-focusfeed-hide-shorts] ytd-reel-item-renderer { display: none !importa
 }
 .focusfeed-menu-action > svg { flex: 0 0 24px; fill: currentColor; }
 .focusfeed-menu-action small { display: none; }
-.focusfeed-menu-action:hover, .focusfeed-topic-action:hover { background: var(--focusfeed-hover); }
-.focusfeed-menu-action:focus-visible, .focusfeed-topic-action:focus-visible, .focusfeed-review-banner button:focus-visible, .focusfeed-toast button:focus-visible, .focusfeed-playback button:focus-visible, .focusfeed-playback a:focus-visible {
+.focusfeed-menu-action:hover, .focusfeed-topic-action:hover, .focusfeed-collection-action:hover { background: var(--focusfeed-hover); }
+.focusfeed-menu-action:focus-visible, .focusfeed-topic-action:focus-visible, .focusfeed-collection-action:focus-visible, .focusfeed-review-banner button:focus-visible, .focusfeed-toast button:focus-visible, .focusfeed-playback button:focus-visible, .focusfeed-playback a:focus-visible {
   outline: 2px solid var(--focusfeed-action); outline-offset: -3px;
 }
-.focusfeed-menu-action:disabled, .focusfeed-topic-action:disabled { opacity: .55; cursor: default; }
+.focusfeed-menu-action:disabled, .focusfeed-topic-action:disabled, .focusfeed-collection-action:disabled { opacity: .55; cursor: default; }
 .focusfeed-review-banner { position: fixed; z-index: 220000; top: 64px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; box-sizing: border-box; max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 8px; background: var(--focusfeed-panel); color: var(--focusfeed-text); box-shadow: 0 2px 12px #0003; font: 14px system-ui; }
 .focusfeed-review-banner button { border: 0; border-radius: 16px; padding: 6px 12px; background: var(--focusfeed-chip); color: var(--focusfeed-action); cursor: pointer; }
 .focusfeed-toast { position: fixed; z-index: 220000; bottom: 28px; left: 24px; max-width: min(440px, calc(100vw - 48px));

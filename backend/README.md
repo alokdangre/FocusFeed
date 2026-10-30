@@ -6,11 +6,11 @@ The backend validates user-defined content preferences, then classifies YouTube 
 
 Channel learning adds `POST /channels/classify` and a `channelPromptVersion` field
 to health responses. It receives bounded public evidence from the extension and
-asks one Noul per preference for dominant match, plus shared evidence sufficiency.
-Both must reach 0.90, with at least eight distinct uploads for a new profile.
+asks one Noul per preference for dominant match. A probability of at least 0.50
+creates a channel rule, with at least eight distinct uploads for a new profile.
 Established topics can map to broader preferences without resending uploads.
-Compact requests carry `knownEvidenceProbability` from the established channel
-judgments and ask only the new topic relationships.
+Compact requests carry established topics and ask only the new topic relationships;
+there is no separate evidence-sufficiency question or score.
 The backend stores no channel evidence or user corrections. See
 [channel learning](../docs/CHANNEL_LEARNING.md) for the exact channel policy.
 
@@ -24,7 +24,16 @@ Application code computes:
 - no match: all direct topic matches <= 0.20;
 - uncertain: otherwise.
 
-There is no separate evidence-sufficiency question. A batch with N videos and K confirmed topics asks N × K questions.
+There is no separate video evidence-sufficiency question. Vague titles, missing
+descriptions and unfamiliar names are unknown rather than negative labels. The
+prompt asks for a probability near 0.5 when the metadata cannot distinguish the
+outcomes; this is model guidance, not a measured accuracy guarantee.
+
+The extension checks one unresolved topic per video at a time, stopping after a
+match. Sparse requests supply explicit `pairs: [{videoId, objectiveId}]`; only
+those questions are asked and returned. Omitting `pairs` retains the full N × K
+behavior for direct API clients. A partial set is not a final non-match for the
+whole preference list: the worker gathers remaining topics before deciding.
 
 The backend returns raw probabilities and diagnostics. The extension owns the final General/Focus action.
 
@@ -114,15 +123,30 @@ Request:
 }
 ```
 
-A batch accepts 1-12 unique videos. The response contains one assessment per video with every `objectiveMatches[].matchProbability`, the computed outcome, metadata evidence, and a reason. Diagnostics retain thresholds, raw judgments, missing IDs, unexpected question IDs, timing, and TypeSafe usage.
+A batch accepts 1-20 unique videos. The response contains one assessment per video
+with the requested `objectiveMatches[].matchProbability`, computed outcome,
+metadata evidence, and a reason. Explicit pairs must be unique, refer to supplied
+videos/topics and cover every supplied video. Diagnostics retain thresholds, raw
+judgments, missing IDs, unexpected question IDs, timing, and TypeSafe usage.
 
 ## Batching and cache
 
-Automatic filtering now batches up to 12 videos / 96 video-topic questions. The
-backend sends only missing video/topic pairs to Jev and compacts the shared state.
+Automatic filtering packs up to 20 distinct cards, one unresolved topic per card.
+The worker fills spare slots from compatible queued work, including other topic
+rounds and tabs. A 40-card work window is separate from the 20-card HTTP limit;
+per-video progress releases window capacity as individual cards settle. Video HTTP
+requests remain serial. Underfilled requests allow up to 300 ms for compatible new
+work to join; full requests dispatch without that wait. Fresh cached matches skip all remaining topics, including
+newly added topics. Removing a winning topic checks only missing surviving topics.
+Collections retain their title, description and up to five supplied entries.
+The backend sends only missing video/topic pairs to Jev and compacts the shared state.
 It splits calls at 96 questions, 48,000 serialized UTF-8 JSON bytes per request, or
 24,000 bytes for state plus one question. These are conservative byte budgets, not
 exact token accounting. Jev remains responsible for enforcing its token limits.
+TypeSafe documents no fixed question count, with 64k tokens per request and 32k
+per question for the default model. The 20-card limit is our application policy;
+larger metadata can still cause conservative splitting. See
+[model context limits](https://docs.typesafe.ai/models#context-length).
 
 Validated raw probabilities are cached in SQLite, keyed by video ID, exact metadata,
 individual topic/source text, question, pinned model, prompt/taxonomy version, and

@@ -34,6 +34,104 @@
       var value = Object.assign({}, video, { description: video.descriptionSnippet });
       return JSON.stringify([namespace, FocusFeedVideo.fingerprint(value), FocusFeedVideo.objectiveKey(objective), video.itemType === "collection" ? mode : "video"]);
     }
+    // Each video advances one topic at a time. The shared queue refills freed
+    // slots with other videos, including subscribers from other tabs.
+    var queue = [], active = false, pumpTimer = null, refillAt = 0, yieldStats = new Map();
+    var fillDelay = options.fillDelay === undefined ? 300 : options.fillDelay;
+    function needed(flight) {
+      return Array.from(subscribers.values()).some(function (sub) { return !sub.cancelled && sub.keys.has(flight.key); });
+    }
+    function schedule() {
+      if (active) return;
+      if (pumpTimer !== null) {
+        if (!queue.length || new Set(queue.filter(function (f) { return f.scope === queue[0].scope; }).map(function (f) { return f.video.videoId; })).size < 20) return;
+        clearTimeout(pumpTimer);
+      }
+      pumpTimer = setTimeout(function () { pumpTimer = null; pump(); }, 0);
+    }
+    function drop(flight, error) {
+      if (flights.get(flight.key) === flight) flights.delete(flight.key);
+      flight.reject(error);
+    }
+    function pump() {
+      if (active) return;
+      queue = queue.filter(function (f) {
+        if (f.run === epoch && needed(f)) return true;
+        drop(f, new Error("Request cancelled.")); return false;
+      });
+      if (!queue.length) return;
+      var first = queue[0], selected = [], videos = new Set();
+      var available = new Set(queue.filter(function (f) { return f.scope === first.scope; }).map(function (f) { return f.video.videoId; })).size;
+      var wait = Math.max(first.queuedAt + fillDelay, refillAt) - Date.now();
+      if (available < 20 && wait > 0) {
+        pumpTimer = setTimeout(function () { pumpTimer = null; pump(); }, wait); return;
+      }
+      queue = queue.filter(function (f) {
+        if (f.scope !== first.scope || selected.length >= 20 || videos.has(f.video.videoId)) return true;
+        selected.push(f); videos.add(f.video.videoId); return false;
+      });
+      var objectives = first.profile.objectives.filter(function (o) {
+        return selected.some(function (f) { return FocusFeedVideo.objectiveKey(f.objective) === FocusFeedVideo.objectiveKey(o); });
+      });
+      var id = "scores-" + Date.now() + "-" + (++serial);
+      var outbound = { requestId: id, endpoint: first.endpoint,
+        profile: Object.assign({}, first.profile, { objectives: objectives }),
+        videos: selected.map(function (f) { return f.video; }),
+        pairs: selected.map(function (f) {
+          var o = objectives.find(function (o) { return FocusFeedVideo.objectiveKey(o) === FocusFeedVideo.objectiveKey(f.objective); });
+          return { videoId: f.video.videoId, objectiveId: o.id };
+        }) };
+      jobs.set(id, { id: id, keys: selected.map(function (f) { return f.key; }) });
+      log({ requestId: id, status: "queued", trigger: "unresolved_topics",
+        videoIds: outbound.videos.map(function (v) { return v.videoId; }), pairs: outbound.pairs });
+      active = true;
+      Promise.resolve().then(function () { return dispatch(id, outbound); }).then(function (response) {
+        var result = response && response.ok && response.data;
+        if (!result || !Array.isArray(result.assessments) || result.assessments.length !== selected.length ||
+            result.diagnostics && (result.diagnostics.missingVideoIds || []).length) throw new Error("Incomplete classifier response.");
+        // Validate the entire response before saving or releasing any pair.
+        var resolved = selected.map(function (f, vi) {
+          var a = result.assessments.find(function (a) { return a.videoId === f.video.videoId; });
+          var pair = outbound.pairs[vi], oi = objectives.findIndex(function (o) { return o.id === pair.objectiveId; });
+          if (!FocusFeedVideo.isValidDecisionAssessment(a, f.video.videoId) || a.objectiveMatches.length !== 1 ||
+              a.objectiveMatches[0].objectiveId !== pair.objectiveId ||
+              a.objectiveMatches[0].text !== objectives[oi].text ||
+              a.outcome !== FocusFeedVideo.outcome(a.objectiveMatches)) throw new Error("Incomplete classifier response.");
+          var info = result.diagnostics && result.diagnostics.cache;
+          var origin = info && info.byVideo && info.byVideo[f.video.videoId];
+          var q = info && info.byQuestion && info.byQuestion["v" + vi + "_o" + oi + "_match"];
+          var ttl = q && q.expiresInMs !== undefined ? q.expiresInMs : origin && origin.expiresInMs;
+          return { flight: f, score: { p: a.objectiveMatches[0].matchProbability,
+            expiresAt: Number.isFinite(ttl) ? Date.now() + Math.max(0, ttl) : origin && Number.isFinite(origin.expiresAt) ? origin.expiresAt : Date.now() + 300000,
+            source: origin && origin.source || "model" } };
+        });
+        resolved.forEach(function (r) {
+          var f = r.flight;
+          if (f.run === epoch) {
+            cache.set(f.key, r.score);
+            var statKey = JSON.stringify([f.namespace, FocusFeedVideo.objectiveKey(f.objective)]);
+            var stat = yieldStats.get(statKey) || { checks: 0, matches: 0 };
+            stat.checks++; if (r.score.p >= .5) stat.matches++; yieldStats.set(statKey, stat);
+            if (yieldStats.size > 200) yieldStats.delete(yieldStats.keys().next().value);
+          }
+          if (flights.get(f.key) === f) flights.delete(f.key);
+          f.resolve(r.score);
+        }); persist();
+      }).catch(function (error) {
+        log({ requestId: id, status: "rejected", code: error.code || "dispatch_error" });
+        selected.forEach(function (f) { drop(f, error); });
+      }).finally(function () { jobs.delete(id); active = false; refillAt = Date.now() + fillDelay; schedule(); });
+    }
+    function pair(sub, video, objective) {
+      var k = key(sub.namespace, video, objective, sub.request.profile.mode), flight = flights.get(k);
+      sub.keys.add(k);
+      if (flight) { metrics.sharedPairs++; return flight.promise.then(function (value) { return Object.assign({}, value, { source: "shared" }); }); }
+      flight = { key: k, video: video, objective: objective, profile: sub.request.profile, endpoint: sub.request.endpoint,
+        namespace: sub.namespace, run: epoch, queuedAt: Date.now(),
+        scope: JSON.stringify([sub.namespace, sub.request.profile.mode, FocusFeedVideo.profileKey(sub.request.profile)]) };
+      flight.promise = new Promise(function (resolve, reject) { flight.resolve = resolve; flight.reject = reject; });
+      flights.set(k, flight); queue.push(flight); schedule(); return flight.promise;
+    }
     function cancel(owner, requestId) {
       subscribers.forEach(function (s, id) {
         if (s.owner === owner && (!requestId || s.requestId === requestId)) {
@@ -42,96 +140,77 @@
         }
       });
       jobs.forEach(function (job) {
-        var needed = Array.from(subscribers.values()).some(function (s) { return job.keys.some(function (k) { return s.keys.has(k); }); });
-        if (!needed && options.cancelQueued) options.cancelQueued(job.id);
+        if (!Array.from(subscribers.values()).some(function (s) { return job.keys.some(function (k) { return s.keys.has(k); }); }) &&
+            options.cancelQueued) options.cancelQueued(job.id);
       });
+      schedule();
     }
     async function submit(owner, request, namespace, isCancelled) {
       await ready; prune();
       if (isCancelled && isCancelled()) throw new Error("Request cancelled.");
-      var subscriberId = ++serial, run = epoch, now = Date.now(), pairs = [], groups = new Map();
-      var sub = { owner: owner, requestId: request.requestId, keys: new Set(), cancelled: false };
+      var subscriberId = ++serial, run = epoch, now = Date.now(), byVideo = {};
+      var sub = { owner: owner, requestId: request.requestId, request: request, namespace: namespace, keys: new Set(), cancelled: false };
       var cancelled = new Promise(function (_resolve, reject) { sub.reject = reject; });
       subscribers.set(subscriberId, sub);
-      request.videos.forEach(function (video) {
-        var missing = [];
-        request.profile.objectives.forEach(function (objective) {
-          var k = key(namespace, video, objective, request.profile.mode), saved = cache.get(k), flight = flights.get(k), source;
-          var promise;
-          if (saved) { source = "local_cache"; metrics.localHits++; promise = Promise.resolve(saved); }
-          else if (flight) { source = "shared"; metrics.sharedPairs++; promise = flight.promise; }
-          else {
-            source = "model"; flight = {};
-            flight.promise = new Promise(function (resolve, reject) { flight.resolve = resolve; flight.reject = reject; });
-            flights.set(k, flight); missing.push({ key: k, objective: objective, flight: flight }); promise = flight.promise;
-          }
-          sub.keys.add(k); pairs.push({ video: video, objective: objective, key: k, promise: promise, source: source });
-        });
-        if (missing.length) {
-          var groupKey = JSON.stringify(missing.map(function (p) { return FocusFeedVideo.objectiveKey(p.objective); }));
-          if (!groups.has(groupKey)) groups.set(groupKey, []);
-          groups.get(groupKey).push({ video: video, missing: missing });
+      log({ requestId: request.requestId, owner: owner, status: "admitted",
+        videoIds: request.videos.map(function (v) { return v.videoId; }), topicIds: request.profile.objectives.map(function (o) { return o.id; }) });
+      async function solve(video) {
+        var values = new Map(), objectives = request.profile.objectives;
+        function label(o) {
+          return (request.corrections || []).find(function (c) { return c.videoId === video.videoId && c.topicKey === FocusFeedVideo.objectiveKey(o); });
         }
-      });
-      log({ requestId: request.requestId, owner: owner, status: "admitted", videoIds: request.videos.map(function (v) { return v.videoId; }),
-        topicIds: request.profile.objectives.map(function (o) { return o.id; }), localPairs: pairs.filter(function (p) { return p.source === "local_cache"; }).length,
-        sharedPairs: pairs.filter(function (p) { return p.source === "shared"; }).length });
-      groups.forEach(function (group) {
-        var id = "scores-" + Date.now() + "-" + (++serial), keys = group.flatMap(function (v) { return v.missing.map(function (p) { return p.key; }); });
-        var outbound = Object.assign({}, request, { requestId: id, parentRequestId: request.requestId, profile: Object.assign({}, request.profile, { objectives: group[0].missing.map(function (p) { return p.objective; }) }), videos: group.map(function (v) { return v.video; }) });
-        jobs.set(id, { id: id, keys: keys });
-        log({ requestId: request.requestId, jobId: id, status: "queued", trigger: "missing_pairs", videoIds: outbound.videos.map(function (v) { return v.videoId; }), topicIds: outbound.profile.objectives.map(function (o) { return o.id; }) });
-        // Dispatch's queue owns HTTP ordering; callers merely subscribe to pair promises.
-        Promise.resolve().then(function () { return dispatch(id, outbound); }).then(function (response) {
-          var result = response && response.ok && response.data;
-          if (!result || !Array.isArray(result.assessments)) throw new Error("Invalid classifier response.");
-          if (result.diagnostics && (result.diagnostics.missingVideoIds || []).length) throw new Error("Incomplete classifier response.");
-          var resolved = [];
-          group.forEach(function (item, vi) {
-            var a = result.assessments.find(function (a) { return a.videoId === item.video.videoId; });
-            if (!FocusFeedVideo.isValidDecisionAssessment(a, item.video.videoId) || a.objectiveMatches.length !== item.missing.length) throw new Error("Incomplete classifier response.");
-            item.missing.forEach(function (p, oi) {
-              var match = a.objectiveMatches.find(function (m) { return m.objectiveId === p.objective.id; });
-              if (!match) throw new Error("Missing topic judgment.");
-              var origin = result.diagnostics && result.diagnostics.cache && result.diagnostics.cache.byVideo && result.diagnostics.cache.byVideo[item.video.videoId];
-              var question = result.diagnostics && result.diagnostics.cache && result.diagnostics.cache.byQuestion && result.diagnostics.cache.byQuestion["v" + vi + "_o" + oi + "_match"];
-              var ttl = question && question.expiresInMs !== undefined ? question.expiresInMs : origin && origin.expiresInMs;
-              resolved.push({ pair: p, score: { p: match.matchProbability, expiresAt: Number.isFinite(ttl) ? Date.now() + Math.max(0, ttl) : origin && Number.isFinite(origin.expiresAt) ? origin.expiresAt : Date.now() + 300000,
-                source: origin && origin.source || "model" } });
-            });
-          });
-          resolved.forEach(function (r) {
-            if (run === epoch) cache.set(r.pair.key, r.score);
-            r.pair.flight.resolve(r.score);
-            if (flights.get(r.pair.key) === r.pair.flight) flights.delete(r.pair.key);
-          }); persist();
-        }).catch(function (error) {
-          log({ requestId: id, parentRequestId: request.requestId, status: "rejected", code: error.code || "dispatch_error" });
-          group.forEach(function (item) { item.missing.forEach(function (p) {
-            p.flight.reject(error); if (flights.get(p.key) === p.flight) flights.delete(p.key);
-          }); });
-        }).finally(function () { jobs.delete(id); });
-      });
-      try {
-        var values = await Promise.race([Promise.all(pairs.map(function (p) { return p.promise; })), cancelled]);
-        if (sub.cancelled || run !== epoch) throw new Error("Request cancelled.");
-        var byVideo = {}, assessments = request.videos.map(function (video) {
-          var selected = pairs.map(function (p, i) { return { pair: p, value: values[i] }; }).filter(function (p) { return p.pair.video === video; });
-          var matches = selected.map(function (p) { return { objectiveId: p.pair.objective.id, text: p.pair.objective.text, contentType: "topic", matchProbability: p.value.p }; });
-          var local = selected.every(function (p) { return p.pair.source === "local_cache"; });
-          byVideo[video.videoId] = { source: local ? "local_cache" : selected.every(function (p) { return p.pair.source === "shared"; }) ? "shared" : selected[0].value.source,
-            expiresAt: Math.min.apply(Math, selected.map(function (p) { return p.value.expiresAt; })) };
-          return { videoId: video.videoId, objectiveMatches: matches, outcome: FocusFeedVideo.outcome(matches), reason: "Policy applied to reusable topic probabilities.", evidence: [] };
+        // Read every cached topic before choosing new work: a later cached match
+        // can settle a video without asking any earlier missing topics.
+        objectives.forEach(function (o) {
+          var saved = cache.get(key(namespace, video, o, request.profile.mode)), correction = label(o);
+          if (saved && saved.expiresAt > Date.now()) { values.set(o.id, Object.assign({}, saved, { source: "local_cache" })); metrics.localHits++; }
+          else if (correction) values.set(o.id, { p: correction.match ? 1 : 0, source: "user_correction", expiresAt: now + 300000, labelSource: "user" });
         });
+        while (true) {
+          if (sub.cancelled || run !== epoch || isCancelled && isCancelled()) throw new Error("Request cancelled.");
+          var matched = objectives.some(function (o) { var c = label(o), v = values.get(o.id); return c ? c.match : v && v.p >= .5; });
+          if (matched || values.size === objectives.length) break;
+          var missing = objectives.filter(function (o) { return !values.has(o.id); });
+          missing.sort(function (a, b) {
+            function rate(o) { var s = yieldStats.get(JSON.stringify([namespace, FocusFeedVideo.objectiveKey(o)])); return s ? s.matches / s.checks : 0; }
+            return rate(b) - rate(a);
+          });
+          var o = missing[0], k = key(namespace, video, o, request.profile.mode);
+          try { values.set(o.id, await pair(sub, video, o)); } finally { sub.keys.delete(k); }
+        }
+        var selected = objectives.filter(function (o) { return values.has(o.id); });
+        var matches = selected.map(function (o) {
+          var value = values.get(o.id);
+          return Object.assign({ objectiveId: o.id, text: o.text, contentType: "topic", matchProbability: value.p },
+            value.labelSource ? { labelSource: value.labelSource } : {});
+        });
+        var scores = Array.from(values.values());
+        byVideo[video.videoId] = { source: scores.every(function (s) { return s.source === "local_cache"; }) ? "local_cache" :
+          scores.every(function (s) { return s.source === "shared"; }) ? "shared" :
+          scores.every(function (s) { return s.source === scores[0].source; }) ? scores[0].source : "mixed",
+          expiresAt: Math.min.apply(Math, scores.map(function (s) { return s.expiresAt; })),
+          checkedTopics: matches.length, skippedTopics: objectives.length - matches.length };
+        var assessment = { videoId: video.videoId, objectiveMatches: matches, outcome: FocusFeedVideo.outcome(matches),
+          reason: "Policy applied to reusable scores; remaining topics skipped after a match.", evidence: [] };
+        if (options.progress && !sub.cancelled && run === epoch) options.progress(owner, request.requestId, assessment, byVideo[video.videoId]);
+        return assessment;
+      }
+      try {
+        var assessments = await Promise.race([Promise.all(request.videos.map(solve)), cancelled]);
+        if (sub.cancelled || run !== epoch) throw new Error("Request cancelled.");
         log({ requestId: request.requestId, owner: owner, status: "completed", durationMs: Date.now() - now });
-        return { ok: true, data: { assessments: assessments, diagnostics: { cache: { byVideo: byVideo, localHits: pairs.filter(function (p) { return p.source === "local_cache"; }).length } } } };
+        return { ok: true, data: { assessments: assessments, diagnostics: { cache: { byVideo: byVideo } } } };
       } catch (error) {
         if (!sub.cancelled) log({ requestId: request.requestId, status: "failed", code: error.code || "request_error" });
         throw error;
-      } finally { subscribers.delete(subscriberId); }
+      } finally {
+        sub.cancelled = true; subscribers.delete(subscriberId); schedule();
+      }
     }
     function clear() {
-      epoch++; subscribers.forEach(function (s) { s.reject(new Error("Cache cleared.")); }); subscribers.clear(); cache.clear(); flights.clear();
+      epoch++; subscribers.forEach(function (s) { s.cancelled = true; s.reject(new Error("Cache cleared.")); });
+      subscribers.clear(); cache.clear();
+      flights.forEach(function (f) { f.reject(new Error("Cache cleared.")); }); flights.clear(); queue = []; yieldStats.clear();
       persist(); log({ status: "cache_cleared" });
     }
     function http(event) {

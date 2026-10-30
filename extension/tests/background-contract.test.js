@@ -85,7 +85,7 @@ function dispatch(listener, message) {
     oldValidationCalls.push(url);
     return { ok: true, status: 200, async json() { return {
       configured: true, provider: "typesafe-jev", taxonomyVersion: "focusfeed-topics-v1",
-      promptVersion: "typesafe-jev-intent-video-match-2026-10-28.1",
+      promptVersion: "typesafe-jev-intent-video-match-2026-10-29.1",
       objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.1",
     }; } };
   });
@@ -107,7 +107,7 @@ function dispatch(listener, message) {
         if (url.endsWith("/health")) return {
           configured: true,
           provider: "typesafe-jev",
-          promptVersion: "typesafe-jev-intent-video-match-2026-10-28.1",
+          promptVersion: "typesafe-jev-intent-video-match-2026-10-29.1",
           objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.2",
           taxonomyVersion: "focusfeed-topics-v1",
         };

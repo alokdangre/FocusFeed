@@ -9,7 +9,7 @@ function setup(fetchImpl) {
   const listeners = [], data = {}, requests = [];
   const context = vm.createContext({ URL, AbortController, setTimeout, clearTimeout, console,
     fetch: fetchImpl || (async (_url, options) => {
-      if (_url.endsWith("/health")) return { ok: true, json: async () => ({ configured: true, provider: "typesafe-jev", model: "jev-1.13.0", promptVersion: "typesafe-jev-intent-video-match-2026-10-28.1", objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.2", taxonomyVersion: "focusfeed-topics-v1" }) };
+      if (_url.endsWith("/health")) return { ok: true, json: async () => ({ configured: true, provider: "typesafe-jev", model: "jev-1.13.0", promptVersion: "typesafe-jev-intent-video-match-2026-10-29.1", objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.2", taxonomyVersion: "focusfeed-topics-v1" }) };
       if (options.body) requests.push(JSON.parse(options.body));
       return { ok: true, json: async () => _url.endsWith("/cache/clear") ? { cleared: true } : { assessments: requests.at(-1).videos.map(v => ({ videoId: v.videoId, outcome: "match", reason: "fixture",
         objectiveMatches: requests.at(-1).profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, contentType: "topic", matchProbability: .9 })) })) } };
@@ -120,4 +120,16 @@ test("worker corrections are local writes, reject stale topics and origins, and 
   assert.equal(h.data.focusfeedChannelProfilesV1.length, 0); assert.equal(h.data.focusfeedCorrectionsV1.items.length, 1);
   await h.dispatch({ type: "FF_CORRECTION_UNDO", id: corrected.data.id });
   assert.equal(h.data.focusfeedCorrectionsV1.items.length, 0);
+});
+test("failed creator resolution is exported as a resolution failure after the video correction succeeds", async () => {
+  const h = setup(async () => { throw new Error("Creator lookup unavailable"); });
+  const objective = { id: "korea", text: "K-dramas and Korea", contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
+  const saved = await h.dispatch({ type: "FF_SETTINGS_UPDATE", action: { type: "saveProfile", profile: { id: "general", mode: "general", version: 1, objectives: [objective] } } });
+  const video = { videoId: "abcdefghijk", title: "Drama clip" };
+  const response = await h.dispatch({ type: "FF_CORRECTION_ADD", revision: saved.data.revision, video, match: true,
+    topicKey: JSON.stringify(["intent", objective.text, "", "", "focusfeed-intent-v1"]) });
+  const learned = await h.dispatch({ type: "FF_CHANNEL_LEARN", revision: saved.data.revision, video, triggerId: response.data.id });
+  assert.equal(learned.ok, false); assert.equal(h.data.focusfeedCorrectionsV1.items.length, 1);
+  const trace = h.data.focusfeedChannelInvestigationsV1.at(-1);
+  assert.equal(trace.stage, "resolve_channel"); assert.equal(trace.status, "failed"); assert.match(trace.error.message, /Creator lookup unavailable/);
 });

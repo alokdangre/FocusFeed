@@ -142,7 +142,7 @@ class ClassifierTests(unittest.TestCase):
         self.assertEqual(payload["questions"]["v0_o0_match"]["type"], "noul")
         match_question = payload["questions"]["v0_o0_match"]["instructions"]["question"]
         self.assertIn("`videos[0]`", match_question)
-        self.assertIn("title, description, or channel", match_question)
+        self.assertIn("Missing or ambiguous metadata is unknown", match_question)
         self.assertNotIn("mode", payload["state"])
         self.assertEqual(payload["state"]["objectives"][0]["taxonomy_id"], "topic.education")
         self.assertIn("DSA", payload["state"]["objectives"][0]["source_text"])

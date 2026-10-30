@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
 require("../video-model.js"); require("../channel-policy.js"); require("../settings.js");
-require("../learning-policy.js"); require("../channel-evidence.js"); require("../channel-learning.js");
+require("../learning-policy.js"); require("../channel-evidence.js"); require("../channel-investigations.js"); require("../channel-learning.js");
 const P = FocusFeedLearningPolicy;
 const topic = text => ({ id: "intent-" + text, text, contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" });
 const video = { videoId: "abcdefghijk", title: "A movie", channelId: "@reviewer", channel: "Reviewer" };
@@ -30,7 +30,7 @@ function harness() {
     request: async (_path, options) => {
       const request = JSON.parse(options.body); calls.push(request);
       return { requestId: request.requestId, channelId: request.channel.channelId, classifier: { model: "jev-1.13.0", promptVersion: P.PROMPT },
-        matches: request.profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, blockChannel: true, dominantProbability: .98, sufficientProbability: .98 })) };
+        matches: request.profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, blockChannel: true, dominantProbability: .98 })) };
     }
   };
   const service = FocusFeedChannelLearning.create(options);
@@ -135,4 +135,67 @@ test("a late automatic channel result cannot replace a newer correction-triggere
   await finishAuto(); await automatic;
   const result = h.data[P.PROFILES][0].judgments[0];
   assert.equal(result.blockChannel, true); assert.equal(result.triggerId, saved.id);
+});
+test("a personal Korea-topic correction and a rejected channel match remain separate in diagnostics", async () => {
+  const h = harness(); h.data.focusfeedSettingsV2.general.objectives = [topic("K-dramas and Korea")];
+  const original = h.options.request;
+  h.options.request = async (...args) => {
+    const body = await original(...args); body.matches[0].dominantProbability = .03; body.matches[0].blockChannel = false; return body;
+  };
+  const saved = await h.correct(); await h.service.learn(video, h.current(), saved.id);
+  assert.equal(h.data[P.CORRECTIONS].items[0].match, true);
+  assert.equal(h.data[P.CORRECTIONS].items[0].labelSource, "user");
+  const trace = h.data.focusfeedChannelInvestigationsV1.at(-1);
+  assert.equal(trace.triggerId, saved.id); assert.equal(trace.status, "learned");
+  assert.equal(trace.judgments[0].blockChannel, false); assert.equal(trace.judgments[0].dominantProbability, .03);
+  assert.match(trace.reason, /No channel-level topic match/);
+  assert.equal(trace.steps[0].request.profile.objectives[0].text, "K-dramas and Korea");
+  assert.equal(trace.steps[0].response.matches[0].blockChannel, false);
+  assert.equal(trace.evidence.uploads.length, 12);
+});
+test("channel failures retain their stage and error instead of looking like a negative model result", async () => {
+  const h = harness(); h.options.fetch = async () => { throw new Error("Consent page unavailable"); };
+  await assert.rejects(h.service.learn(video, h.current()), /Consent/);
+  const trace = h.data.focusfeedChannelInvestigationsV1.at(-1);
+  assert.equal(trace.status, "failed"); assert.equal(trace.stage, "fetch_evidence");
+  assert.match(trace.error.message, /Consent/); assert.equal(trace.judgments.length, 0);
+});
+test("collection corrections and explicit hides do not investigate any member's channel", async () => {
+  const h = harness(), collection = { itemType: "collection", collectionId: "PLkorea", videoId: "collection:PLkorea", title: "A mixed playlist", channelId: "@reviewer" };
+  const saved = await h.correct(true, collection);
+  assert.equal(saved.scope, "collection"); assert.equal(saved.channelId, "");
+  assert.equal((await h.service.learn(collection, h.current(), saved.id)).status, "skipped");
+  assert.equal(h.calls.length, 0); assert.equal(h.fetches.length, 0); assert.equal(h.data.focusfeedChannelInvestigationsV1, undefined);
+  const hidden = await h.service.hideCollection(collection);
+  assert.equal(h.data[P.CORRECTIONS].collections.length, 1);
+  assert.equal((await h.service.hideCollection(collection)).created, false);
+  await h.service.undo(hidden.item.id); assert.equal(h.data[P.CORRECTIONS].collections.length, 0);
+  assert.equal(h.data[P.CORRECTIONS].items[0].id, saved.id);
+  await h.service.undo(saved.id); assert.equal(h.data[P.CORRECTIONS].items.length, 0);
+  await assert.rejects(h.service.hideCollection({ videoId: "abcdefghijk", title: "A seed" }), /Collection identity/);
+});
+test("investigation history stays bounded and cache clearing prevents old trace resurrection", async () => {
+  const h = harness(), journal = FocusFeedChannelInvestigations.create(h.options);
+  for (let i = 0; i < 55; i++) {
+    const trace = journal.start(video, h.current(), null);
+    await journal.update(trace, { evidence: { description: "x".repeat(20000) } });
+  }
+  const history = h.data.focusfeedChannelInvestigationsV1;
+  assert.ok(history.length <= 50); assert.ok(JSON.stringify(history).length * 2 <= 1000000);
+  const stale = h.service.startInvestigation(video, h.current(), null);
+  await h.service.clear();
+  assert.equal((await h.service.learn(video, h.current(), null, stale)).status, "cancelled");
+  assert.equal(h.data.focusfeedChannelInvestigationsV1.length, 0);
+});
+test("shared investigations finish both diagnostic traces without duplicating provider work", async () => {
+  const h = harness(); let finish;
+  const original = h.options.request;
+  h.options.request = (...args) => new Promise(resolve => { finish = () => original(...args).then(resolve); });
+  const first = h.service.startInvestigation(video, h.current(), null), second = h.service.startInvestigation(video, h.current(), null);
+  const a = h.service.learn(video, h.current(), null, first), b = h.service.learn(video, h.current(), null, second);
+  while (!finish) await tick(); finish(); await Promise.all([a, b]);
+  assert.equal(h.calls.length, 1);
+  const traces = h.data.focusfeedChannelInvestigationsV1;
+  assert.equal(traces.length, 2); assert.ok(traces.every(t => t.status === "learned"));
+  assert.equal(traces.find(t => t.id === second.id).sharedWith, first.id);
 });

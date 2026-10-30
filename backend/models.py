@@ -130,10 +130,31 @@ class VideoCandidate(StrictModel):
         return self
 
 
+class VideoTopicPair(StrictModel):
+    video_id: str = Field(alias="videoId", min_length=1, max_length=80)
+    objective_id: str = Field(alias="objectiveId", min_length=1, max_length=80)
+
+
 class ClassificationRequest(StrictModel):
     request_id: str = Field(alias="requestId", min_length=8, max_length=100)
     profile: GoalProfile
-    videos: list[VideoCandidate] = Field(min_length=1, max_length=12)
+    videos: list[VideoCandidate] = Field(min_length=1, max_length=20)
+    pairs: list[VideoTopicPair] | None = Field(default=None, min_length=1, max_length=96)
+
+    @model_validator(mode="after")
+    def selected_pairs_must_belong_to_request(self):
+        if self.pairs is not None:
+            videos = {v.video_id for v in self.videos}
+            objectives = {o.id for o in self.profile.objectives}
+            selected = {(p.video_id, p.objective_id) for p in self.pairs}
+            if len(selected) != len(self.pairs) or any(v not in videos or o not in objectives for v, o in selected):
+                raise ValueError("Pairs must be unique and refer to supplied videos and objectives")
+            if {v for v, _ in selected} != videos:
+                raise ValueError("Every supplied video requires a selected topic pair")
+        return self
+
+    def selects(self, video_id: str, objective_id: str) -> bool:
+        return self.pairs is None or any(p.video_id == video_id and p.objective_id == objective_id for p in self.pairs)
 
     @field_validator("videos")
     @classmethod

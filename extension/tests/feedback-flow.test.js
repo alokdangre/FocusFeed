@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict");
 const { dom, videoCard, homePage } = require("./dom-harness");
 require("../video-model.js"); require("../channel-policy.js"); require("../settings.js");
-require("../learning-policy.js"); require("../channel-evidence.js"); require("../channel-learning.js");
+require("../learning-policy.js"); require("../channel-evidence.js"); require("../channel-investigations.js"); require("../channel-learning.js");
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const topic = { id: "reviews", text: "Movie reviews except documentaries", contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
@@ -31,7 +31,7 @@ async function setup(t, pathname = "/results", mode = "general") {
     request: (_path, options) => new Promise(resolve => {
       const request = JSON.parse(options.body);
       release = () => resolve({ requestId: request.requestId, channelId: request.channel.channelId, classifier: { model: "jev-1.13.0", promptVersion: P.PROMPT },
-        matches: request.profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, blockChannel: true, dominantProbability: .98, sufficientProbability: .98 })) });
+        matches: request.profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, blockChannel: true, dominantProbability: .98 })) });
     })
   });
   h.context.chrome = { storage: { local: storage, onChanged: { addListener: fn => changed.push(fn) } }, runtime: {

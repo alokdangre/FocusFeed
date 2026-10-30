@@ -17,9 +17,9 @@ def payload(topic="movie reviews except documentaries"):
                     "uploads": [{"videoId": f"video-{i}", "title": f"Film {i} review"} for i in range(12)]}}
 
 
-def evaluator(dominant=.98, sufficient=.98):
+def evaluator(dominant=.98):
     return lambda request: {"model": "jev-1.13.0", "answers": {
-        "o0_dominant": {"type": "noul", "noul": dominant}, "channel_sufficient": {"type": "noul", "noul": sufficient}}, "usage": {"input_tokens": 100}}
+        "o0_dominant": {"type": "noul", "noul": dominant}}, "usage": {"input_tokens": 100}}
 
 
 class ChannelTests(unittest.TestCase):
@@ -32,18 +32,20 @@ class ChannelTests(unittest.TestCase):
         self.assertTrue(result.matches[0]["blockChannel"])
         self.assertEqual(result.diagnostics["evidenceMode"], "uploads")
 
-    def test_sparse_ambiguous_or_nonmatching_evidence_cannot_block(self):
-        for dominant, sufficient, count in [(.98, .5, 12), (.6, .98, 12), (.98, .98, 3), (.899, .99, 12)]:
+    def test_dominance_boundary_and_sample_minimum(self):
+        for dominant, count, blocked in [(.5, 8, True), (.6, 12, True), (.499, 12, False), (.98, 3, False)]:
             data = payload(); data["channel"]["uploads"] = data["channel"]["uploads"][:count]
-            result = classify_channel(ChannelClassificationRequest.model_validate(data), evaluator(dominant, sufficient))
-            self.assertFalse(result.matches[0]["blockChannel"])
+            result = classify_channel(ChannelClassificationRequest.model_validate(data), evaluator(dominant))
+            self.assertEqual(result.matches[0]["blockChannel"], blocked)
+            self.assertNotIn("sufficientProbability", result.matches[0])
+            self.assertEqual(result.diagnostics["questionCount"], 1)
 
     def test_duplicate_uploads_do_not_establish_a_large_sample(self):
         data = payload(); data["channel"]["uploads"] = [data["channel"]["uploads"][0]] * 12
         self.assertFalse(classify_channel(ChannelClassificationRequest.model_validate(data), evaluator()).matches[0]["blockChannel"])
 
     def test_narrow_topic_can_map_to_broader_topic_without_uploads(self):
-        data = payload("movies and anything about them"); data["channel"].update(uploads=[], knownTopics=["movie roasting"], knownEvidenceProbability=.98)
+        data = payload("movies and anything about them"); data["channel"].update(uploads=[], knownTopics=["movie roasting"])
         request = ChannelClassificationRequest.model_validate(data)
         sent = build_channel_request(request)
         self.assertEqual(sent["state"]["channel"]["uploads"], [])
@@ -52,13 +54,11 @@ class ChannelTests(unittest.TestCase):
         self.assertIn("movies in general do not imply movie reviews", sent["questions"]["o0_dominant"]["instructions"]["question"])
         self.assertTrue(classify_channel(request, evaluator()).matches[0]["blockChannel"])
 
-    def test_summary_requires_cached_evidence_and_cannot_upgrade_weak_evidence(self):
+    def test_summary_uses_dominance_only_and_rejects_repeated_uploads(self):
         data = payload(); data["channel"].update(uploads=[], knownTopics=["movie reviews"])
-        with self.assertRaises(ValueError):
-            ChannelClassificationRequest.model_validate(data)
-        data["channel"]["knownEvidenceProbability"] = .6
-        self.assertFalse(classify_channel(ChannelClassificationRequest.model_validate(data), evaluator()).matches[0]["blockChannel"])
-        data["channel"]["knownEvidenceProbability"] = True
+        result = classify_channel(ChannelClassificationRequest.model_validate(data), evaluator(.5))
+        self.assertTrue(result.matches[0]["blockChannel"])
+        data["channel"]["uploads"] = payload()["channel"]["uploads"]
         with self.assertRaises(ValueError):
             ChannelClassificationRequest.model_validate(data)
 

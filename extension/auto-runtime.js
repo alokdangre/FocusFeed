@@ -1,11 +1,13 @@
 // Per-tab continuous filtering. The popup and diagnostics do not own its lifetime.
 (function (root) {
   "use strict";
-  function create(adapter, api) {
+  function create(adapter, api, options) {
     api = api || chrome;
+    options = options || {};
+    var retryDelays = options.retryDelays || [1000, 2000, 4000];
     function monotonic() { return root.performance && root.performance.now ? root.performance.now() : Date.now(); }
     var state = null, blocks = [], generation = 0, records = new Map(), cards = new Map();
-    var current = new Map(), timer = null, retryAt = 0, expiryTimer = null, stopped = false, suspended = false;
+    var current = new Map(), timer = null, retryTimer = null, retryAt = 0, expiryTimer = null, stopped = false, suspended = false;
     var status = "Loading settings", serial = 0, reloadSerial = 0, mode = "general";
     var metrics = { requests: 0, cacheHits: 0, shared: 0, providerCalls: 0, providerQuestions: 0, inputTokens: 0, outputTokens: 0 };
     var displayed = new Map(), completed = new WeakMap(), facts = new Map();
@@ -15,6 +17,9 @@
     function profile() { return state && FocusFeedSettings.effective(state); }
     function decision(assessment, video) {
       return FocusFeedVideo.policyDecision(learning ? learning.apply(corrections, video, profile(), assessment) : assessment, mode);
+    }
+    function topicsChanged(previous) {
+      return JSON.stringify((previous.objectives || []).map(function (o) { return o.key; }).sort()) !== FocusFeedVideo.profileKey(profile());
     }
     function resolved(assessment, video) {
       if (assessment.objectiveMatches.some(function (m) {
@@ -49,7 +54,9 @@
     }
     function render(card, video, action, reason) {
       displayed.set(card, { video: video, action: action === "pending" ? null : action,
-        route: reason || (action === "pending" ? "model_pending" : "unfiltered"), status: reason === "refreshing" ? "refreshing" : action === "pending" ? "pending" : "resolved" });
+        route: reason || (action === "pending" ? "model_pending" : "unfiltered"), status: ["refreshing", "refresh_retrying"].includes(reason) ? "refreshing" :
+          reason === "background_refresh" ? "rechecking" :
+          ["refresh_failed", "check_failed", "background_failed"].includes(reason) ? "failed" : action === "pending" ? "pending" : "resolved" });
       if (displayed.size > 1000) displayed.delete(displayed.keys().next().value);
       adapter.render(card, video, action, reason);
     }
@@ -58,6 +65,7 @@
       current.forEach(function (job) { api.runtime.sendMessage({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {}); });
       current.clear();
       clearTimeout(timer); timer = null;
+      clearTimeout(retryTimer); retryTimer = null;
       if (drop) { records.clear(); if (!preserveCompleted) completed = new WeakMap(); }
       else records.forEach(function (r, id) { if (r.status !== "done") records.delete(id); });
     }
@@ -165,8 +173,15 @@
         }
       }
       function waiting(reason) {
-        if (previous && previous.assessment) render(card, video, decision(previous.assessment, video), reason === "unavailable" ? "refresh_failed" : "refreshing");
-        else render(card, video, reason === "unavailable" ? FocusFeedVideo.uncertaintyAction(mode) : "pending", reason);
+        var failed = records.get(video.videoId), again = failed && failed.status === "error" && Number.isFinite(failed.retryAt);
+        var retrying = failed && failed.attempts > 1;
+        if (previous && previous.assessment && !topicsChanged(previous)) {
+          // Metadata hydration and expiry are background revalidations, not a
+          // user changing filters. Keep the settled card usable and undimmed.
+          render(card, video, decision(previous.assessment, video), reason === "unavailable" && !again ? "background_failed" : "background_refresh");
+        }
+        else if (previous && previous.assessment) render(card, video, decision(previous.assessment, video), reason === "unavailable" ? again ? "refresh_retrying" : "refresh_failed" : retrying ? "refresh_retrying" : "refreshing");
+        else render(card, video, "pending", reason === "unavailable" ? again ? "check_retrying" : "check_failed" : retrying ? "check_retrying" : reason);
       }
       if (rawVideo.noNewTopicChecks) {
         var saved = previous || records.get(video.videoId);
@@ -203,9 +218,10 @@
           return j.contract === p.contract && j.blockChannel && j.expiresAt > Date.now();
         });
       }) && investigate(video)) {
-        render(card, video, previous && previous.assessment ? decision(previous.assessment, video) : "pending", "channel_pending"); return;
+        render(card, video, previous && previous.assessment ? decision(previous.assessment, video) : "pending",
+          previous && !topicsChanged(previous) ? "background_refresh" : "channel_pending"); return;
       }
-      if (record && record.status === "error" && (rawVideo.noAutomaticRetry || Date.now() < record.retryAt)) {
+      if (record && record.status === "error" && monotonic() < record.retryAt) {
         waiting("unavailable"); return;
       }
       if (!FocusFeedVideo.hasMinimumModelMetadata(video)) {
@@ -219,7 +235,7 @@
       if (!record || record.status === "error") {
         var queued = Array.from(records.values()).filter(function (r) { return r.status === "queued"; });
         if (queued.length >= 60) { waiting(); return; }
-        record = { video: video, fp: fp, status: "queued", attempts: record ? record.attempts + 1 : 1, at: Date.now(), readyAt: monotonic() + 250, settleDeadline: monotonic() + 600, priority: rect.top < (root.innerHeight || 800) && rect.bottom > 0 ? 100 : 10 };
+        record = { video: video, fp: fp, status: "queued", background: !!(previous && !topicsChanged(previous)), attempts: record ? record.attempts + 1 : 1, at: Date.now(), readyAt: monotonic() + 250, settleDeadline: monotonic() + 600, priority: rect.top < (root.innerHeight || 800) && rect.bottom > 0 ? 100 : 10 };
         records.set(video.videoId, record);
       }
       waiting();
@@ -237,8 +253,8 @@
       activityScheduled = true;
       Promise.resolve().then(function () {
         activityScheduled = false; if (stopped) return;
-        var pending = Array.from(records.values()).filter(function (r) { return r.status === "queued" || r.status === "inflight"; }).length;
-        adapter.activity({ pending: pending, refreshing: Array.from(displayed.values()).some(function (d) { return (d.status === "resolved" || d.status === "refreshing") && d.route !== "unfiltered"; }) });
+        var pending = Array.from(records.values()).filter(function (r) { return !r.background && (r.status === "queued" || r.status === "inflight"); }).length;
+        adapter.activity({ pending: pending, refreshing: Array.from(displayed.values()).some(function (d) { return d.status === "refreshing"; }) });
       });
     }
     function admissionTime(queued) {
@@ -333,16 +349,29 @@
       } catch (error) {
         if (run !== generation || stopped) return;
         api.runtime.sendMessage({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {});
-        retryAt = Date.now() + 30000;
+        retryAt = 0;
         batch.forEach(function (r) { if (r.status === "inflight") {
-          r.status = "error"; r.retryAt = r.attempts >= 2 ? Infinity : retryAt;
+          r.status = "error"; r.retryAt = r.attempts > retryDelays.length ? Infinity : monotonic() + retryDelays[r.attempts - 1];
         } });
+        armRetry();
         setStatus("Backend unavailable · channel blocks remain active");
       } finally {
         clearTimeout(timeout);
         current.delete(job.id);
         if (run === generation && !stopped && !suspended) { rescan(); schedule(); }
       }
+    }
+    function armRetry() {
+      clearTimeout(retryTimer); retryTimer = null;
+      var next = Array.from(records.values()).filter(function (r) { return r.status === "error" && Number.isFinite(r.retryAt) && r.retryAt > monotonic(); });
+      if (!next.length || stopped || suspended || !state || !state.enabled) return;
+      retryTimer = setTimeout(function () { retryTimer = null; rescan(); schedule(); armRetry(); },
+        Math.max(1, Math.min.apply(Math, next.map(function (r) { return r.retryAt; })) - monotonic()));
+    }
+    function retry(videoId) {
+      var record = records.get(videoId);
+      if (!record || record.status !== "error" || stopped || suspended || !state || !state.enabled) return false;
+      records.delete(videoId); retryAt = 0; armRetry(); rescan(); schedule(); return true;
     }
     function navigate(start) {
       suspended = start;
@@ -364,7 +393,7 @@
       if (state && profile().mode !== mode) { reload(); return; }
       if (!suspended && !stopped) rescan();
     }
-    return { observe: observe, reload: reload, navigate: navigate, tick: tick, snapshot: snapshot, progress: progress,
+    return { observe: observe, reload: reload, navigate: navigate, tick: tick, snapshot: snapshot, progress: progress, retry: retry,
       preferencesChanged: reload, stop: function () { stopped = true; cancel(true); clearTimeout(expiryTimer); cards.clear(); displayed.clear(); adapter.clear(); } };
   }
   root.FocusFeedAutoRuntime = { create: create };

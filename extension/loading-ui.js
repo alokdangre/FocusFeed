@@ -3,7 +3,7 @@
   "use strict";
   var THUMB = ".ytLockupViewModelContentImage, ytd-thumbnail, #thumbnail, .ytp-videowall-still-image, .ytp-modern-videowall-still-image, .ytp-suggestion-image, .ytp-autonav-endscreen-upnext-thumbnail";
   function create() {
-    var pending = new Map(), thumbnails = new Map(), thumbnailCards = new WeakMap(), frame = null, progress = null, showTimer = null, activity = { pending: 0 };
+    var pending = new Map(), statuses = new Map(), thumbnails = new Map(), thumbnailCards = new WeakMap(), frame = null, progress = null, showTimer = null, activity = { pending: 0 };
     function shape(className, box, cardBox, fallback) {
       var node = document.createElement("span"); node.className = "focusfeed-loading-shape " + className;
       var rect = box && box.width > 0 && box.height > 0 ? box : fallback;
@@ -57,6 +57,10 @@
     }
     function refresh() {
       frame = null;
+      statuses.forEach(function (state, card) {
+        if (!card.isConnected) { removeStatus(card); return; }
+        positionStatus(card, state);
+      });
       thumbnails.forEach(function (_state, img) { if (!img.isConnected) removeThumbnail(img); });
       var updates = [];
       pending.forEach(function (state, card) {
@@ -140,7 +144,86 @@
       removeThumbnail(event.target);
       if (pending.size) schedule();
     }
-    function render(card, action) {
+    function removeStatus(card) {
+      var state = statuses.get(card);
+      if (!state) return;
+      state.node.remove();
+      state.children.forEach(function (inert, child) { child.inert = inert; });
+      card.inert = state.inert;
+      if (state.busy === null) card.removeAttribute("aria-busy"); else card.setAttribute("aria-busy", state.busy);
+      card.removeAttribute("data-focusfeed-refreshing");
+      card.removeAttribute("data-focusfeed-check-status");
+      card.removeEventListener("click", state.block, true);
+      card.removeEventListener("auxclick", state.block, true);
+      card.removeEventListener("keydown", state.block, true);
+      statuses.delete(card);
+    }
+    function positionStatus(card, state) {
+      var layout = measure(card);
+      if (!layout) return;
+      var thumb = layout.thumb;
+      var bounds = [Math.max(0, thumb.left - layout.box.left), Math.max(0, thumb.top - layout.box.top), thumb.width, thumb.height];
+      var signature = JSON.stringify([layout.box.width, layout.box.height, bounds]);
+      if (state.signature === signature) return;
+      state.signature = signature;
+      state.node.style.left = (bounds[0] / layout.box.width * 100) + "%";
+      state.node.style.top = (bounds[1] / layout.box.height * 100) + "%";
+      state.node.style.width = (bounds[2] / layout.box.width * 100) + "%";
+      state.node.style.height = (bounds[3] / layout.box.height * 100) + "%";
+    }
+    function checkStatus(card, mode, retry) {
+      var state = statuses.get(card);
+      if (!state) {
+        var node = document.createElement("div"); node.className = "focusfeed-card-status";
+        node.dataset.focusfeedUi = "check-status";
+        var pill = document.createElement("div"); pill.className = "focusfeed-status-pill";
+        var mark = document.createElement("span"); mark.className = "focusfeed-status-mark"; mark.setAttribute("aria-hidden", "true");
+        var label = document.createElement("span"); label.className = "focusfeed-status-label";
+        pill.append(mark, label); node.appendChild(pill);
+        state = { node: node, label: label, pill: pill, mode: mode, children: new Map(),
+          busy: card.getAttribute("aria-busy"), inert: !!card.inert };
+        state.block = function (event) {
+          if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+          if (state.button && state.button.contains(event.target)) return;
+          event.preventDefault(); event.stopImmediatePropagation();
+        };
+        card.addEventListener("click", state.block, true);
+        card.addEventListener("auxclick", state.block, true);
+        card.addEventListener("keydown", state.block, true);
+        statuses.set(card, state); card.appendChild(node);
+        if (mode === "failed") {
+          var button = document.createElement("button"); button.type = "button"; button.className = "focusfeed-status-retry";
+          button.textContent = "Retry"; button.setAttribute("aria-label", "Retry checking this recommendation");
+          button.addEventListener("click", function (event) {
+            event.preventDefault(); event.stopPropagation();
+            if (statuses.get(card) !== state || !state.retry || button.disabled) return;
+            button.disabled = true;
+            try { if (state.retry() === false) button.disabled = false; } catch (_) { button.disabled = false; }
+          });
+          state.button = button; pill.appendChild(button);
+        }
+      }
+      state.retry = retry;
+      var text = mode === "failed" ? "Couldn’t check" : mode === "retrying" ? "Retrying check…" : "Updating filters…";
+      if (state.label.textContent !== text) state.label.textContent = text;
+      card.dataset.focusfeedCheckStatus = mode;
+      if (mode !== "failed" && !pending.has(card)) card.dataset.focusfeedRefreshing = "true";
+      // Keep the status and Retry accessible while preventing native card navigation.
+      card.inert = pending.has(card) ? pending.get(card).inert : state.inert;
+      Array.from(card.children).forEach(function (child) {
+        if (child === state.node || child.classList.contains("focusfeed-card-loading")) return;
+        if (!state.children.has(child)) state.children.set(child, !!child.inert);
+        child.inert = true;
+      });
+      card.setAttribute("aria-busy", mode === "failed" ? "false" : "true");
+      positionStatus(card, state);
+    }
+    function render(card, action, reason, retry) {
+      var mode = action === "hide" ? null : ["refresh_failed", "check_failed"].includes(reason) ? "failed" :
+        ["refresh_retrying", "check_retrying"].includes(reason) ? "retrying" :
+        action === "show" && ["refreshing", "channel_pending"].includes(reason) ? "updating" : null;
+      var old = statuses.get(card);
+      if (old && old.mode !== mode) removeStatus(card);
       if (action !== "show") { var image = thumbnailCards.get(card); if (image) removeThumbnail(image); }
       if (action === "pending") {
         if (!pending.has(card)) {
@@ -157,6 +240,7 @@
           watchThumbnail(card);
         }
       }
+      if (mode) checkStatus(card, mode, retry);
     }
     function updateProgress() {
       showTimer = null;
@@ -181,6 +265,7 @@
     function clear() {
       clearTimeout(showTimer); showTimer = null;
       if (frame !== null) { if (root.cancelAnimationFrame) root.cancelAnimationFrame(frame); else clearTimeout(frame); frame = null; }
+      Array.from(statuses.keys()).forEach(removeStatus);
       Array.from(pending.keys()).forEach(remove);
       Array.from(thumbnails.keys()).forEach(removeThumbnail);
       document.querySelectorAll("[data-focusfeed-reveal]").forEach(function (card) { card.removeAttribute("data-focusfeed-reveal"); });

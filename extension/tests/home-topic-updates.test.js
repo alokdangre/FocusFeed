@@ -50,9 +50,13 @@ test("Focus Home keeps every admitted card through topic removal and a delayed t
   save([gaming]); await new Promise(resolve => setImmediate(resolve));
   assert.ok(cards.every(card => !card.hasAttribute("data-focusfeed-focus-withheld") && !card.hasAttribute("data-focusfeed-auto-pending")), "replacement preserves previous presentation while missing scores load");
   assert.equal(first.dataset.focusfeedAutoHidden, undefined); assert.equal(last.dataset.focusfeedAutoHidden, "true");
+  assert.equal(first.dataset.focusfeedRefreshing, "true");
+  assert.match(first.querySelector(".focusfeed-card-status").textContent, /Updating filters/);
+  assert.equal(first.querySelector("#video-title-link").inert, true);
   assert.equal(withheldTransitions.length, 0, "no transient Home withholding on either topic edit");
   await until(() => delayed.length > 0);
   while (delayed.length) delayed.shift()();
   await until(() => cards.every(card => card.dataset.focusfeedAutoHidden === "true"));
+  assert.ok(cards.every(card => !card.querySelector(".focusfeed-card-status")));
   assert.equal(first.parentNode, source); assert.equal(last.parentNode, source);
 });

@@ -50,7 +50,8 @@ for (const pathname of ["/results", "/"]) test("Hide this collection hides copie
 });
 test("a collection topic correction does not start channel learning and leaves the seed video alone", async t => {
   const h = await setup(t); await h.open(); const before = h.calls.filter(m => m.type === "FF_CHANNEL_LEARN").length;
-  h.document.querySelector(".focusfeed-topic-action").click(); await tick(); await tick();
+  h.document.querySelector(".focusfeed-topic-action").click();
+  h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await tick();
   assert.equal(h.first.dataset.focusfeedAutoHidden, "true"); assert.equal(h.copy.dataset.focusfeedAutoHidden, "true");
   assert.equal(h.seed.dataset.focusfeedAutoHidden, undefined); assert.equal(h.other.dataset.focusfeedAutoHidden, undefined);
   const item = h.data.focusfeedCorrectionsV1.items[0]; assert.equal(item.itemType, "collection"); assert.equal(item.topic, "K-dramas and Korea");

@@ -277,7 +277,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   if (message.type === "FF_REQUEST_STATS") { if (!internal) return false; operation = scoreCache.snapshot(); }
   if (message.type === "FF_CHANNEL_RESOLVE") operation = resolveYouTubeChannel(message.videoId);
   if (message.type === "FF_OPEN_PREFERENCES") {
-    operation = chrome.tabs.create({ url: chrome.runtime.getURL("popup/popup.html?mode=focus") });
+    operation = chrome.tabs.create({ url: chrome.runtime.getURL("popup/popup.html?mode=" + (message.mode === "general" ? "general" : "focus")) });
   }
   if (message.type === "FF_CACHE_CLEAR") {
     if (!internal) return false;
@@ -319,7 +319,17 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     return channelLearning.learn(video, profile, message.triggerId, trace);
   })();
   if (message.type === "FF_SETTINGS_UPDATE") operation = withPolicyWrite(async function () {
-    var next = FocusFeedSettings.update(await readSettings(), message.action);
+    var current = await readSettings(), action = message.action;
+    if (message.expectedProfileVersion !== undefined && ["saveProfile", "startFocus"].includes(action.type)) {
+      var target = action.type === "startFocus" || action.profile && action.profile.mode === "focus" ? "focus" : "general";
+      if (current[target].version !== message.expectedProfileVersion) {
+        throw new Error("Saved topics changed in another tab. Review your draft and save again.");
+      }
+    }
+    if (message.expectedEndpoint !== undefined && normalizeEndpoint(message.expectedEndpoint) !== await classifierEndpoint()) {
+      throw new Error("The classifier connection changed during validation. Save your topics again.");
+    }
+    var next = FocusFeedSettings.update(current, action);
     await chrome.storage.local.set({ focusfeedSettingsV2: next });
     return next;
   });

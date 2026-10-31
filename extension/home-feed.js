@@ -126,7 +126,7 @@
         var search = element("a", "Search: " + query); search.href = "/results?search_query=" + encodeURIComponent(query); actions.appendChild(search);
       });
       var edit = element("button", "Edit Focus"); edit.type = "button";
-      edit.addEventListener("click", function () { if (options.editGoal) options.editGoal(); });
+      edit.addEventListener("click", function () { closeDialog(); if (options.editGoal) options.editGoal(); });
       var keep = element("button", "Keep current matches"); keep.type = "button"; keep.addEventListener("click", closeDialog);
       actions.append(edit, keep); dialog.append(title, detail, actions); (document.body || document.documentElement).appendChild(dialog);
       if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
@@ -170,14 +170,17 @@
       if (!mount()) return false;
       collect(extract); advance();
       entries.forEach(function (entry) {
-        if (entry.card && entry.batch) runtime.observe(entry.card, Object.assign({}, entry.video, { managed: true, noAutomaticRetry: true, noNewTopicChecks: halted }));
+        if (entry.card && entry.batch) runtime.observe(entry.card, Object.assign({}, entry.video, { managed: true, noNewTopicChecks: halted }));
       });
       advance(); return true;
     }
     function render(card, video, action, reason) {
       var entry = targets.get(card);
       if (!entry || entry.video.videoId !== video.videoId) return false;
-      entry.action = reason === "refreshing" ? "pending" : action; entry.reason = reason || "unfiltered";
+      // Revalidating unchanged preferences must not reset settled discovery
+      // accounting or admit extra batches as if the user had edited their goal.
+      if (["background_refresh", "background_failed"].includes(reason)) return false;
+      entry.action = ["refreshing", "refresh_retrying"].includes(reason) ? "pending" : action; entry.reason = reason || "unfiltered";
       if (!scheduled) {
         scheduled = true; var run = epoch;
         Promise.resolve().then(function () { if (run !== epoch) return; scheduled = false; advance(); });

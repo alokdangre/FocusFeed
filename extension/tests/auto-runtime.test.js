@@ -11,7 +11,7 @@ function profile(mode = "general") { return { id: mode, version: 1, mode, object
 function state() { return { schemaVersion: 2, revision: 1, enabled: true, general: profile(), focus: profile("focus"), focusSession: { active: false } }; }
 function assessment(id, outcome = "match") { return { videoId: id, outcome, reason: "test",
   objectiveMatches: [{ objectiveId: topic.id, text: topic.text, contentType: "topic", matchProbability: outcome === "match" ? .9 : .1 }] }; }
-function harness(response) {
+function harness(response, options) {
   const prefs = { focusfeedSettingsV2: state(), focusFeedChannelBlocksV1: [] }, calls = [], cards = [];
   let runtime;
   const api = { storage: { local: { get: async () => prefs } }, runtime: { sendMessage: async message => {
@@ -27,7 +27,7 @@ function harness(response) {
   }
   function scan() { cards.forEach(c => runtime.observe(c.card, c.video)); }
   runtime = FocusFeedAutoRuntime.create({ scan, clear() { cards.forEach(c => { c.action = "show"; }); },
-    render(card, _video, action, reason) { const item = cards.find(c => c.card === card); item.action = action; item.reason = reason; } }, api);
+    render(card, _video, action, reason) { const item = cards.find(c => c.card === card); item.action = action; item.reason = reason; } }, api, options);
   return { prefs, calls, cards, add, scan, runtime };
 }
 test("General is automatic; local blocks still apply without topics or provider", async () => {
@@ -134,23 +134,23 @@ test("settings/navigation cancel old work and late results cannot hide a new pag
   h.runtime.navigate(false); await sleep(20); assert.equal(card.action, "show");
   h.runtime.stop();
 });
-test("Focus failures settle as hidden recommendations and explicit channel blocks remain active", async () => {
+test("Focus failures keep unchecked recommendations covered while explicit blocks remain active", async () => {
   const h = harness(async () => { throw new Error("offline"); });
   h.prefs.focusfeedSettingsV2.focusSession = { active: true };
   const c = h.add("v1"); await h.runtime.reload(); await sleep(330);
-  assert.equal(c.action, "hide"); assert.equal(c.reason, "unavailable");
+  assert.equal(c.action, "pending"); assert.equal(c.reason, "check_retrying");
   assert.match(h.runtime.snapshot().status, /Backend unavailable/);
   h.prefs.focusFeedChannelBlocksV1 = [{ channelId: "@creator", scope: "global" }];
   await h.runtime.reload(); assert.equal(c.action, "hide"); assert.equal(c.reason, "channel_block");
   h.runtime.stop();
 });
-test("mismatched objective judgments are rejected and General recovers visibly", async () => {
+test("mismatched objective judgments remain covered while General retries", async () => {
   const h = harness(async m => {
     const a = assessment(m.request.videos[0].videoId); a.objectiveMatches[0].objectiveId = "wrong";
     return { ok: true, data: { ok: true, data: { assessments: [a] } } };
   });
   const c = h.add("v1"); await h.runtime.reload(); await sleep(330);
-  assert.equal(c.action, "show"); assert.equal(c.reason, "unavailable"); h.runtime.stop();
+  assert.equal(c.action, "pending"); assert.equal(c.reason, "check_retrying"); h.runtime.stop();
 });
 test("expired Focus returns to saved General without opening popup", async () => {
   const h = harness(); const c = h.add("v1");
@@ -187,7 +187,7 @@ test("manual playback keeps explicit channel and Shorts policies without dispatc
   await h.runtime.reload(); assert.equal(c.action, "show");
   await sleep(330); assert.equal(h.calls.length, 0); h.runtime.stop();
 });
-test("hung transport releases pending cards within its deadline", async () => {
+test("hung transport is cancelled within its deadline and unchecked cards stay covered", async () => {
   const fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
   const context = vm.createContext({ console, Date, clearTimeout,
     setTimeout: (fn, ms) => setTimeout(fn, ms === 90000 ? 10 : ms) });
@@ -203,7 +203,7 @@ test("hung transport releases pending cards within its deadline", async () => {
   runtime = context.FocusFeedAutoRuntime.create({ scan() { runtime.observe(card, { videoId: "v1", title: "Test" }); }, clear() {},
     render(_card, _video, value) { action = value; } }, api);
   await runtime.reload(); assert.equal(action, "pending"); await sleep(350);
-  assert.equal(action, "show"); assert.equal(cancelled.length, 1); runtime.stop();
+  assert.equal(action, "pending"); assert.equal(cancelled.length, 1); runtime.stop();
 });
 test("runtime supplies a bounded refill window without multiplying it by topic count", async t => {
   const h = harness();
@@ -293,4 +293,69 @@ test("individual progress frees work-window capacity and rejects stale or malfor
   pending.forEach(({ message, resolve }) => resolve({ ok: true, data: { ok: true, data: {
     assessments: message.request.videos.map(v => assessment(v.videoId))
   } } }));
+});
+test("failed checks retry three times then allow an isolated manual Retry", async t => {
+  let allow = false;
+  const h = harness(async m => {
+    if (m.request.videos.some(v => v.videoId === "failed") && !allow) throw new Error("offline");
+    return { ok: true, data: { ok: true, data: { assessments: m.request.videos.map(v => assessment(v.videoId)) } } };
+  }, { retryDelays: [1, 1, 1] });
+  t.after(h.runtime.stop); const failed = h.add("failed");
+  await h.runtime.reload();
+  async function until(predicate) {
+    const deadline = performance.now() + 5000;
+    while (!predicate() && performance.now() < deadline) await sleep(10);
+    assert.ok(predicate(), JSON.stringify({ calls: h.calls.map(m => m.type), status: h.runtime.snapshot().status, reason: failed.reason }));
+  }
+  await until(() => failed.reason === "check_failed");
+  assert.equal(h.calls.filter(m => m.type === "FF_AUTO_CLASSIFY").length, 4);
+  assert.equal(failed.action, "pending");
+  const other = h.add("other"); h.scan(); await until(() => other.action === "hide");
+  allow = true;
+  assert.equal(h.runtime.retry("failed"), true); await until(() => failed.action === "hide");
+  assert.deepEqual(h.calls.filter(m => m.type === "FF_AUTO_CLASSIFY").at(-1).request.videos.map(v => v.videoId), ["failed"]);
+  assert.equal(other.action, "hide"); assert.equal(h.runtime.retry("other"), false);
+});
+test("late metadata on an already checked card must not announce a filter update", async t => {
+  let complete;
+  const h = harness(async m => {
+    const response = { ok: true, data: { ok: true, data: { assessments: m.request.videos.map(v => assessment(v.videoId, "no_match")) } } };
+    if (m.request.videos[0].duration) return new Promise(resolve => { complete = () => resolve(response); });
+    return response;
+  });
+  t.after(() => { h.runtime.stop(); if (complete) complete(); });
+  const item = h.add("checked"); await h.runtime.reload(); await sleep(330);
+  assert.equal(item.action, "show"); assert.equal(item.reason, "model");
+  item.video.duration = "12:34"; h.scan();
+  assert.equal(item.action, "show");
+  assert.notEqual(item.reason, "refreshing", "metadata arriving without topic changes is not a filter edit");
+});
+test("unchanged checked videos stay settled across rescans, duplicate cards and settings reloads", async t => {
+  const h = harness(async m => ({ ok: true, data: { ok: true, data: {
+    assessments: m.request.videos.map(v => assessment(v.videoId, "no_match"))
+  } } }));
+  t.after(h.runtime.stop); const item = h.add("checked");
+  await h.runtime.reload(); await sleep(330);
+  for (let i = 0; i < 5; i++) { h.scan(); h.runtime.tick(); }
+  const duplicate = h.add("checked"); h.scan();
+  h.prefs.focusfeedSettingsV2.general.version++; h.prefs.focusfeedSettingsV2.revision++;
+  await h.runtime.reload(); await sleep(330);
+  assert.equal(h.calls.filter(m => m.type === "FF_AUTO_CLASSIFY").length, 1);
+  assert.equal(item.action, "show"); assert.equal(duplicate.action, "show");
+  assert.equal(item.reason, "model"); assert.equal(duplicate.reason, "model");
+});
+test("cache expiry revalidates a shown card quietly without changing topics", async t => {
+  let finish, count = 0;
+  const h = harness(async m => {
+    count++;
+    const response = { ok: true, data: { ok: true, data: {
+      assessments: m.request.videos.map(v => assessment(v.videoId, "no_match")),
+      diagnostics: { cache: { byVideo: { checked: { source: "cache", expiresAt: Date.now() + 120 } } } }
+    } } };
+    return count === 1 ? response : new Promise(resolve => { finish = () => resolve(response); });
+  });
+  t.after(() => { h.runtime.stop(); if (finish) finish(); });
+  const item = h.add("checked"); await h.runtime.reload(); await sleep(330); await sleep(150);
+  h.scan(); assert.equal(item.action, "show"); assert.equal(item.reason, "background_refresh");
+  await sleep(330); assert.equal(count, 2); assert.equal(item.reason, "background_refresh");
 });

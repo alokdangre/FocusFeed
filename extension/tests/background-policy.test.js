@@ -41,6 +41,25 @@ test("concurrent channel writes merge; duplicate/undo cannot remove another tab'
   assert.equal(h.data.focusFeedChannelBlocksV1.length, 1); assert.equal(h.data.focusFeedChannelBlocksV1[0].channelId, "@two");
   const bad = await h.dispatch({ type: "FF_BLOCK_ADD", channel: { channelId: "same display name" } }); assert.equal(bad.ok, false);
 });
+test("preference writes reject stale profile versions but allow independent display changes", async () => {
+  const h = setup();
+  const profile = { id: "general", mode: "general", version: 1, objectives: [{
+    id: "intent-one", text: "Movie reviews", sourceText: "Movie reviews", contentType: "topic",
+    matchScope: "intent", validationVersion: "focusfeed-intent-v1"
+  }], sessionDurationMinutes: 45 };
+  const a = await h.dispatch({ type: "FF_SETTINGS_UPDATE", expectedProfileVersion: 0, action: { type: "saveProfile", profile } });
+  assert.equal(a.ok, true);
+  const stale = await h.dispatch({ type: "FF_SETTINGS_UPDATE", expectedProfileVersion: 0, action: { type: "saveProfile", profile: { ...profile, objectives: [{ ...profile.objectives[0], text: "Sports" }] } } });
+  assert.equal(stale.ok, false); assert.match(stale.error.message, /another tab/);
+  assert.equal(h.data.focusfeedSettingsV2.general.objectives[0].text, "Movie reviews");
+  await h.dispatch({ type: "FF_SETTINGS_UPDATE", action: { type: "setHideShorts", enabled: true } });
+  const independent = await h.dispatch({ type: "FF_SETTINGS_UPDATE", expectedProfileVersion: 1, action: { type: "saveProfile", profile } });
+  assert.equal(independent.ok, true); assert.equal(independent.data.hideShorts, true);
+  h.data.classifierEndpoint = "http://localhost:3001";
+  const changedEndpoint = await h.dispatch({ type: "FF_SETTINGS_UPDATE", expectedProfileVersion: 2, expectedEndpoint: "http://127.0.0.1:3000",
+    action: { type: "saveProfile", profile } });
+  assert.equal(changedEndpoint.ok, false); assert.match(changedEndpoint.error.message, /connection changed/);
+});
 test("service worker restart restores settings; provider uses strict profile and rejects stale revision", async () => {
   const h = setup();
   const profile = { id: "general", mode: "general", version: 1, sessionDurationMinutes: 45, updatedAt: "x", objectives: [

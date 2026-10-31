@@ -13,9 +13,12 @@ bash backend/run_local.sh
 ```
 
 Open `chrome://extensions`, enable Developer mode and load `extension/` unpacked.
-Reload existing YouTube tabs after installing or updating the extension. Open the
-popup, add comma/Enter-separated topic tags and save. In Focus, choose a duration
-and select Start Focus. Connection & tools contains the API address and diagnostics.
+Reload existing YouTube tabs after installing or updating the extension. Select
+**FocusFeed** beside YouTube's header actions, add comma/Enter-separated topic tags
+and save. In Focus, choose a duration and select Start Focus. The panel also provides
+pause/resume, Hide Shorts, channel unblocking and review of filtered videos.
+Connection & more settings opens the extension preferences for the API address,
+diagnostics and advanced tools. The browser popup remains available as a fallback.
 
 ## Development
 

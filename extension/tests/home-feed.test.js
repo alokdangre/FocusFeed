@@ -59,7 +59,7 @@ test("pending and failed checks cannot produce a false scarcity popup or trigger
   assert.equal(h.document.querySelector("dialog"), null);
   assert.match(h.document.querySelector(".focusfeed-focus-status").textContent, /could not be checked/);
   assert.equal(new Set(h.observed.map(v => v.videoId)).size, 20);
-  assert.ok(h.observed.every(v => v.noAutomaticRetry));
+  assert.ok(h.observed.every(v => v.managed));
 });
 test("enough matches stop automatic discovery until the user scrolls toward the feed end", async t => {
   const h = setup(t, candidates()); hideAll(h); h.decisions.v0 = h.decisions.v1 = h.decisions.v2 = "show";
@@ -102,4 +102,14 @@ test("a displayed previous decision does not count as a completed check for a ne
   h.scan(); await settle();
   assert.equal(h.document.querySelector("dialog.focusfeed-discovery"), null);
   assert.equal(new Set(h.observed.map(v => v.videoId)).size, 20);
+});
+test("background revalidation does not reset settled Focus discovery or fetch extra batches", async t => {
+  const h = setup(t, candidates()); hideAll(h); h.decisions.v0 = h.decisions.v1 = h.decisions.v2 = "show";
+  h.scan(); await settle();
+  assert.equal(new Set(h.observed.map(v => v.videoId)).size, 20);
+  for (const reason of ["background_refresh", "background_failed"]) {
+    h.reasons.v0 = reason; h.scan(); await settle();
+    assert.equal(new Set(h.observed.map(v => v.videoId)).size, 20);
+    assert.equal(h.document.querySelector("dialog"), null);
+  }
 });

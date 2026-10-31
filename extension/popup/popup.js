@@ -7,21 +7,32 @@
   var learningProfiles = [], learningData = { items: [], history: [], allowedChannels: [] };
   var editor = FocusFeedTopicInput.create({ input: $("objectiveInput"), list: $("topicList"), onChange: edited });
 
-  async function request(message) {
-    var response = await chrome.runtime.sendMessage(message);
-    if (!response || !response.ok) throw new Error(response && response.error && response.error.message || "Could not reach the extension. Reload it and try again.");
-    return response.data;
-  }
+  var request = FocusFeedPreferences.request;
   function feedback(id, message, error) {
     var node = $(id); node.textContent = message || ""; node.hidden = !message; node.dataset.error = String(!!error);
   }
-  function texts(profile) {
-    return (profile && profile.objectives || []).flatMap(function (o) { return (o.sourceText || o.text || "").split(/[,\n]/).map(function (s) { return s.trim(); }).filter(Boolean); });
-  }
-  function draft(profile) { return { topics: texts(profile), duration: profile && profile.sessionDurationMinutes !== undefined ? profile.sessionDurationMinutes : 45 }; }
+  var texts = FocusFeedPreferences.texts, draft = FocusFeedPreferences.draft;
   function fingerprint() { return JSON.stringify([mode, editor.values(), $("sessionDuration").value]); }
   function rememberDraft() {
     if (settings) drafts[mode] = { topics: editor.values(), duration: $("sessionDuration").value };
+  }
+  function receive(next) {
+    if (!next || settings && next.revision < settings.revision) return;
+    var previous = settings, refreshEditor = false, conflict = false;
+    if (previous && drafts.general) {
+      rememberDraft();
+      ["general", "focus"].forEach(function (target) {
+        if (JSON.stringify(previous[target]) === JSON.stringify(next[target])) return;
+        var current = drafts[target], original = draft(previous[target]);
+        if (JSON.stringify(current.topics) === JSON.stringify(original.topics) && Number(current.duration) === Number(original.duration)) {
+          drafts[target] = draft(next[target]); if (target === mode) refreshEditor = true;
+        } else conflict = true;
+      });
+    }
+    settings = next;
+    if (refreshEditor) { editor.set(drafts[mode].topics); $("sessionDuration").value = String(drafts[mode].duration); }
+    render();
+    if (conflict && !busy) feedback("profileFeedback", "Saved topics changed in another tab. Your draft is preserved; save to replace those topics.");
   }
   function edited() {
     rememberDraft(); editor.markInvalid([]); $("validationResults").hidden = true;
@@ -83,8 +94,8 @@
     $("saveGoal").disabled = busy; $("toggleSession").disabled = busy;
     renderDraft();
   }
-  async function update(action) {
-    settings = await request({ type: "FF_SETTINGS_UPDATE", action: action }); render(); return settings;
+  async function update(action, expectedProfileVersion) {
+    receive(await request({ type: "FF_SETTINGS_UPDATE", action: action, expectedProfileVersion: expectedProfileVersion })); return settings;
   }
   async function saveEndpoint() {
     var value = $("classifierEndpoint").value.trim().replace(/\/+$/, "") || DEFAULT_ENDPOINT, url;
@@ -116,38 +127,16 @@
     if (!topics.length) { feedback("profileFeedback", "Add at least one topic to get started.", true); $("objectiveInput").focus(); return; }
     if (topics.length > 8 || topics.some(function (s) { return s.length > 160; })) { renderDraft(); return; }
     if (!Number.isInteger(duration) || duration < 0 || duration > 480) { feedback("profileFeedback", "Choose a duration from 0 to 480 minutes.", true); return; }
-    var snapshot = fingerprint(), original = settings[target], objectives;
+    var snapshot = fingerprint();
     busy = true; render(); feedback("profileFeedback", "Checking your topics…");
     try {
-      var unchanged = FocusFeedSettings.valid(original) && original.objectives.every(function (o) { return o.matchScope === "intent"; }) &&
-        JSON.stringify(topics) === JSON.stringify(texts(original));
-      if (unchanged) objectives = original.objectives;
-      else {
-        await saveEndpoint();
-        var id = "objectives-" + Date.now() + "-" + Math.random().toString(16).slice(2);
-        var result = await request({ type: "OBJECTIVES_CLASSIFY_CLOUD", request: { requestId: id, mode: target, objectives: topics } });
-        if (!result || result.requestId !== id || !Array.isArray(result.objectives) || result.objectives.length !== topics.length ||
-            result.objectives.some(function (a, i) {
-              return !a || a.text !== topics[i] || !Number.isFinite(a.nonsenseProbability) || a.nonsenseProbability < 0 || a.nonsenseProbability > 1 ||
-                !["ready_for_confirmation", "needs_clarification"].includes(a.status) ||
-                (a.status === "ready_for_confirmation") !== (a.nonsenseProbability < 0.70);
-            })) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
-        await chrome.storage.local.set({ focusfeedObjectiveValidationV1: { savedAt: Date.now(), requestedMode: target, requestedObjectives: topics, response: result } });
-        if (snapshot !== fingerprint()) throw new Error("Your preferences changed during validation. Save the current topics again.");
-        if (showValidation(result.objectives)) { feedback("profileFeedback", "Edit the highlighted topics, then save again. Nothing has been saved.", true); return; }
-        objectives = result.objectives.map(function (a) {
-          var o = a.validatedObjective;
-          if (!FocusFeedSettings.validObjective(o) || o.matchScope !== "intent" || o.text !== a.text) throw new Error("The validator returned an incomplete response. Nothing has been saved.");
-          return { id: o.id, text: o.text, sourceText: o.text, contentType: "topic", matchScope: "intent", validationVersion: o.validationVersion };
-        });
-      }
-      if (snapshot !== fingerprint()) throw new Error("Your preferences changed during validation. Save the current topics again.");
-      await update({ type: "saveProfile", profile: { id: target, mode: target, version: Math.max(1, original.version + 1),
-        objectives: objectives, sessionDurationMinutes: duration } });
+      var saved = await FocusFeedPreferences.save({ state: settings, mode: target, topics: topics, duration: duration,
+        beforeValidate: saveEndpoint, isCurrent: function () { return snapshot === fingerprint(); }, onValidation: showValidation });
+      receive(saved);
       if (snapshot !== fingerprint()) { feedback("profileFeedback", "The previous version was saved. Your new edits are still unsaved."); return; }
       drafts[target] = draft(settings[target]);
       if (startFocus && target === "focus") {
-        await update({ type: "startFocus" }); feedback("profileFeedback", settings.enabled ? "Focus started. Your goal now filters YouTube." : "Focus started. Turn filtering on when you are ready.");
+        await update({ type: "startFocus" }, saved.focus.version); feedback("profileFeedback", settings.enabled ? "Focus started. Your goal now filters YouTube." : "Focus started. Turn filtering on when you are ready.");
       } else feedback("profileFeedback", target === "general" && FocusFeedSettings.focusActive(settings)
         ? "Saved. These preferences apply when Focus ends." : target === "focus" ? "Focus topics saved." : "Saved. Your preferences now filter YouTube.");
     } catch (error) { feedback("profileFeedback", error.message, true); }
@@ -267,7 +256,7 @@
   });
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== "local") return;
-    if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) { settings = changes.focusfeedSettingsV2.newValue; render(); }
+    if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) receive(changes.focusfeedSettingsV2.newValue);
     if (changes.focusFeedChannelBlocksV1) { blocks = changes.focusFeedChannelBlocksV1.newValue || []; renderChannels(); }
     if (changes.classifierEndpoint) { savedEndpoint = changes.classifierEndpoint.newValue || DEFAULT_ENDPOINT; $("classifierEndpoint").value = savedEndpoint; }
     if (changes.focusfeedChannelProfilesV1 || changes.focusfeedCorrectionsV1 || changes.classifierEndpoint || changes.focusfeedSettingsV2) loadLearning();
@@ -278,7 +267,8 @@
       var values = await chrome.storage.local.get({ classifierEndpoint: DEFAULT_ENDPOINT, focusFeedChannelBlocksV1: [] });
       savedEndpoint = values.classifierEndpoint; $("classifierEndpoint").value = savedEndpoint; blocks = values.focusFeedChannelBlocksV1;
       drafts.general = draft(settings.general); drafts.focus = draft(settings.focus);
-      mode = new URL(location.href).searchParams.get("mode") === "focus" ? "focus" : FocusFeedSettings.effective(settings).mode;
+      var requestedMode = new URL(location.href).searchParams.get("mode");
+      mode = ["general", "focus"].includes(requestedMode) ? requestedMode : FocusFeedSettings.effective(settings).mode;
       // The editor is still empty: set the initial mode without overwriting its loaded draft.
       editor.set(drafts[mode].topics); $("sessionDuration").value = String(drafts[mode].duration);
       setMode(mode); renderChannels(); refreshFeedStatus(); await loadLearning();

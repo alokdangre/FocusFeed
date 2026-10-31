@@ -10,7 +10,7 @@ async function setup(t, validate) {
   const html = fs.readFileSync(path.join(__dirname, "../popup/popup.html"), "utf8");
   const h = dom(html); t.after(h.cleanup);
   h.load("settings.js");
-  let state = h.context.FocusFeedSettings.migrate({}), data = {};
+  let state = h.context.FocusFeedSettings.migrate({}), data = {}, onChanged;
   const saved = [], requests = [];
   h.context.chrome = { runtime: { lastError: null, getURL: p => "chrome-extension://test/" + p,
     sendMessage(message, callback) {
@@ -32,13 +32,17 @@ async function setup(t, validate) {
     } }, storage: { local: {
       get: async defaults => ({ ...defaults, ...data }),
       set(values, callback) { Object.assign(data, values); if (callback) callback(); return Promise.resolve(); }
-    }, onChanged: { addListener() {} } },
+    }, onChanged: { addListener(fn) { onChanged = fn; } } },
     tabs: { query(_options, callback) { if (callback) callback([]); else return Promise.resolve([]); }, create: async () => {} } };
-  h.load("popup/topic-input.js", "popup/popup.js"); await settle();
+  h.load("preferences-controller.js", "popup/topic-input.js", "popup/popup.js"); await settle();
   const input = h.document.getElementById("objectiveInput");
   const enter = text => { input.value = text; input.dispatchEvent(new h.window.Event("input")); };
   const save = () => h.document.getElementById("saveGoal").click();
-  return { ...h, input, enter, save, saved, requests, feedback: () => h.document.getElementById("profileFeedback").textContent };
+  function remote(profile) {
+    state = h.context.FocusFeedSettings.update(state, { type: "saveProfile", profile });
+    onChanged({ focusfeedSettingsV2: { newValue: state } }, "local");
+  }
+  return { ...h, input, enter, save, saved, requests, remote, feedback: () => h.document.getElementById("profileFeedback").textContent };
 }
 test("comma and newline preferences are validated then saved distinctly in the user's words", async t => {
   const h = await setup(t); h.enter("movie reviews, movie trailers\nSumerian cuneiform tutorials, MOVIE REVIEWS"); h.save(); await settle(); await settle();
@@ -57,6 +61,15 @@ test("an unclear entry blocks saving the entire draft and displays its clarifica
   assert.match(h.document.getElementById("validationResults").textContent, /Nonsense probability: 95.0%/);
   assert.match(h.document.getElementById("validationResults").textContent, /Nonsense probability: 2.0%/);
   h.save(); await settle(); assert.equal(h.saved.length, 0);
+});
+test("YouTube settings changes refresh a clean popup and retain an edited popup draft", async t => {
+  const h = await setup(t); h.enter("Movie reviews"); h.save(); await settle(); await settle();
+  h.remote({ ...h.saved[0], objectives: [accepted("Guitar lessons", 0).validatedObjective] });
+  assert.deepEqual(tags(h), ["Guitar lessons"]);
+  h.enter("Gaming streams");
+  h.remote({ ...h.saved[0], objectives: [accepted("Sports", 0).validatedObjective] });
+  assert.deepEqual(tags(h), ["Guitar lessons"]); assert.equal(h.input.value, "Gaming streams");
+  assert.match(h.feedback(), /draft is preserved/);
 });
 test("broad formats save with their returned percentage; invalid probabilities cannot save", async t => {
   const h = await setup(t);

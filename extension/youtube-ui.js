@@ -14,10 +14,15 @@
     var resolvedChannels = new Map(), resolvingToken = null, failedLookupToken = null;
     var previews = root.FocusFeedPreviewController ? root.FocusFeedPreviewController.create() : null;
     var loading = root.FocusFeedLoadingUI ? root.FocusFeedLoadingUI.create() : null;
+    var topicPicker = root.FocusFeedTopicPicker ? root.FocusFeedTopicPicker.create() : null, pickerRevision = null;
+    var preferences = root.FocusFeedYouTubePreferences ? root.FocusFeedYouTubePreferences.create({
+      reviewHidden: function () { return reviewHidden(true).reviewing; }
+    }) : null;
     var home = root.FocusFeedHomeFeed ? root.FocusFeedHomeFeed.create({
       requestScan: adapter.requestScan,
       retry: function () { return runtime.reload(true); },
       editGoal: async function () {
+        if (preferences && preferences.open("focus")) return;
         var response = await chrome.runtime.sendMessage({ type: "FF_OPEN_PREFERENCES" });
         if (!response || !response.ok) throw new Error("Could not open Focus settings. Open the extension popup to edit your goal.");
       },
@@ -29,8 +34,10 @@
       });
     }
     function configure(state) {
+      if (topicPicker && topicPicker.isOpen() && (state.revision !== pickerRevision || !state.enabled || FocusFeedSettings.effective(state).mode !== "general")) topicPicker.close(false);
       document.documentElement.removeAttribute("data-focusfeed-initializing");
       prefs = state;
+      if (preferences) preferences.configure(state);
       if (!state.enabled || !state.general || FocusFeedSettings.effective(state).mode !== "general") reviewHidden(false);
       configured = true;
       if (previews) previews.configure(state.enabled);
@@ -155,15 +162,19 @@
       }
       if (home && home.render(card, video, action, reason)) return;
       // Hiding a native card does not stop its media, even if CSS removes its pixels.
-      if (action !== "show") card.querySelectorAll("video").forEach(function (v) { if (!v.paused) v.pause(); });
+      if (action !== "show" || ["refreshing", "refresh_retrying", "channel_pending"].includes(reason)) card.querySelectorAll("video").forEach(function (v) { if (!v.paused) v.pause(); });
       function flag(name, value) {
         if (value) { if (card.dataset[name] !== "true") card.dataset[name] = "true"; }
         else if (card.dataset[name]) delete card.dataset[name];
       }
       flag("focusfeedAutoHidden", action === "hide"); flag("focusfeedAutoPending", action === "pending");
-      if (loading) loading.render(card, action);
+      if (loading) loading.render(card, action, reason, function () {
+        var current = metadata.get(card);
+        return current && current.videoId === video.videoId && runtime.retry(video.videoId);
+      });
     }
     function clear(preserveCards) {
+      if (topicPicker) topicPicker.close(false);
       document.documentElement.removeAttribute("data-focusfeed-initializing");
       configured = false;
       if (loading) loading.clear();
@@ -216,6 +227,8 @@
       finally { if (token === menuToken) { resolvingToken = null; decorate(); } }
     }
     function capture(event) {
+      if (topicPicker && topicPicker.contains(event.target)) return;
+      if (topicPicker) topicPicker.close(false);
       if (event.target.closest && event.target.closest("[data-focusfeed-ui], .focusfeed-menu-action, ytd-menu-popup-renderer, yt-sheet-view-model")) return;
       var node = event.target.closest && event.target.closest("ytd-menu-renderer, yt-button-shape, button[aria-haspopup], button[aria-label], yt-icon-button");
       if (!node) { target = null; menuToken++; return; }
@@ -328,58 +341,76 @@
       (menu.querySelector("#items") || menu).appendChild(button); topicActions(menu);
     }
     function topicActions(menu) {
-      if (!prefs || !prefs.enabled || target.playback || typeof FocusFeedLearningPolicy === "undefined" || !FocusFeedLearningPolicy.validTarget(FocusFeedVideo.videoInput(target))) return;
+      if (!topicPicker || !prefs || !prefs.enabled || target.playback || typeof FocusFeedLearningPolicy === "undefined" || !FocusFeedLearningPolicy.validTarget(FocusFeedVideo.videoInput(target))) return;
       var profile = FocusFeedSettings.effective(prefs);
       if (profile.mode !== "general" || !FocusFeedSettings.valid(profile)) return;
       var captured = Object.assign({}, target), owner = menuOwner, token = menuToken, revision = prefs.revision;
-      var collection = captured.collection || captured.itemType === "collection";
       var restoring = document.documentElement.hasAttribute("data-focusfeed-review-hidden");
-      profile.objectives.forEach(function (objective) {
-        var button = document.createElement("button"); button.className = "focusfeed-topic-action"; button.setAttribute("role", "menuitem");
-        button.textContent = (restoring ? "This isn't “" : "Hide as “") + objective.text + "”";
-        button.addEventListener("click", async function (event) {
-          event.preventDefault(); event.stopPropagation();
-          var current = owner && resolveTarget(owner);
-          if (token !== menuToken || revision !== prefs.revision || owner && (!owner.isConnected || !current || current.videoId !== captured.videoId)) {
-            notify("This video or topic changed. Reopen its menu."); return;
-          }
-          button.disabled = true;
-          try {
-            var record = runtime.snapshot().records.find(function (r) { return r.video.videoId === captured.videoId; });
-            var response = await chrome.runtime.sendMessage({ type: "FF_CORRECTION_ADD", revision: revision, video: captured,
-              topicKey: FocusFeedVideo.objectiveKey(objective), match: !restoring, assessment: record && record.assessment });
-            if (!response || !response.ok) throw new Error("Could not save the correction.");
-            await runtime.reload();
-            notify(restoring ? "Saved: this isn't “" + objective.text + "”" : "Hidden as “" + objective.text + "”." + (collection ? " This correction applies only to the collection." : " Checking its channel…"), async function () {
-              var undone = await chrome.runtime.sendMessage({ type: "FF_CORRECTION_UNDO", id: response.data.id });
-              if (!undone || !undone.ok) throw new Error("Could not undo correction.");
-              await runtime.reload();
-            });
-            if (!restoring && !collection) {
-              var feedbackToast = toast;
-              chrome.runtime.sendMessage({ type: "FF_CHANNEL_LEARN", video: captured, revision: revision, triggerId: response.data.id }).then(function (result) {
-                if (toast !== feedbackToast || !toast) return;
-                var label = toast.querySelector("span");
-                if (!result || !result.ok) label.textContent = "Video hidden. Its channel could not be checked yet.";
-                else if (result.data && result.data.blockedTopics && result.data.blockedTopics.includes(objective.text)) label.textContent = "Hidden this channel's recommendations for “" + objective.text + "”.";
-                else if (result.data && result.data.status === "deferred") label.textContent = "Video hidden. Its channel check is deferred.";
-                else label.textContent = "Video hidden. No channel-wide match established.";
-              }).catch(function () { if (toast === feedbackToast && toast) toast.querySelector("span").textContent = "Video hidden. Its channel could not be checked yet."; });
-            }
-            menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-          } catch (error) { button.disabled = false; notify(error.message); }
+      var button = document.createElement("button"); button.type = "button"; button.className = "focusfeed-topic-action";
+      button.setAttribute("role", "menuitem"); button.setAttribute("aria-haspopup", "dialog"); button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", "focusfeed-topic-picker");
+      var label = document.createElement("span"); label.textContent = restoring ? "This isn’t related to…" : "Hide as topic…";
+      var arrow = document.createElement("span"); arrow.className = "focusfeed-topic-arrow"; arrow.textContent = "›"; arrow.setAttribute("aria-hidden", "true");
+      button.append(label, arrow);
+      button.addEventListener("click", function (event) {
+        event.preventDefault(); event.stopPropagation();
+        var current = owner && resolveTarget(owner);
+        if (token !== menuToken || !prefs || revision !== prefs.revision || owner && (!owner.isConnected || !current || current.videoId !== captured.videoId)) {
+          notify("This video or topic changed. Reopen its menu."); return;
+        }
+        pickerRevision = revision;
+        topicPicker.open({
+          anchor: button, title: restoring ? "This isn’t related to…" : "Hide as topic",
+          returnFocus: owner && owner.querySelector("ytd-menu-renderer button, button[aria-haspopup], yt-icon-button"),
+          description: restoring ? "Choose the topic this recommendation does not match." : "Choose which blocked topic this matches.",
+          topics: profile.objectives.map(function (o) { return Object.assign({}, o); }),
+          onSelect: function (objective) { return saveTopicCorrection(menu, captured, owner, token, revision, restoring, objective); }
         });
-        (menu.querySelector("#items") || menu).appendChild(button);
       });
+      (menu.querySelector("#items") || menu).appendChild(button);
+    }
+    async function saveTopicCorrection(menu, captured, owner, token, revision, restoring, objective) {
+      var current = owner && resolveTarget(owner);
+      if (token !== menuToken || !prefs || !prefs.enabled || revision !== prefs.revision ||
+          restoring !== document.documentElement.hasAttribute("data-focusfeed-review-hidden") ||
+          owner && (!owner.isConnected || !current || current.videoId !== captured.videoId) ||
+          !FocusFeedSettings.effective(prefs).objectives.some(function (o) { return FocusFeedVideo.objectiveKey(o) === FocusFeedVideo.objectiveKey(objective); })) {
+        topicPicker.close(false); notify("This video or topic changed. Reopen its menu."); return;
+      }
+      var collection = captured.collection || captured.itemType === "collection";
+      var record = runtime.snapshot().records.find(function (r) { return r.video.videoId === captured.videoId; });
+      var response = await chrome.runtime.sendMessage({ type: "FF_CORRECTION_ADD", revision: revision, video: captured,
+        topicKey: FocusFeedVideo.objectiveKey(objective), match: !restoring, assessment: record && record.assessment });
+      if (!response || !response.ok) throw new Error("Could not save the correction.");
+      await runtime.reload();
+      notify(restoring ? "Saved: this isn't “" + objective.text + "”" : "Hidden as “" + objective.text + "”." + (collection ? " This correction applies only to the collection." : " Checking its channel…"), async function () {
+        var undone = await chrome.runtime.sendMessage({ type: "FF_CORRECTION_UNDO", id: response.data.id });
+        if (!undone || !undone.ok) throw new Error("Could not undo correction.");
+        await runtime.reload();
+      });
+      if (!restoring && !collection) {
+        var feedbackToast = toast;
+        chrome.runtime.sendMessage({ type: "FF_CHANNEL_LEARN", video: captured, revision: revision, triggerId: response.data.id }).then(function (result) {
+          if (toast !== feedbackToast || !toast) return;
+          var label = toast.querySelector("span");
+          if (!result || !result.ok) label.textContent = "Video hidden. Its channel could not be checked yet.";
+          else if (result.data && result.data.blockedTopics && result.data.blockedTopics.includes(objective.text)) label.textContent = "Hidden this channel's recommendations for “" + objective.text + "”.";
+          else if (result.data && result.data.status === "deferred") label.textContent = "Video hidden. Its channel check is deferred.";
+          else label.textContent = "Video hidden. No channel-wide match established.";
+        }).catch(function () { if (toast === feedbackToast && toast) toast.querySelector("span").textContent = "Video hidden. Its channel could not be checked yet."; });
+      }
+      menu.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     }
     document.addEventListener("click", capture, true);
     document.addEventListener("keydown", function (event) {
+      if (topicPicker && topicPicker.contains(event.target)) return;
       if (event.key === "Escape") {
+        if (topicPicker) topicPicker.close(false);
         target = null; menuToken++;
       }
       if (event.key === "Enter" || event.key === " ") capture(event);
     }, true);
-    document.addEventListener("contextmenu", function () { target = null; menuToken++; }, true);
+    document.addEventListener("contextmenu", function () { if (topicPicker) topicPicker.close(false); target = null; menuToken++; }, true);
     document.addEventListener("play", function (event) {
       if (event.target.closest && event.target.closest("[data-focusfeed-playback]")) {
         pausedByUs.add(event.target); event.target.pause();
@@ -390,7 +421,7 @@
       scanHome: function (extract) { return configured && home && home.scan(extract, runtime); },
       manages: function (card) { return home && home.owns(card); },
       currentVideo: currentVideo, decorate: decorate, cards: CARDS, reviewHidden: reviewHidden,
-      stop: function () { clear(); if (loading) loading.stop(); if (home) home.clear(); if (menuObserver) menuObserver.disconnect(); if (previews) previews.stop(); } };
+      stop: function () { clear(); if (preferences) preferences.stop(); if (loading) loading.stop(); if (home) home.clear(); if (menuObserver) menuObserver.disconnect(); if (previews) previews.stop(); } };
   }
   root.FocusFeedYouTubeUI = { create: create, playerCards: PLAYER_CARDS };
 })(globalThis);

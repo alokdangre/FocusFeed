@@ -33,8 +33,8 @@ html[data-focusfeed-review-hidden] [data-focusfeed-auto-hidden="true"][data-focu
 [data-focusfeed-auto-pending="true"]:not(:is(.ytp-videowall-still, .ytp-modern-videowall-still, .ytp-suggestion-link, .ytp-autonav-endscreen-link-container)),
 html[data-focusfeed-initializing] :is(ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-playlist-panel-video-renderer) {
   position: relative !important; pointer-events: none !important; }
-[data-focusfeed-auto-pending="true"] > :not(.focusfeed-card-loading),
-[data-focusfeed-auto-pending="true"] > :not(.focusfeed-card-loading) *,
+[data-focusfeed-auto-pending="true"] > :not(.focusfeed-card-loading):not(.focusfeed-card-status),
+[data-focusfeed-auto-pending="true"] > :not(.focusfeed-card-loading):not(.focusfeed-card-status) *,
 html[data-focusfeed-initializing] :is(ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-playlist-panel-video-renderer, .ytp-videowall-still, .ytp-modern-videowall-still, .ytp-suggestion-link, .ytp-autonav-endscreen-link-container) > * {
   visibility: hidden !important; }
 /* A fallback fills the card until the measured native-card skeleton is painted. */
@@ -42,6 +42,25 @@ html[data-focusfeed-initializing] :is(ytd-rich-item-renderer, yt-lockup-view-mod
 html[data-focusfeed-initializing] :is(ytd-rich-item-renderer, yt-lockup-view-model, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-playlist-video-renderer, ytd-playlist-panel-video-renderer)::before { content: ""; position: absolute; inset: 0; border-radius: 12px;
   background: var(--focusfeed-chip); opacity: .48; pointer-events: none; }
 [data-focusfeed-auto-pending="true"]:has(> .focusfeed-card-loading)::before { content: none; }
+[data-focusfeed-check-status]:not(:is(.ytp-videowall-still, .ytp-modern-videowall-still, .ytp-suggestion-link, .ytp-autonav-endscreen-link-container)) { position: relative !important; }
+[data-focusfeed-refreshing="true"] > :not(.focusfeed-card-status) { opacity: .48; transition: opacity 120ms cubic-bezier(.23, 1, .32, 1); }
+.focusfeed-card-status { position: absolute; top: 0; left: 0; width: 100%; height: 60%; z-index: 3;
+  display: flex; align-items: flex-end; box-sizing: border-box; padding: 10px; pointer-events: none; visibility: visible; }
+.focusfeed-status-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; max-width: 100%; box-sizing: border-box;
+  padding: 7px 10px; border: 1px solid var(--focusfeed-border); border-radius: 9px; background: var(--focusfeed-panel);
+  color: var(--focusfeed-text); box-shadow: 0 2px 8px #0002; font: 500 12px/18px Roboto, Arial, sans-serif; }
+.focusfeed-status-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focusfeed-status-mark { flex: 0 0 12px; width: 12px; height: 12px; box-sizing: border-box; border: 1.5px solid var(--focusfeed-border);
+  border-top-color: var(--focusfeed-action); border-right-color: var(--focusfeed-action); border-radius: 50%; animation: focusfeed-status-spin .8s linear infinite; }
+[data-focusfeed-check-status="failed"] .focusfeed-status-mark { animation: none; border-color: var(--focusfeed-secondary); position: relative; }
+[data-focusfeed-check-status="failed"] .focusfeed-status-mark::after { content: "!"; position: absolute; inset: -3px 0 0; text-align: center; font-size: 10px; color: var(--focusfeed-secondary); }
+.focusfeed-status-retry { flex: 0 0 auto; min-width: 44px; margin: -7px -10px -7px 0; padding: 8px 10px; border: 0; border-left: 1px solid var(--focusfeed-border);
+  border-radius: 0 9px 9px 0; background: transparent; color: var(--focusfeed-action); font: inherit; cursor: pointer; pointer-events: auto; }
+.focusfeed-status-retry:hover { background: var(--focusfeed-chip); }
+.focusfeed-status-retry:focus-visible { outline: 2px solid var(--focusfeed-action); outline-offset: -3px; }
+.focusfeed-status-retry:disabled { opacity: .5; cursor: wait; }
+@keyframes focusfeed-status-spin { to { transform: rotate(360deg); } }
+@media (pointer: coarse) { .focusfeed-status-retry { min-height: 44px; } }
 .focusfeed-card-loading { position: absolute; inset: 0; overflow: hidden; pointer-events: none; visibility: visible;
   animation: focusfeed-skeleton-pulse 1.8s ease-in-out infinite; }
 .focusfeed-loading-shape { position: absolute; display: block; overflow: hidden; background: var(--focusfeed-skeleton-text); border-radius: 3px; }
@@ -66,6 +85,8 @@ html[data-focusfeed-initializing] :is(ytd-rich-item-renderer, yt-lockup-view-mod
 @keyframes focusfeed-skeleton-pulse { 0%, 100% { opacity: .95; } 50% { opacity: .6; } }
 @keyframes focusfeed-card-reveal { from { opacity: .55; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
+  .focusfeed-status-mark { animation: none; }
+  [data-focusfeed-refreshing="true"] > :not(.focusfeed-card-status) { transition: none; }
   .focusfeed-card-loading, .focusfeed-thumbnail-loading::after,
   .focusfeed-progress-mark::after, [data-focusfeed-reveal="true"] { animation: none; }
   .focusfeed-thumbnail-loading::after { opacity: 0; }
@@ -108,6 +129,34 @@ html[data-focusfeed-hide-shorts] ytd-reel-item-renderer { display: none !importa
   outline: 2px solid var(--focusfeed-action); outline-offset: -3px;
 }
 .focusfeed-menu-action:disabled, .focusfeed-topic-action:disabled, .focusfeed-collection-action:disabled { opacity: .55; cursor: default; }
+.focusfeed-topic-arrow { margin-inline-start: auto; font-size: 22px; color: var(--focusfeed-secondary); }
+.focusfeed-topic-picker { position: fixed; inset: auto; margin: 0; z-index: 220001; width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px); box-sizing: border-box; padding: 16px; overflow: auto;
+  border: 1px solid var(--focusfeed-border); border-radius: 14px; background: var(--focusfeed-panel); color: var(--focusfeed-text);
+  box-shadow: 0 8px 28px #0003; font: 14px/20px Roboto, Arial, sans-serif; }
+.focusfeed-topic-picker:not([open]) { display: none; }
+.focusfeed-topic-picker { color-scheme: light; }
+html[dark] .focusfeed-topic-picker { color-scheme: dark; }
+.focusfeed-topic-picker::backdrop { background: transparent; }
+.focusfeed-topic-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.focusfeed-topic-picker h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.focusfeed-topic-picker p { margin: 6px 0 14px; color: var(--focusfeed-secondary); font: inherit; }
+.focusfeed-topic-picker-close { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--focusfeed-secondary); font: 24px/1 Arial, sans-serif; cursor: pointer; }
+.focusfeed-topic-picker-search { display: block; width: 100%; min-height: 40px; box-sizing: border-box; padding: 9px 12px;
+  border: 1px solid var(--focusfeed-border); border-radius: 8px; background: var(--focusfeed-panel); color: var(--focusfeed-text); font: inherit; }
+.focusfeed-topic-picker-search::placeholder { color: var(--focusfeed-secondary); }
+.focusfeed-topic-picker-count { margin: 12px 4px 6px; color: var(--focusfeed-secondary); font-size: 12px; line-height: 18px; }
+.focusfeed-topic-picker-list { max-height: 220px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.focusfeed-topic-choice { display: block; width: 100%; min-height: 44px; box-sizing: border-box; padding: 12px; text-align: start;
+  overflow-wrap: anywhere; white-space: normal; border: 0; border-radius: 8px; background: transparent; color: var(--focusfeed-text); font: inherit; cursor: pointer; }
+.focusfeed-topic-choice:hover, .focusfeed-topic-picker-close:hover { background: var(--focusfeed-hover); }
+.focusfeed-topic-choice:focus-visible, .focusfeed-topic-picker-close:focus-visible { outline: 2px solid var(--focusfeed-action); outline-offset: -2px; }
+.focusfeed-topic-picker-search:focus { outline: 2px solid var(--focusfeed-action); outline-offset: 1px; }
+.focusfeed-topic-choice:disabled, .focusfeed-topic-picker-search:disabled { opacity: .55; cursor: wait; }
+.focusfeed-topic-picker .focusfeed-topic-picker-empty { margin: 0; padding: 16px 12px; }
+.focusfeed-topic-picker .focusfeed-topic-picker-error { margin: 12px 4px 0; }
+@media (pointer: coarse) { .focusfeed-topic-picker-close { min-width: 44px; min-height: 44px; } }
 .focusfeed-review-banner { position: fixed; z-index: 220000; top: 64px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; box-sizing: border-box; max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 8px; background: var(--focusfeed-panel); color: var(--focusfeed-text); box-shadow: 0 2px 12px #0003; font: 14px system-ui; }
 .focusfeed-review-banner button { border: 0; border-radius: 16px; padding: 6px 12px; background: var(--focusfeed-chip); color: var(--focusfeed-action); cursor: pointer; }
 .focusfeed-toast { position: fixed; z-index: 220000; bottom: 28px; left: 24px; max-width: min(440px, calc(100vw - 48px));

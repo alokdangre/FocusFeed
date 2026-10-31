@@ -272,8 +272,9 @@ test("the manifest's complete content pipeline renders a stable filtered Home an
   h.window.dispatchEvent(new h.window.Event("pagehide"));
 });
 
-test("a custom Focus goal survives Home discovery and filters native search results", async t => {
-  const h = dom(homePage(Array.from({ length: 80 }, (_, i) => videoCard("home" + i)).join(""))); t.after(h.cleanup);
+for (const hasHeader of [true, false]) test("a custom Focus goal survives Home discovery and filters native search results (header: " + hasHeader + ")", async t => {
+  const masthead = hasHeader ? '<ytd-masthead><div id="end"><div id="buttons"></div></div></ytd-masthead>' : "";
+  const h = dom(masthead + homePage(Array.from({ length: 80 }, (_, i) => videoCard("home" + i)).join(""))); t.after(h.cleanup);
   const objective = { id: "intent-dsa", text: "DSA tutorials", sourceText: "DSA tutorials", contentType: "topic",
     matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
   const prefs = { focusfeedSettingsV2: { schemaVersion: 2, revision: 1, enabled: true,
@@ -299,7 +300,13 @@ test("a custom Focus goal survives Home discovery and filters native search resu
   assert.equal(h.document.querySelector(".focusfeed-more"), null);
   assert.equal(calls.filter(c => c.type === "FF_AUTO_CLASSIFY").length, 4);
   await sleep(350); assert.equal(calls.filter(c => c.type === "FF_AUTO_CLASSIFY").length, 4);
-  discovery.querySelector("button").click(); await settle(); assert.ok(calls.some(c => c.type === "FF_OPEN_PREFERENCES"));
+  discovery.querySelector("button").click(); await settle();
+  assert.equal(discovery.hasAttribute("open"), false, "dismiss the modal before opening the settings panel");
+  if (hasHeader) {
+    assert.equal(h.document.querySelector("#focusfeed-preferences").hidden, false);
+    assert.equal(h.document.querySelector('#focusfeed-preferences [data-mode="focus"]').getAttribute("aria-pressed"), "true");
+    assert.equal(calls.some(c => c.type === "FF_OPEN_PREFERENCES"), false, "editing stays on YouTube");
+  } else assert.ok(calls.some(c => c.type === "FF_OPEN_PREFERENCES"), "missing header retains the extension-page fallback");
   const destination = discovery.querySelector("a").getAttribute("href");
   h.window.dispatchEvent(new h.window.Event("yt-navigate-start"));
   h.location.href = new URL(destination, h.location).href;

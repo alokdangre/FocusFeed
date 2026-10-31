@@ -3,7 +3,7 @@ const test = require("node:test"), assert = require("node:assert/strict");
 require("../video-model.js"); require("../channel-policy.js"); require("../settings.js"); require("../score-cache.js"); require("../auto-runtime.js");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function until(predicate) {
-  const deadline = performance.now() + 2500;
+  const deadline = performance.now() + 5000;
   while (!predicate() && performance.now() < deadline) await sleep(10);
   assert.ok(predicate(), "classification did not settle");
 }

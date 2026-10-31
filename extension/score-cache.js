@@ -3,6 +3,7 @@
   "use strict";
   function create(dispatch, options) {
     options = options || {};
+    function monotonic() { return root.performance && root.performance.now ? root.performance.now() : Date.now(); }
     var cache = new Map(), flights = new Map(), subscribers = new Map(), ledger = [], jobs = new Map();
     var epoch = 0, serial = 0, saveTimer, storage = options.storage, storageKey = "focusfeedScoresV1", ledgerBytes = 0;
     var metrics = { httpAttempts: 0, httpCompleted: 0, httpFailed: 0, auxiliaryHttpAttempts: 0, localHits: 0, sharedPairs: 0, providerCalls: 0, providerQuestions: 0, cacheHits: 0, inputTokens: 0, outputTokens: 0, ledgerDropped: 0 };
@@ -62,7 +63,7 @@
       if (!queue.length) return;
       var first = queue[0], selected = [], videos = new Set();
       var available = new Set(queue.filter(function (f) { return f.scope === first.scope; }).map(function (f) { return f.video.videoId; })).size;
-      var wait = Math.max(first.queuedAt + fillDelay, refillAt) - Date.now();
+      var wait = Math.max(first.queuedAt + fillDelay, refillAt) - monotonic();
       if (available < 20 && wait > 0) {
         pumpTimer = setTimeout(function () { pumpTimer = null; pump(); }, wait); return;
       }
@@ -120,14 +121,14 @@
       }).catch(function (error) {
         log({ requestId: id, status: "rejected", code: error.code || "dispatch_error" });
         selected.forEach(function (f) { drop(f, error); });
-      }).finally(function () { jobs.delete(id); active = false; refillAt = Date.now() + fillDelay; schedule(); });
+      }).finally(function () { jobs.delete(id); active = false; refillAt = monotonic() + fillDelay; schedule(); });
     }
     function pair(sub, video, objective) {
       var k = key(sub.namespace, video, objective, sub.request.profile.mode), flight = flights.get(k);
       sub.keys.add(k);
       if (flight) { metrics.sharedPairs++; return flight.promise.then(function (value) { return Object.assign({}, value, { source: "shared" }); }); }
       flight = { key: k, video: video, objective: objective, profile: sub.request.profile, endpoint: sub.request.endpoint,
-        namespace: sub.namespace, run: epoch, queuedAt: Date.now(),
+        namespace: sub.namespace, run: epoch, queuedAt: monotonic(),
         scope: JSON.stringify([sub.namespace, sub.request.profile.mode, FocusFeedVideo.profileKey(sub.request.profile)]) };
       flight.promise = new Promise(function (resolve, reject) { flight.resolve = resolve; flight.reject = reject; });
       flights.set(k, flight); queue.push(flight); schedule(); return flight.promise;

@@ -42,7 +42,7 @@ async function setup(t, pathname = "/results", mode = "general") {
       if (message.type === "FF_CHANNEL_LEARN") return { ok: true, data: message.triggerId ? await service.learn(message.video, FocusFeedSettings.effective(data.focusfeedSettingsV2), message.triggerId) : { status: "cached" } };
       if (message.type === "FF_AUTO_CLASSIFY") return { ok: true, data: { ok: true, data: { assessments: message.request.videos.map(video => ({
         videoId: video.videoId, reason: "fixture", outcome: modelMatch ? "match" : "no_match",
-        objectiveMatches: [{ objectiveId: topic.id, text: topic.text, contentType: "topic", matchProbability: modelMatch ? .95 : .05 }]
+        objectiveMatches: message.request.profile.objectives.map(o => ({ objectiveId: o.id, text: o.text, contentType: "topic", matchProbability: modelMatch ? .95 : .05 }))
       })) } } };
       return { ok: true };
     }
@@ -58,8 +58,10 @@ async function setup(t, pathname = "/results", mode = "general") {
 for (const pathname of ["/results", "/"]) test("correction hides immediately, learns the channel across cards, and Undo restores: " + pathname, async t => {
   const h = await setup(t, pathname);
   assert.equal(h.cards[0].dataset.focusfeedAutoHidden, undefined); await h.open();
-  const button = h.document.querySelector(".focusfeed-topic-action"); assert.match(button.textContent, /Hide as.*Movie reviews/);
-  button.click(); await tick(); await tick();
+  const button = h.document.querySelector(".focusfeed-topic-action"); assert.match(button.textContent, /Hide as topic/);
+  button.click();
+  assert.equal(h.messages.some(m => m.type === "FF_CORRECTION_ADD"), false, "opening the picker does not label the video");
+  h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await tick();
   assert.equal(h.cards[0].dataset.focusfeedAutoHidden, "true", "correction applies before channel inference finishes");
   assert.equal(h.cards[1].dataset.focusfeedAutoHidden, undefined);
   await h.release();
@@ -70,11 +72,12 @@ for (const pathname of ["/results", "/"]) test("correction hides immediately, le
   assert.equal(h.messages.filter(m => m.type === "FF_AUTO_CLASSIFY").length, requests, "Undo reuses the original raw scores");
 });
 test("review mode offers the reverse correction and restores a video despite its channel rule", async t => {
-  const h = await setup(t); await h.open(); h.document.querySelector(".focusfeed-topic-action").click(); await tick(); await h.release();
+  const h = await setup(t); await h.open(); h.document.querySelector(".focusfeed-topic-action").click();
+  h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await h.release();
   const listener = h.contentMessages.find(fn => { let found = false; fn({ type: "FF_REVIEW_HIDDEN" }, {}, result => { found = !!result.reviewing; }); return found; });
   assert.ok(listener); assert.equal(h.document.documentElement.hasAttribute("data-focusfeed-review-hidden"), true);
-  await h.open(); const restore = h.document.querySelector(".focusfeed-topic-action"); assert.match(restore.textContent, /This isn't/);
-  restore.click(); await tick(); await tick();
+  await h.open(); const restore = h.document.querySelector(".focusfeed-topic-action"); assert.match(restore.textContent, /This isn.t/);
+  restore.click(); h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await tick();
   assert.equal(h.cards[0].dataset.focusfeedAutoHidden, undefined); assert.equal(h.cards[1].dataset.focusfeedAutoHidden, "true");
   h.document.querySelector(".focusfeed-review-banner button").click(); assert.equal(h.document.documentElement.hasAttribute("data-focusfeed-review-hidden"), false);
 });
@@ -87,4 +90,38 @@ test("a recycled card's old feedback action cannot label its replacement", async
 test("Focus does not expose General correction actions", async t => {
   const h = await setup(t, "/results", "focus"); await h.open();
   assert.equal(h.document.querySelector(".focusfeed-topic-action"), null);
+});
+test("many preferences expose one menu entry and search selects only the requested topic", async t => {
+  const h = await setup(t);
+  const topics = [topic, ...Array.from({ length: 7 }, (_, i) => ({ ...topic, id: "intent-" + i, text: "Topic " + i }))];
+  h.data.focusfeedSettingsV2.general.objectives = topics; h.data.focusfeedSettingsV2.revision++;
+  await h.storage.set({ focusfeedSettingsV2: h.data.focusfeedSettingsV2 }); await tick();
+  const deadline = performance.now() + 3000;
+  while ((!h.messages.some(m => m.type === "FF_AUTO_CLASSIFY" && m.request.profile.objectives.length === 8) ||
+      h.cards[0].hasAttribute("data-focusfeed-refreshing")) && performance.now() < deadline) await sleep(10);
+  await h.open();
+  assert.equal(h.document.querySelectorAll(".focusfeed-topic-action").length, 1);
+  const count = h.messages.length; h.document.querySelector(".focusfeed-topic-action").click();
+  assert.equal(h.messages.length, count, "opening the picker is local");
+  const search = h.document.querySelector(".focusfeed-topic-picker-search"); search.value = "Topic 6"; search.dispatchEvent(new h.window.Event("input"));
+  assert.equal(h.document.querySelectorAll(".focusfeed-topic-choice").length, 1);
+  assert.equal(h.messages.length, count, "searching is local");
+  h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await tick();
+  assert.equal(h.data.focusfeedCorrectionsV1.items[0].topic, "Topic 6");
+  assert.equal(h.document.querySelector(".focusfeed-topic-picker"), null);
+  await h.release();
+});
+test("recycling the card after opening the picker cannot label the replacement", async t => {
+  const h = await setup(t); await h.open(); h.document.querySelector(".focusfeed-topic-action").click();
+  h.cards[0].querySelector("#video-title-link").setAttribute("href", "/watch?v=zyxwvutsrqp");
+  h.document.querySelector(".focusfeed-topic-choice").click(); await tick();
+  assert.equal(h.messages.some(m => m.type === "FF_CORRECTION_ADD"), false);
+  assert.match(h.document.querySelector(".focusfeed-toast").textContent, /changed/);
+});
+test("changing preferences dismisses the picker and old rows cannot save feedback", async t => {
+  const h = await setup(t); await h.open(); h.document.querySelector(".focusfeed-topic-action").click();
+  const old = h.document.querySelector(".focusfeed-topic-choice");
+  h.data.focusfeedSettingsV2.revision++; await h.storage.set({ focusfeedSettingsV2: h.data.focusfeedSettingsV2 }); await tick(); await tick();
+  assert.equal(h.document.querySelector(".focusfeed-topic-picker"), null);
+  old.click(); await tick(); assert.equal(h.messages.some(m => m.type === "FF_CORRECTION_ADD"), false);
 });

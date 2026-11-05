@@ -1,0 +1,14 @@
+{
+  "name": "ownfeed-landing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build-site.mjs && cf build",
+    "deploy": "cf deploy --prebuilt"
+  },
+  "devDependencies": {
+    "cf": "1.0.0-beta.27",
+    "@cloudflare/vite-plugin": "2.0.0-beta.v.11",
+    "vite": "8.3.6"
+  }
+}

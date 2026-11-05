@@ -1,0 +1,4 @@
+[data-focusfeed-display-hidden] { display: none !important; }
+html[data-focusfeed-hide-header] ytd-app { --ytd-masthead-height: 0px; }
+/* Keep settings reachable when the native header is hidden. */
+.focusfeed-header-button[data-floating] { position: fixed; top: 12px; right: 12px; z-index: 2201; margin: 0; box-shadow: 0 2px 8px #0003; }

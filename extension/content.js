@@ -9,7 +9,7 @@
   // --- State ---
   var feedItemsReceived = 0;
   var liveFeed = null;
-  var PREFERENCE_KEYS = ["classifierEndpoint", "focusfeedSettingsV2", "focusfeedCacheEpochV1", "focusFeedChannelBlocksV1", "focusfeedChannelProfilesV1", "focusfeedCorrectionsV1"];
+  var PREFERENCE_KEYS = ["classifierEndpoint", "focusfeedAccountV1", "focusfeedSettingsV2", "focusfeedCacheEpochV1", "focusFeedChannelBlocksV1", "focusfeedChannelProfilesV1", "focusfeedCorrectionsV1"];
   chrome.storage.onChanged.addListener(function (changes, areaName) {
     if (areaName === "local" && PREFERENCE_KEYS.some(function (key) { return !!changes[key]; }) && liveFeed) {
       liveFeed.preferencesChanged(Boolean(changes.focusfeedCacheEpochV1)).catch(function (error) {
@@ -407,11 +407,12 @@
   }
 
   function scanCards() {
+    youtubeUI.scanDisplay();
     youtubeUI.scanHome(extractCardMetadata);
     // One surface list owns scanning and native-menu context alike.
     var cards = document.querySelectorAll(youtubeUI.cards);
     for (var i = 0; i < cards.length; i++) {
-      if (!youtubeUI.manages(cards[i])) processCard(cards[i]);
+      if (!youtubeUI.displayHidden(cards[i]) && !youtubeUI.manages(cards[i])) processCard(cards[i]);
     }
     var playing = youtubeUI.currentVideo();
     if (playing && liveFeed) liveFeed.observe(playing.card, playing.video);
@@ -608,12 +609,19 @@
     })) requestScan();
   });
   var tickInterval = null;
+  var accountCheckedAt = 0;
+  function refreshAccount() {
+    if (Date.now() - accountCheckedAt < 30000) return;
+    accountCheckedAt = Date.now();
+    chrome.runtime.sendMessage({ type: "FF_ACCOUNT_STATUS" }).catch(function () {});
+  }
   function startObservation() {
     metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true,
-      attributes: true, attributeFilter: ["href", "title", "is-active", "video-id", "hidden"] });
-    if (!tickInterval) tickInterval = setInterval(function () { if (!document.hidden) liveFeed.tick(); }, 2000);
+      attributes: true, attributeFilter: ["href", "title", "is-active", "video-id", "hidden", "aria-checked"] });
+    if (!tickInterval) tickInterval = setInterval(function () { if (!document.hidden) { refreshAccount(); liveFeed.tick(); } }, 2000);
   }
   startObservation();
+  refreshAccount();
   window.addEventListener("yt-navigate-start", function () { liveFeed.navigate(true); });
   window.addEventListener("yt-navigate-finish", function () { liveFeed.navigate(false); requestScan(); });
   window.addEventListener("popstate", function () { liveFeed.navigate(false); requestScan(); });

@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "FocusFeed",
-  "version": "0.24.0",
+  "name": "OwnFeed",
+  "version": "0.28.0",
   "description": "Always-on YouTube topic filtering and channel blocking, with an optional Focus timer.",
   "permissions": [
     "storage",
+    "identity",
     "activeTab"
   ],
   "host_permissions": [
@@ -42,8 +43,10 @@
         "loading-ui.js",
         "topic-picker.js",
         "preferences-controller.js",
+        "display-settings.js",
         "popup/topic-input.js",
         "youtube-preferences.js",
+        "youtube-display.js",
         "youtube-ui.js",
         "content.js"
       ],
@@ -51,13 +54,15 @@
       "run_at": "document_start",
       "css": [
         "youtube.css",
-        "youtube-preferences.css"
+        "youtube-preferences.css",
+        "display-settings.css",
+        "youtube-display.css"
       ]
     }
   ],
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "FocusFeed"
+    "default_title": "OwnFeed"
   },
   "optional_host_permissions": [
     "https://*/*"

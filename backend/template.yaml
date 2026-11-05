@@ -3,12 +3,51 @@ Transform: AWS::Serverless-2016-10-31
 Description: FocusFeed TypeSafe Jev objective and video classification API
 
 Parameters:
+  ExtensionId:
+    Type: String
+    AllowedPattern: "[a-p]{32}"
+    Description: Chrome extension ID for this environment (unpacked ID for staging).
+  AuthDomainPrefix:
+    Type: String
+    AllowedPattern: "[a-z0-9][a-z0-9-]{0,61}[a-z0-9]"
+    Description: Globally unique Cognito hosted login domain prefix.
   TypeSafeApiKey:
     Type: String
     NoEcho: true
   TypeSafeModel:
     Type: String
     Default: jev-1.13.0
+  EnableBilling:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "false"
+  DodoEnvironment:
+    Type: String
+    AllowedValues: [test_mode, live_mode]
+    Default: test_mode
+  DodoApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+  DodoWebhookSecret:
+    Type: String
+    NoEcho: true
+    Default: ""
+  DodoBusinessId:
+    Type: String
+    Default: ""
+    AllowedPattern: "[A-Za-z0-9_-]*"
+  DodoProProductId:
+    Type: String
+    Default: ""
+    AllowedPattern: "[A-Za-z0-9_-]*"
+  DodoLegacyProductIds:
+    Type: String
+    Default: ""
+    Description: Previously sold Pro product IDs, comma separated, to preserve existing subscriptions.
+
+Conditions:
+  BillingEnabled: !Equals [!Ref EnableBilling, "true"]
 
 Globals:
   Function:
@@ -20,19 +59,169 @@ Globals:
     Tracing: Active
     Environment:
       Variables:
-        TYPESAFE_API_KEY: !Ref TypeSafeApiKey
         TYPESAFE_MODEL: !Ref TypeSafeModel
+        FOCUSFEED_BILLING_MODE: !If [BillingEnabled, !Ref DodoEnvironment, disabled]
 
 Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  ApiScopes:
+    Type: AWS::Cognito::UserPoolResourceServer
+    Properties:
+      UserPoolId: !Ref UserPool
+      Identifier: focusfeed
+      Name: FocusFeed API
+      Scopes:
+        - ScopeName: ai
+          ScopeDescription: Access your FocusFeed account and authorized AI operations
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: ApiScopes
+    Properties:
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, "focusfeed/ai"]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs:
+        - !Sub https://${ExtensionId}.chromiumapp.org/callback
+      LogoutURLs:
+        - !Sub https://${ExtensionId}.chromiumapp.org/logout
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref AuthDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  AccessTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  UserDataTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+
+  ConfigTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  JobTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+
   FocusFeedApi:
     Type: AWS::Serverless::HttpApi
     Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      Auth:
+        DefaultAuthorizer: AccountAuthorizer
+        Authorizers:
+          AccountAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            AuthorizationScopes: ["focusfeed/ai"]
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+              audience: [!Ref UserPoolClient]
       CorsConfiguration:
         AllowOrigins:
-          - "*"
+          - !Sub chrome-extension://${ExtensionId}
         AllowHeaders:
           - content-type
           - x-request-id
+          - authorization
         AllowMethods:
           - GET
           - POST
@@ -40,16 +229,65 @@ Resources:
 
   ClassifierFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       CodeUri: .
       Handler: handler.lambda_handler
+      Environment:
+        Variables:
+          FOCUSFEED_AUTH_MODE: required
+          FOCUSFEED_AUTH_ISSUER: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+          FOCUSFEED_AUTH_CLIENT_ID: !Ref UserPoolClient
+          FOCUSFEED_AUTH_DOMAIN: !Sub https://${AuthDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+          FOCUSFEED_USER_TABLE: !Ref UserDataTable
+          FOCUSFEED_ACCESS_TABLE: !Ref AccessTable
+          FOCUSFEED_CONFIG_TABLE: !Ref ConfigTable
+          FOCUSFEED_JOB_TABLE: !Ref JobTable
+          FOCUSFEED_ALLOWED_ORIGIN: !Sub chrome-extension://${ExtensionId}
+          FOCUSFEED_BILLING_ENABLED: !Ref EnableBilling
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserDataTable
+        # No entitlement writes in the application role. Only the separately
+        # authorized operator (and Stage 3 billing worker) can grant/revoke access.
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt AccessTable.Arn
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt ConfigTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Resource: !GetAtt JobTable.Arn
       Events:
+        JobStatus:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /jobs/{jobId}
+            Method: GET
         Health:
           Type: HttpApi
           Properties:
             ApiId: !Ref FocusFeedApi
             Path: /health
             Method: GET
+            Auth:
+              Authorizer: NONE
+        Account:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /account
+            Method: GET
+        SignOut:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /account/logout
+            Method: POST
         ObjectiveClassify:
           Type: HttpApi
           Properties:
@@ -75,7 +313,357 @@ Resources:
             Path: /classify
             Method: POST
 
+  JobWorkerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: .
+      Handler: jobs.worker_handler
+      Timeout: 240
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          TYPESAFE_API_KEY: !Ref TypeSafeApiKey
+          TYPESAFE_TIMEOUT_SECONDS: "90"
+          FOCUSFEED_USER_TABLE: !Ref UserDataTable
+          FOCUSFEED_ACCESS_TABLE: !Ref AccessTable
+          FOCUSFEED_CONFIG_TABLE: !Ref ConfigTable
+          FOCUSFEED_JOB_TABLE: !Ref JobTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserDataTable
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt AccessTable.Arn
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt ConfigTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem]
+              Resource: !GetAtt JobTable.Arn
+      Events:
+        Jobs:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt JobTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            ParallelizationFactor: 5
+            MaximumRetryAttempts: 2
+            MaximumRecordAgeInSeconds: 600
+            FunctionResponseTypes: [ReportBatchItemFailures]
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName":["INSERT"]}'
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ClassifierFunction}
+      RetentionInDays: 7
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${JobWorkerFunction}
+      RetentionInDays: 7
+
+  WorkerDelayAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: AI jobs are waiting too long; inspect worker throttling/errors before raising concurrency.
+      Namespace: AWS/Lambda
+      MetricName: IteratorAge
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref JobWorkerFunction
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 120000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  BillingTable:
+    Type: AWS::DynamoDB::Table
+    Condition: BillingEnabled
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: reconcileGroup
+          AttributeType: S
+        - AttributeName: reconcileAt
+          AttributeType: N
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ReconcileIndex
+          KeySchema:
+            - AttributeName: reconcileGroup
+              KeyType: HASH
+            - AttributeName: reconcileAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: KEYS_ONLY
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: KEYS_ONLY
+
+  BillingApiFunction:
+    Type: AWS::Serverless::Function
+    Condition: BillingEnabled
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: .
+      Handler: billing.lambda_handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          FOCUSFEED_AUTH_MODE: required
+          FOCUSFEED_AUTH_ISSUER: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+          FOCUSFEED_AUTH_CLIENT_ID: !Ref UserPoolClient
+          FOCUSFEED_AUTH_DOMAIN: !Sub https://${AuthDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+          FOCUSFEED_USER_TABLE: !Ref UserDataTable
+          FOCUSFEED_BILLING_TABLE: !Ref BillingTable
+          FOCUSFEED_ALLOWED_ORIGIN: !Sub chrome-extension://${ExtensionId}
+          DODO_ENVIRONMENT: !Ref DodoEnvironment
+          DODO_API_KEY: !Ref DodoApiKey
+          DODO_BUSINESS_ID: !Ref DodoBusinessId
+          DODO_PRO_PRODUCT_ID: !Ref DodoProProductId
+          DODO_LEGACY_PRODUCT_IDS: !Ref DodoLegacyProductIds
+          DODO_RETURN_URL: !Sub https://${FocusFeedApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/billing/return
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:GetItem
+              Resource: !GetAtt UserDataTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
+              Resource: !GetAtt BillingTable.Arn
+      Events:
+        Status:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/status
+            Method: GET
+        Checkout:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/checkout
+            Method: POST
+        Portal:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/portal
+            Method: POST
+        Refresh:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/refresh
+            Method: POST
+        ReturnPage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/return
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  BillingWebhookFunction:
+    Type: AWS::Serverless::Function
+    Condition: BillingEnabled
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: .
+      Handler: billing.lambda_handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          FOCUSFEED_BILLING_TABLE: !Ref BillingTable
+          DODO_ENVIRONMENT: !Ref DodoEnvironment
+          DODO_BUSINESS_ID: !Ref DodoBusinessId
+          DODO_PRO_PRODUCT_ID: !Ref DodoProProductId
+          DODO_LEGACY_PRODUCT_IDS: !Ref DodoLegacyProductIds
+          DODO_WEBHOOK_SECRET: !Ref DodoWebhookSecret
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt BillingTable.Arn
+      Events:
+        Webhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FocusFeedApi
+            Path: /billing/webhook
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  BillingDeadLetters:
+    Type: AWS::SQS::Queue
+    Condition: BillingEnabled
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  BillingWorkerFunction:
+    Type: AWS::Serverless::Function
+    Condition: BillingEnabled
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      CodeUri: .
+      Handler: billing_worker.lambda_handler
+      MemorySize: 256
+      Timeout: 90
+      Environment:
+        Variables:
+          FOCUSFEED_BILLING_TABLE: !Ref BillingTable
+          FOCUSFEED_ACCESS_TABLE: !Ref AccessTable
+          DODO_ENVIRONMENT: !Ref DodoEnvironment
+          DODO_API_KEY: !Ref DodoApiKey
+          DODO_BUSINESS_ID: !Ref DodoBusinessId
+          DODO_PRO_PRODUCT_ID: !Ref DodoProProductId
+          DODO_LEGACY_PRODUCT_IDS: !Ref DodoLegacyProductIds
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Resource: !GetAtt AccessTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:Query]
+              Resource:
+                - !GetAtt BillingTable.Arn
+                - !Sub ${BillingTable.Arn}/index/ReconcileIndex
+      Events:
+        Inbox:
+          Type: DynamoDB
+          Properties:
+            Stream: !GetAtt BillingTable.StreamArn
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 1
+            ParallelizationFactor: 5
+            MaximumRetryAttempts: 20
+            MaximumRecordAgeInSeconds: 86400
+            FunctionResponseTypes: [ReportBatchItemFailures]
+            FilterCriteria:
+              Filters:
+                - Pattern: '{"eventName":["INSERT"],"dynamodb":{"Keys":{"sk":{"S":["EVENT"]}}}}'
+            DestinationConfig:
+              OnFailure:
+                Type: SQS
+                Destination: !GetAtt BillingDeadLetters.Arn
+        Reconcile:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Description: Reconcile due accounts against current Dodo payment state.
+
+  BillingApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: BillingEnabled
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${BillingApiFunction}
+      RetentionInDays: 7
+
+  BillingWebhookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: BillingEnabled
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${BillingWebhookFunction}
+      RetentionInDays: 7
+
+  BillingWorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: BillingEnabled
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${BillingWorkerFunction}
+      RetentionInDays: 7
+
+  BillingFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: BillingEnabled
+    Properties:
+      AlarmDescription: Failed billing events need replay and investigation before access becomes stale.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt BillingDeadLetters.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  BillingWorkerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: BillingEnabled
+    Properties:
+      AlarmDescription: Scheduled billing reconciliation is failing; check before 24-hour verification freshness expires.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BillingWorkerFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
 Outputs:
+  BillingTableName:
+    Condition: BillingEnabled
+    Value: !Ref BillingTable
+  DodoWebhookUrl:
+    Condition: BillingEnabled
+    Value: !Sub https://${FocusFeedApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/billing/webhook
+  ConfigTableName:
+    Description: Operator-managed policy. Application and worker have read-only access.
+    Value: !Ref ConfigTable
+  JobTableName:
+    Value: !Ref JobTable
+  UserPoolId:
+    Value: !Ref UserPool
+  AuthIssuer:
+    Value: !Sub https://cognito-idp.${AWS::Region}.${AWS::URLSuffix}/${UserPool}
+  AuthClientId:
+    Value: !Ref UserPoolClient
+  AuthDomain:
+    Value: !Sub https://${AuthDomainPrefix}.auth.${AWS::Region}.amazoncognito.com
+  AccessTableName:
+    Description: Operator-only subscription access records. Do not grant application write access.
+    Value: !Ref AccessTable
+  UserDataTableName:
+    Value: !Ref UserDataTable
   ApiUrl:
     Description: FocusFeed classification API base URL
     Value: !Sub https://${FocusFeedApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}

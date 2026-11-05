@@ -18,8 +18,11 @@ try:
     )
     from .models import ClassificationRequest, ObjectiveClassificationRequest
     from .taxonomy import TAXONOMY_VERSION
-    from .video_cache import default_cache
     from .channel_classifier import ChannelClassificationRequest, classify_channel, CHANNEL_PROMPT_VERSION
+    from .auth import AccessError, authenticate, auth_config
+    from .accounts import account, require_premium, require_session, revoke_session
+    from .user_cache import scoped_cache
+    from . import jobs
 except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     from classifier import (  # type: ignore[no-redef]
         TypeSafeAPIError,
@@ -32,8 +35,11 @@ except ImportError:  # Lambda loads modules from CodeUri as top-level modules.
     )
     from models import ClassificationRequest, ObjectiveClassificationRequest  # type: ignore[no-redef]
     from taxonomy import TAXONOMY_VERSION  # type: ignore[no-redef]
-    from video_cache import default_cache  # type: ignore[no-redef]
     from channel_classifier import ChannelClassificationRequest, classify_channel, CHANNEL_PROMPT_VERSION
+    from auth import AccessError, authenticate, auth_config
+    from accounts import account, require_premium, require_session, revoke_session
+    from user_cache import scoped_cache
+    import jobs
 
 
 logger = logging.getLogger(__name__)
@@ -87,17 +93,22 @@ def classifier_failure(exc: Exception) -> tuple[str, str]:
 
 
 def response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
-    return {
+    result = {
         "statusCode": status_code,
         "headers": {
             "content-type": "application/json; charset=utf-8",
-            "access-control-allow-origin": "*",
-            "access-control-allow-headers": "content-type,x-request-id",
+            "access-control-allow-headers": "content-type,x-request-id,authorization",
             "access-control-allow-methods": "GET,POST,OPTIONS",
             "cache-control": "no-store",
         },
         "body": json.dumps(body, separators=(",", ":")),
     }
+    if os.getenv("FOCUSFEED_ALLOWED_ORIGIN"):
+        result["headers"]["access-control-allow-origin"] = os.environ["FOCUSFEED_ALLOWED_ORIGIN"]
+        result["headers"]["vary"] = "Origin"
+    if status_code == 401:
+        result["headers"]["www-authenticate"] = "Bearer"
+    return result
 
 
 def event_method(event: dict[str, Any]) -> str:
@@ -126,6 +137,12 @@ def validated_request(event: dict[str, Any], model: type) -> Any:
     return model.model_validate(json.loads(body))
 
 
+def classification_routes():
+    return {"/channels/classify": (ChannelClassificationRequest, classify_channel),
+            "/objectives/classify": (ObjectiveClassificationRequest, classify_objectives),
+            "/classify": (ClassificationRequest, classify_videos)}
+
+
 def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     method = event_method(event)
     path = event_path(event)
@@ -133,7 +150,7 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
     if method == "OPTIONS":
         return response(204, {})
 
-    if method == "GET" and path.endswith("/health"):
+    if method == "GET" and path == "/health":
         try:
             model = configured_model()
         except TypeSafeConfigurationError as exc:
@@ -141,6 +158,10 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 503,
                 {"error": {"code": "typesafe_configuration_error", "message": str(exc)}},
             )
+        try:
+            authentication = auth_config()
+        except AccessError:
+            authentication = {"mode": "required", "configured": False}
         return response(
             200,
             {
@@ -152,31 +173,41 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
                 "objectivePromptVersion": classifier_version("objective"),
                 "channelPromptVersion": CHANNEL_PROMPT_VERSION,
                 "taxonomyVersion": TAXONOMY_VERSION,
-                "configured": bool(os.getenv("TYPESAFE_API_KEY", "").strip()),
+                "configured": bool(os.getenv("TYPESAFE_API_KEY", "").strip() or os.getenv("FOCUSFEED_JOB_TABLE")),
+                "auth": authentication,
+                "jobs": {"version": 1} if authentication.get("mode") == "required" else None,
+                "billing": {"provider": "dodo", "enabled": os.getenv("FOCUSFEED_BILLING_ENABLED") == "true"},
             },
         )
 
-    if method == "POST" and path.endswith("/cache/clear"):
+    routes = classification_routes()
+    polling = method == "GET" and path.startswith("/jobs/")
+    if not (method == "POST" and path in {*routes, "/cache/clear", "/account/logout"} or method == "GET" and path == "/account" or polling):
+        return response(404, {"error": {"code": "not_found", "message": "Route not found."}})
+    try:
+        principal = authenticate(event)
+        require_session(principal)
+        if path == "/account/logout":
+            revoke_session(principal)
+            return response(200, {"signedOut": True})
+        if path == "/account":
+            return response(200, account(principal))
+        if path != "/cache/clear":
+            require_premium(principal)
+        if polling:
+            return response(200, jobs.poll(principal, path[len("/jobs/"):]))
+    except AccessError as exc:
+        return response(exc.status, {"error": {"code": exc.code, "message": str(exc)}})
+
+    if path == "/cache/clear":
         try:
-            default_cache().clear()
+            scoped_cache(principal).clear()
             return response(200, {"cleared": True})
         except Exception as exc:
             logger.warning("Could not clear the judgment cache: %s", type(exc).__name__)
             return response(503, {"error": {"code": "cache_unavailable", "message": "Could not clear the server cache."}})
 
-    request_model: type
-    classify: Any
-    if method == "POST" and path.endswith("/channels/classify"):
-        request_model = ChannelClassificationRequest
-        classify = classify_channel
-    elif method == "POST" and path.endswith("/objectives/classify"):
-        request_model = ObjectiveClassificationRequest
-        classify = classify_objectives
-    elif method == "POST" and path.endswith("/classify"):
-        request_model = ClassificationRequest
-        classify = classify_videos
-    else:
-        return response(404, {"error": {"code": "not_found", "message": "Route not found."}})
+    request_model, classify = routes[path]
 
     try:
         request = validated_request(event, request_model)
@@ -196,7 +227,11 @@ def lambda_handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
         )
 
     try:
-        result = classify(request)
+        if not principal.local:
+            return response(202, jobs.submit(principal, path, request))
+        result = classify(request, cache=scoped_cache(principal)) if path == "/classify" else classify(request)
+    except AccessError as exc:
+        return response(exc.status, {"error": {"code": exc.code, "message": str(exc)}})
     except Exception as exc:
         if isinstance(exc, (TypeSafeAPIError, TypeSafeConfigurationError, TypeSafeResponseError)):
             logger.warning(

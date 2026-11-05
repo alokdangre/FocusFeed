@@ -23,6 +23,10 @@ def evaluator(dominant=.98):
 
 
 class ChannelTests(unittest.TestCase):
+    def setUp(self):
+        local = patch.dict(os.environ, {"FOCUSFEED_AUTH_MODE": "local", "AWS_LAMBDA_FUNCTION_NAME": ""})
+        local.start(); self.addCleanup(local.stop)
+
     def test_dominant_pattern_can_block_channel_despite_occasional_exception(self):
         request = ChannelClassificationRequest.model_validate(payload())
         sent = build_channel_request(request)
@@ -68,7 +72,7 @@ class ChannelTests(unittest.TestCase):
                 classify_channel(ChannelClassificationRequest.model_validate(payload()), evaluator(bad))
 
     def test_channel_route_is_validated_and_distinct_from_video_route(self):
-        event = {"rawPath": "/channels/classify", "requestContext": {"http": {"method": "POST"}}, "body": json.dumps(payload())}
+        event = {"_focusfeed_local_request": True, "rawPath": "/channels/classify", "requestContext": {"http": {"method": "POST"}}, "body": json.dumps(payload())}
         result = classify_channel(ChannelClassificationRequest.model_validate(payload()), evaluator())
         with patch.object(handler, "classify_channel", return_value=result) as classify, patch.object(handler, "classify_videos") as video:
             response = handler.lambda_handler(event, None)

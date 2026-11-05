@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $# -gt 1 || ($# -eq 1 && "$1" != "--local") ]]; then
+  echo "Usage: bash backend/run_local.sh [--local]" >&2
+  exit 2
+fi
+
 backend_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "${backend_dir}/.." && pwd)"
 env_file="${backend_dir}/.env"
@@ -11,6 +16,12 @@ if [[ -f "${env_file}" ]]; then
   # shellcheck disable=SC1090
   source "${env_file}"
   set +a
+fi
+
+# Deliberate developer opt-in, after loading .env. The server binds loopback and
+# auth.py independently rejects this mode in every Lambda environment.
+if [[ "${1:-}" == "--local" ]]; then
+  export FOCUSFEED_AUTH_MODE=local
 fi
 
 if [[ ! -x "${python_bin}" ]]; then

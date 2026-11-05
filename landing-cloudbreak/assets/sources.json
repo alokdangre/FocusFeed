@@ -1,0 +1,14 @@
+{
+  "hero": "Original AI-generated Cloudbreak image from hero-explorations",
+  "footer": "Original AI-generated Last Light image from hero-explorations/footer-options/02-last-light.webp",
+  "fonts": {
+    "instrument-serif": "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap",
+    "dm-sans": "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
+  },
+  "illustrative_thumbnails": {
+    "guitar": "https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=640&q=85&fit=crop",
+    "space": "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=640&q=85&fit=crop",
+    "bread": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=640&q=85&fit=crop",
+    "cinema": "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=640&q=85&fit=crop"
+  }
+}

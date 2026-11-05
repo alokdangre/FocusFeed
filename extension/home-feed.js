@@ -9,7 +9,7 @@
     var goalKey = "", scheduled = false, epoch = 0, waiting = false, waitTimer, continuationAttempts = 0;
     var halted = false, announced = false, dialog = null, status = null, retryButton = null, extractVideo, refreshing = null;
     function profile() { return prefs && root.FocusFeedSettings && FocusFeedSettings.effective(prefs); }
-    function focus() { var p = profile(); return !!(prefs && prefs.enabled && p && p.mode === "focus" && FocusFeedSettings.valid(p)); }
+    function focus() { var p = profile(); return !!(prefs && prefs.enabled && prefs.aiAccess !== false && !prefs.hideHomeFeed && p && p.mode === "focus" && FocusFeedSettings.valid(p)); }
     function post(type, extra) { window.postMessage(Object.assign({ type: type }, extra), location.origin); }
     function askScan() { if (options.requestScan) options.requestScan(); }
     function closeDialog() {
@@ -79,6 +79,7 @@
         if (!actual || actual.videoId !== entry.video.videoId) entry.card = null;
       });
       source.querySelectorAll(SELECTORS).forEach(function (card) {
+        if (card.closest('[data-focusfeed-display-hidden]')) return;
         var video = extract(card);
         if (!video) return;
         if (!video.videoId || !video.title || !card.querySelector('a[href*="/watch?v="], a[href*="/shorts/"], a[href*="/playlist?"]')) return;

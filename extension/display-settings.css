@@ -1,0 +1,19 @@
+/* Shared controls inherit each settings surface's existing colors and type. */
+.focusfeed-display-settings { border-top: 1px solid var(--ff-divider, var(--line)); }
+.focusfeed-display-settings > summary { padding: 14px 0; cursor: pointer; font-size: 13px; font-weight: 600; }
+.focusfeed-display-note { margin: 0 0 8px; color: var(--ff-muted, var(--muted)); font-size: 11px; line-height: 1.5; }
+.focusfeed-display-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 48px; padding: 8px 0; cursor: pointer; }
+.focusfeed-display-row[data-child] { margin-inline-start: 16px; }
+.focusfeed-display-row > span { min-width: 0; }
+.focusfeed-display-row strong { display: block; font-size: 12px; font-weight: 500; }
+.focusfeed-display-row small { display: block; margin-top: 2px; color: var(--ff-muted, var(--muted)); font-size: 11px; line-height: 1.4; }
+.focusfeed-display-row input { appearance: none; flex: 0 0 32px; width: 32px; height: 18px; padding: 0; margin: 0; border: 1px solid var(--ff-muted, var(--muted)); border-radius: 10px; background: var(--ff-chip, var(--canvas)); cursor: pointer; }
+.focusfeed-display-row input::before { content: ""; display: block; width: 12px; height: 12px; margin: 2px; border-radius: 50%; background: var(--ff-muted, var(--muted)); }
+.focusfeed-display-row input:checked { background: var(--ff-action, var(--accent)); border-color: var(--ff-action, var(--accent)); }
+.focusfeed-display-row input:checked::before { transform: translateX(14px); background: var(--ff-surface, var(--surface)); }
+.focusfeed-display-row input:focus-visible { outline: 2px solid var(--ff-action, var(--accent)); outline-offset: 3px; }
+.focusfeed-display-row input:disabled { opacity: .45; cursor: default; }
+@media (forced-colors: active) {
+  .focusfeed-display-row input { appearance: auto; }
+  .focusfeed-display-row input::before { display: none; }
+}

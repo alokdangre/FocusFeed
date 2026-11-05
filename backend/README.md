@@ -1,6 +1,12 @@
-# FocusFeed TypeSafe Jev backend
+# OwnFeed TypeSafe Jev backend
 
 The backend validates user-defined content preferences, then classifies YouTube metadata against their exact wording. `TYPESAFE_API_KEY` stays on the server and is never stored in the extension. See [specific preferences and Focus discovery](../docs/INTENT_AND_FOCUS.md) for the current flow and browser checks.
+
+Stage 1 now requires Cognito access tokens and active server-side Pro access on all
+three AI routes. A signed-in free account receives `403 subscription_required`;
+missing/invalid sessions receive `401`. `/account` and user-scoped cache clearing
+require a session but not Pro. See [accounts and access](../docs/ACCOUNTS_AND_ACCESS.md)
+for deployment, sign-in, session revocation, and temporary operator grants.
 
 ## Current Jev design
 
@@ -58,10 +64,14 @@ TYPESAFE_TIMEOUT_SECONDS=20
 Start the API:
 
 ```bash
-bash backend/run_local.sh
+bash backend/run_local.sh --local
 ```
 
 The default base URL is `http://127.0.0.1:3000`.
+`--local` is an explicit development exception for the loopback server and your
+own API key. Without it, authentication defaults to required. Lambda rejects
+local mode. For an existing autostart unit, set `FOCUSFEED_AUTH_MODE=local` in your
+gitignored local `.env` only if you want the same loopback development exception.
 
 ## Endpoints
 
@@ -160,9 +170,13 @@ TTL: 5 minutes for live/premiere videos or scores between 0.1 and 0.7; otherwise
 expiry. The cache holds at most 10,000 score pairs, storing hashes/probabilities/
 timestamps, without raw video metadata. It defaults to
 `backend/.cache/judgments.sqlite3`; see `.env.example` for overrides or disabling it.
-Local cache persistence is across restarts; Lambda `/tmp` is per environment only.
+Local cache persistence is across restarts. Hosted requests use user-scoped
+DynamoDB judgments instead of Lambda `/tmp`; their generation is stored durably.
 
-`POST /cache/clear` clears this database. The extension's **Refresh video decisions**
+`POST /cache/clear` requires authentication and invalidates only the verified
+user's cache generation. Old hashed DynamoDB entries expire through TTL; a late
+response can only write its old generation. Locally the user's SQLite cache is
+cleared. The extension's **Refresh video decisions**
 button clears it together with local decisions and validation diagnostics and preserves preferences
 and blocks. Old in-flight requests cannot refill a cleared generation. Cache
 storage failure falls back to a provider call; clear failure is reported explicitly.
@@ -189,14 +203,33 @@ python3 -m unittest discover -s backend/tests -v
 
 ## SAM blueprint
 
-`template.yaml` defines API Gateway routes for health, objective validation, video classification, and cache clearing plus one Python 3.12 Lambda. It deploys nothing until `sam deploy` runs.
+`template.yaml` defines Cognito verified-email sign-up, a public PKCE app client,
+JWT-authorized API routes, and separate DynamoDB account-data/access tables. The
+application role has read-only access to subscription entitlements. It deploys
+nothing until `sam deploy` runs. Build inside the matching Lambda container for
+ARM64 dependencies; the Makefile packages an explicit runtime whitelist so local
+`.env`, virtual environments, tests and the operator tool are excluded.
 
 ```bash
-sam build --template-file backend/template.yaml
-sam deploy --guided
+sam build --use-container --template-file backend/template.yaml
+sam deploy --guided --template-file .aws-sam/build/template.yaml
 ```
 
-The guided deployment asks for `TypeSafeApiKey` and `TypeSafeModel`. `NoEcho` masks the key in normal CloudFormation output. Before public deployment, use managed secrets, authenticated clients, per-user quotas, restricted CORS, logs with redaction, and a retention policy.
+Deploy the built template, not the source directory. Guided deployment asks for
+`ExtensionId`, a unique `AuthDomainPrefix`, `TypeSafeApiKey` and `TypeSafeModel`.
+`NoEcho` masks the key in normal CloudFormation output. Provider secrets still
+use Lambda environment configuration at this stage. Managed-secret rotation,
+payment webhooks and production release checks remain later work; this is not
+authorization to launch the public API. [Stage 2](../docs/USAGE_AND_JOBS.md) adds
+atomic usage/spending limits, operator-editable policy, and durable jobs. Hosted
+classification returns 202; poll `/jobs/{jobId}` for the original result. The
+provider key is present only in the private worker, not the HTTP API function.
+
+[Dodo billing](../docs/DODO_BILLING.md) is implemented behind `EnableBilling=false`
+by default. Its authenticated checkout/portal routes, signature-verified durable
+webhook inbox and private reconciliation worker use a separate billing table.
+Only that private worker can write payment-derived entitlements. Configure test
+mode and run the documented real provider/browser checks before live sales.
 
 ## Start automatically at login (Linux)
 

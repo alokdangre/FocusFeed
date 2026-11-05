@@ -28,6 +28,7 @@ def event(method: str, path: str, body: str = "", encoded: bool = False) -> dict
     if encoded:
         body = base64.b64encode(body.encode()).decode()
     return {
+        "_focusfeed_local_request": True,
         "rawPath": path,
         "requestContext": {"http": {"method": method}},
         "body": body,
@@ -36,6 +37,11 @@ def event(method: str, path: str, body: str = "", encoded: bool = False) -> dict
 
 
 class HandlerTests(unittest.TestCase):
+    def setUp(self):
+        local = patch.dict(os.environ, {"FOCUSFEED_AUTH_MODE": "local", "AWS_LAMBDA_FUNCTION_NAME": ""})
+        local.start()
+        self.addCleanup(local.stop)
+
     def test_health_does_not_invoke_jev_and_reports_both_contracts(self) -> None:
         with patch.dict(os.environ, {"TYPESAFE_API_KEY": "test-key"}, clear=True):
             result = handler.lambda_handler(event("GET", "/health"), None)
@@ -49,7 +55,7 @@ class HandlerTests(unittest.TestCase):
         self.assertTrue(body["configured"])
 
     def test_cache_clear_does_not_invoke_jev(self) -> None:
-        with patch.object(handler, "default_cache") as store, patch.object(handler, "classify_videos") as classify:
+        with patch.object(handler, "scoped_cache") as store, patch.object(handler, "classify_videos") as classify:
             result = handler.lambda_handler(event("POST", "/cache/clear"), None)
         self.assertEqual(result["statusCode"], 200)
         self.assertEqual(json.loads(result["body"]), {"cleared": True})

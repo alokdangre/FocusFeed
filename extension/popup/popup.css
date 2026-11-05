@@ -28,6 +28,10 @@ main { padding: 0 24px; }
 .status-line { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; margin: 0 0 17px; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
 .status-dot[data-active="true"] { background: var(--accent); box-shadow: 0 0 0 3px var(--tint); }
+.account-section { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.account-section > strong { font-size: 12px; font-weight: 600; }
+.account-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+.account-actions .button { min-height: 32px; padding: 5px 10px; font-size: 11px; }
 .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--canvas); }
 .mode-switch button { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 550; font-size: 12px; transition: background-color 150ms, color 150ms; }
 .mode-switch button[aria-pressed="true"] { color: var(--accent); background: var(--surface); box-shadow: 0 1px 3px #203a2410; }

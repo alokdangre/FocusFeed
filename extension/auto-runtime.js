@@ -12,6 +12,13 @@
     var metrics = { requests: 0, cacheHits: 0, shared: 0, providerCalls: 0, providerQuestions: 0, inputTokens: 0, outputTokens: 0 };
     var displayed = new Map(), completed = new WeakMap(), facts = new Map();
     var judgmentKey = null, transportKey = null, activityScheduled = false;
+    var account = null, accountEndpoint = "http://127.0.0.1:3000";
+    function aiAllowed() {
+      var local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/.test(accountEndpoint);
+      if (!account || account.endpoint !== accountEndpoint) return local;
+      if (account.mode === "local") return local;
+      return account.mode === "required" && account.premium === true && account.validUntil > Date.now();
+    }
     var learning = typeof FocusFeedLearningPolicy !== "undefined" ? FocusFeedLearningPolicy : null;
     var corrections = learning ? learning.empty() : null, channelProfiles = [], endpoint = "", investigations = new Map();
     function profile() { return state && FocusFeedSettings.effective(state); }
@@ -43,7 +50,7 @@
       var key = JSON.stringify([video.channelId, endpoint, FocusFeedVideo.profileKey(profile())]);
       var existing = investigations.get(key);
       if (existing && existing.until > Date.now()) return existing.pending;
-      var token = { until: Date.now() + 90000, pending: true };
+      var token = { until: Date.now() + 680000, pending: true };
       investigations.set(key, token);
       if (investigations.size > 200) investigations.delete(investigations.keys().next().value);
       api.runtime.sendMessage({ type: "FF_CHANNEL_LEARN", video: video, revision: state.revision }).catch(function () {}).finally(function () {
@@ -80,13 +87,17 @@
       }
       if (stopped || serial !== reloadSerial) return;
       var next = FocusFeedSettings.migrate(prefs);
+      account = prefs.focusfeedAccountV1;
+      accountEndpoint = (prefs.classifierEndpoint || "http://127.0.0.1:3000").replace(/\/+$/, "");
+      next.aiAccess = aiAllowed();
       var nextProfile = FocusFeedSettings.effective(next);
-      var nextTransport = JSON.stringify([prefs.classifierEndpoint || "", prefs.focusfeedCacheEpochV1 || 0]);
+      var nextTransport = JSON.stringify([prefs.classifierEndpoint || "", prefs.focusfeedCacheEpochV1 || 0,
+        account && account.userId || "local-developer", next.aiAccess]);
       var preserveCompleted = !!(state && transportKey === nextTransport && resetMetrics !== true);
       // Explicit blocks and Shorts visibility are local policy. Keep topic scores
       // and active requests when those change; invalidate only their actual inputs.
       var nextKey = JSON.stringify([FocusFeedVideo.profileKey(FocusFeedSettings.effective(next)), prefs.classifierEndpoint || "",
-        prefs.focusfeedCacheEpochV1 || 0]);
+        prefs.focusfeedCacheEpochV1 || 0, account && account.userId || "local-developer", next.aiAccess]);
       if (nextKey !== judgmentKey || resetMetrics === true) { cancel(true, preserveCompleted); retryAt = 0; judgmentKey = nextKey; }
       else if (!next.enabled) cancel(false);
       transportKey = nextTransport;
@@ -100,7 +111,7 @@
       if (FocusFeedSettings.focusActive(state) && state.focusSession.endsAt) {
         expiryTimer = setTimeout(function () { reload().catch(function () { setStatus("Could not reload settings"); }); }, Math.max(1, Date.parse(state.focusSession.endsAt) - Date.now() + 20));
       }
-      setStatus(!state.enabled ? "Paused" : FocusFeedSettings.valid(profile()) ?
+      setStatus(!state.enabled ? "Paused" : !next.aiAccess ? "AI filtering requires active Pro access · layout controls remain active" : FocusFeedSettings.valid(profile()) ?
         (mode === "focus" ? "Focus active" : "General active") : "Channel blocks active · confirm topics for AI filtering");
       if (adapter.configure) adapter.configure(state);
       if (!suspended) adapter.scan();
@@ -130,7 +141,6 @@
       cards.set(card, video);
       if (cards.size > 1000) cards.delete(cards.keys().next().value);
       if (!state.enabled) { render(card, video, "show"); return; }
-      if (rawVideo.collection && !video.collectionId) { render(card, video, FocusFeedVideo.uncertaintyAction(mode), "collection_unknown"); return; }
       if (state.hideShorts && video.isShort) { render(card, video, "hide", "shorts_block"); return; }
       var block = FocusFeedChannelPolicy.matchingBlock(blocks, video, profile());
       if (block) { render(card, video, "hide", "channel_block"); return; }
@@ -138,6 +148,8 @@
       // Topic policy filters recommendations. Opening a video is an explicit choice,
       // including direct links and autoplay; never start a second semantic playback gate.
       if (rawVideo.playback) { render(card, video, "show", "user_playback"); return; }
+      if (!aiAllowed()) { render(card, video, "show", "account_required"); return; }
+      if (rawVideo.collection && !video.collectionId) { render(card, video, FocusFeedVideo.uncertaintyAction(mode), "collection_unknown"); return; }
       if (!video.videoId || !FocusFeedSettings.valid(profile())) { render(card, video, "show"); return; }
       var local = learning && learning.action(corrections, channelProfiles, video, profile(), endpoint);
       if (local) {
@@ -297,7 +309,7 @@
       adapter.scan();
     }
     async function pump() {
-      if (!capacity() || stopped || suspended || !state || !state.enabled) return;
+      if (!capacity() || stopped || suspended || !state || !state.enabled || !aiAllowed()) return;
       var queued = Array.from(records.values()).filter(function (r) { return r.status === "queued"; });
       if (queued.length && monotonic() < admissionTime(queued)) { schedule(); return; }
       var batch = Array.from(records.values()).filter(function (r) { return r.status === "queued" && r.readyAt <= monotonic(); })
@@ -314,10 +326,12 @@
         var response = await Promise.race([
           api.runtime.sendMessage({ type: "FF_AUTO_CLASSIFY", revision: state.revision,
             request: FocusFeedVideo.cloudRequest({ requestId: job.id, profile: requestProfile, videos: batch.map(function (r) { return r.video; }) }) }),
-          new Promise(function (_resolve, reject) { timeout = setTimeout(function () { reject(new Error("Classifier timed out")); }, 90000); })
+          new Promise(function (_resolve, reject) { timeout = setTimeout(function () { reject(new Error("Classifier timed out")); }, 680000); })
         ]);
         if (run !== generation || stopped) return;
-        if (!response || !response.ok || !response.data || !response.data.ok) throw new Error(response && response.error && response.error.message || "Backend unavailable");
+        if (!response || !response.ok || !response.data || !response.data.ok) throw Object.assign(
+          new Error(response && response.error && response.error.message || "Backend unavailable"),
+          { code: response && response.error && response.error.code });
         var result = response.data.data;
         var assessments = result.assessments;
         if (!Array.isArray(assessments) || assessments.length !== batch.length) throw new Error("Incomplete classifier response");
@@ -354,7 +368,8 @@
           r.status = "error"; r.retryAt = r.attempts > retryDelays.length ? Infinity : monotonic() + retryDelays[r.attempts - 1];
         } });
         armRetry();
-        setStatus("Backend unavailable · channel blocks remain active");
+        var limited = ["usage_limit", "request_limit", "concurrent_limit", "ai_paused"].includes(error.code);
+        setStatus(limited ? error.message : "Backend unavailable · channel blocks remain active");
       } finally {
         clearTimeout(timeout);
         current.delete(job.id);
@@ -390,6 +405,7 @@
         hidden: Array.from(cards.keys()).filter(function (c) { return c.dataset.focusfeedAutoHidden === "true"; }).length };
     }
     function tick() {
+      if (state && state.aiAccess !== aiAllowed()) { reload(); return; }
       if (state && profile().mode !== mode) { reload(); return; }
       if (!suspended && !stopped) rescan();
     }

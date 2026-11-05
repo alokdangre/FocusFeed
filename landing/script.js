@@ -1,213 +1,216 @@
-/**
- * FocusFeed Landing Page Interactive Script
- */
+'use strict';
 
-document.addEventListener('DOMContentLoaded', () => {
-  initNavbarScroll();
-  initSimulator();
+const topicButtons = [...document.querySelectorAll('[data-topic]')];
+const videoCards = [...document.querySelectorAll('[data-category]')];
+const feedButtons = [...document.querySelectorAll('[data-feed-state]')];
+const state = { feed: 'after', mode: 'general', topics: new Set(['movie-reviews', 'celebrity-gossip']) };
+const timer = { duration: 25 * 60, remaining: 25 * 60, running: false, active: false, endAt: 0, interval: null };
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const feedGrid = document.querySelector('#video-grid');
+
+function renderFeed(animate = true) {
+  const canAnimate = animate && !reducedMotion.matches && typeof feedGrid.animate === 'function';
+  const previous = new Map();
+  let previousHeight = 0;
+  if (canAnimate) {
+    for (const card of videoCards) {
+      card.getAnimations().forEach((animation) => animation.cancel());
+      if (!card.hidden) previous.set(card, card.getBoundingClientRect());
+    }
+    feedGrid.getAnimations().forEach((animation) => animation.cancel());
+    previousHeight = feedGrid.getBoundingClientRect().height;
+  }
+  const filtered = state.feed === 'after';
+  const focusing = state.mode === 'focus';
+  let hidden = 0;
+  for (const card of videoCards) {
+    card.hidden = filtered && (focusing ? card.dataset.category !== 'guitar' : state.topics.has(card.dataset.category));
+    if (card.hidden) hidden++;
+  }
+  for (const button of feedButtons) button.setAttribute('aria-pressed', String(button.dataset.feedState === state.feed));
+  for (const button of topicButtons) {
+    const selected = state.topics.has(button.dataset.topic);
+    button.setAttribute('aria-pressed', String(selected));
+    button.querySelector('span').textContent = selected ? '×' : '+';
+  }
+  document.querySelector('.topic-controls').hidden = focusing;
+  document.querySelector('.focus-topic').hidden = !focusing;
+  document.querySelector('#filter-label').textContent = focusing ? 'Here to learn' : 'Topics to hide';
+  document.querySelector('#filter-status').textContent = !filtered ? 'Your feed, before filtering' : focusing ? '1 video for your focus' : `${hidden} distraction${hidden === 1 ? '' : 's'} cleared`;
+  if (canAnimate) {
+    const nextHeight = feedGrid.getBoundingClientRect().height;
+    if (Math.abs(previousHeight - nextHeight) > 1) {
+      feedGrid.animate([{ height: `${previousHeight}px` }, { height: `${nextHeight}px` }], { duration: 320, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    }
+    for (const card of videoCards) {
+      if (card.hidden) continue;
+      const before = previous.get(card);
+      const after = card.getBoundingClientRect();
+      const x = before ? before.left - after.left : 0;
+      const y = before ? before.top - after.top : 8;
+      if (!before || Math.abs(x) > 1 || Math.abs(y) > 1) {
+        card.animate([{ transform: `translate(${x}px, ${y}px)`, opacity: before ? 1 : 0 }, { transform: 'translate(0, 0)', opacity: 1 }], { duration: 320, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+      }
+    }
+  }
+}
+
+for (const button of feedButtons) button.addEventListener('click', () => { state.feed = button.dataset.feedState; renderFeed(); });
+for (const button of topicButtons) button.addEventListener('click', () => {
+  const topic = button.dataset.topic;
+  if (state.topics.has(topic)) state.topics.delete(topic); else state.topics.add(topic);
+  renderFeed();
 });
 
-function initNavbarScroll() {
-  const header = document.getElementById('mainHeader');
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 40) {
-      header.classList.add('py-3');
-      header.classList.remove('py-4');
-      header.style.background = 'rgba(6, 7, 9, 0.88)';
-      header.style.borderBottomColor = 'rgba(255, 255, 255, 0.1)';
-    } else {
-      header.classList.add('py-4');
-      header.classList.remove('py-3');
-      header.style.background = 'rgba(6, 7, 9, 0.65)';
-      header.style.borderBottomColor = 'rgba(255, 255, 255, 0.05)';
-    }
-  });
+function renderTimer() {
+  const seconds = Math.max(0, timer.remaining);
+  const minutes = Math.floor(seconds / 60);
+  document.querySelector('#timer').textContent = `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  document.querySelector('#focus-button-label').textContent = timer.running ? 'Pause focus' : timer.active ? 'Resume focus' : 'Start focus';
+  document.querySelector('#focus-end').hidden = !timer.active;
 }
 
-/**
- * Feed Simulator Data & Logic
- */
-const mockFeed = [
-  {
-    id: 1,
-    title: "Why You Can't Stop Watching: The Dark Psychology of Dopamine Loops",
-    channel: "Veritasium Minds",
-    duration: "24:18",
-    views: "1.8M views",
-    topics: ["Psychology", "Deep Work", "Neuroscience"],
-    type: "signal",
-    gradient: "from-indigo-900 to-slate-900"
-  },
-  {
-    id: 2,
-    title: "10 CELEBRITY DRAMAS THAT WENT TOO FAR!! (SHOCKING EVIDENCE)",
-    channel: "TeaTime Reacts",
-    duration: "11:02",
-    views: "4.2M views",
-    topics: ["Celebrity Gossip", "Drama", "Reaction"],
-    type: "noise",
-    gradient: "from-red-900 to-amber-900"
-  },
-  {
-    id: 3,
-    title: "Building a Fault-Tolerant Distributed Consensus Engine in Rust",
-    channel: "Jon Gjengset Deep Dives",
-    duration: "1:42:05",
-    views: "210K views",
-    topics: ["Rust Architecture", "Distributed Systems", "Software Engineering"],
-    type: "focus",
-    gradient: "from-amber-950 to-stone-900"
-  },
-  {
-    id: 4,
-    title: "I SPENT 100 HOURS IN A GIANT BURGER PIT TO WIN $50,000",
-    channel: "HypeBeast Vlogs",
-    duration: "14:50",
-    views: "8.9M views",
-    topics: ["Sensational", "Entertainment", "Stunts"],
-    type: "noise",
-    gradient: "from-fuchsia-950 to-pink-900"
-  },
-  {
-    id: 5,
-    title: "Denis Villeneuve Analyzes the Visual Geometry of Dune Part Two",
-    channel: "Vanity Cinema",
-    duration: "18:40",
-    views: "940K views",
-    topics: ["Cinematography 35mm", "Film Analysis", "Art Direction"],
-    type: "signal",
-    gradient: "from-slate-900 to-amber-950"
-  },
-  {
-    id: 6,
-    title: "High-Performance Concurrency Patterns with Async Rust Channels",
-    channel: "Systems Architect Pro",
-    duration: "38:12",
-    views: "85K views",
-    topics: ["Rust Architecture", "Async Concurrency", "Performance"],
-    type: "focus",
-    gradient: "from-amber-900/60 to-black"
-  }
-];
-
-let currentMode = 'focus'; // 'chaos' | 'general' | 'focus'
-
-function initSimulator() {
-  const chaosBtn = document.getElementById('simChaosBtn');
-  const generalBtn = document.getElementById('simGeneralBtn');
-  const focusBtn = document.getElementById('simFocusBtn');
-
-  if (!chaosBtn || !generalBtn || !focusBtn) return;
-
-  chaosBtn.addEventListener('click', () => setSimulatorMode('chaos'));
-  generalBtn.addEventListener('click', () => setSimulatorMode('general'));
-  focusBtn.addEventListener('click', () => setSimulatorMode('focus'));
-
+function endFocus(message = 'Session ended. The example feed is back in General mode.') {
+  clearInterval(timer.interval);
+  timer.interval = null;
+  timer.running = false;
+  timer.active = false;
+  timer.remaining = timer.duration;
+  state.mode = 'general';
+  renderTimer();
   renderFeed();
+  document.querySelector('#focus-note').textContent = message;
 }
 
-function setSimulatorMode(mode) {
-  currentMode = mode;
-  
-  const chaosBtn = document.getElementById('simChaosBtn');
-  const generalBtn = document.getElementById('simGeneralBtn');
-  const focusBtn = document.getElementById('simFocusBtn');
-  const badge = document.getElementById('simFocusFeedBadge');
-  const badgeLabel = document.getElementById('simBadgeLabel');
-  const blockedCount = document.getElementById('simBlockedCount');
-
-  // Reset button states
-  [chaosBtn, generalBtn, focusBtn].forEach(btn => {
-    btn.className = "px-6 py-2.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-all";
-  });
-
-  if (mode === 'chaos') {
-    chaosBtn.className = "px-6 py-2.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 border border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all";
-    badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20";
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-400"></span><span>FocusFeed · Off</span>`;
-    blockedCount.innerText = "0";
-  } else if (mode === 'general') {
-    generalBtn.className = "px-6 py-2.5 rounded-full text-xs font-semibold bg-slate-200 text-black shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all";
-    badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-200 border border-slate-700";
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-slate-300"></span><span>FocusFeed · General (Filtering Active)</span>`;
-    blockedCount.innerText = "8";
-  } else if (mode === 'focus') {
-    focusBtn.className = "px-6 py-2.5 rounded-full text-xs font-semibold bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)] transition-all";
-    badge.className = "flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30";
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>FocusFeed · Focus 45m</span>`;
-    blockedCount.innerText = "14";
+function tick() {
+  timer.remaining = Math.max(0, Math.ceil((timer.endAt - Date.now()) / 1000));
+  if (timer.remaining === 0) {
+    endFocus('Your 25-minute session is complete. Take a little breathing room.');
+    return;
   }
-
-  renderFeed();
+  renderTimer();
 }
 
-function renderFeed() {
-  const grid = document.getElementById('feedGrid');
-  if (!grid) return;
+document.querySelector('#focus-toggle').addEventListener('click', () => {
+  if (timer.running) {
+    timer.remaining = Math.max(0, Math.ceil((timer.endAt - Date.now()) / 1000));
+    clearInterval(timer.interval);
+    timer.interval = null;
+    timer.running = false;
+    state.mode = 'general';
+    document.querySelector('#focus-note').textContent = 'Focus paused. The example feed is back in General mode.';
+  } else {
+    timer.active = true;
+    timer.running = true;
+    timer.endAt = Date.now() + timer.remaining * 1000;
+    timer.interval = setInterval(tick, 250);
+    state.mode = 'focus';
+    state.feed = 'after';
+    document.querySelector('#focus-note').textContent = 'Focus is on. The example feed now keeps guitar videos.';
+  }
+  renderTimer();
+  renderFeed();
+});
+document.querySelector('#focus-end').addEventListener('click', () => endFocus());
+document.querySelector('#general-preview').addEventListener('click', () => {
+  endFocus('General mode is on in the example feed.');
+  state.feed = 'after';
+  state.topics = new Set(['movie-reviews', 'celebrity-gossip']);
+  renderFeed();
+  document.querySelector('#your-feed').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && timer.running) tick(); });
 
-  grid.innerHTML = '';
-
-  mockFeed.forEach(item => {
-    const card = document.createElement('div');
-    card.className = "sim-video-card flex flex-col";
-
-    let isBlocked = false;
-    let blockReason = "";
-
-    if (currentMode === 'general') {
-      if (item.type === 'noise') {
-        isBlocked = true;
-        blockReason = `Filtered by General Rule: "${item.topics[0]}"`;
-      }
-    } else if (currentMode === 'focus') {
-      if (item.type !== 'focus') {
-        isBlocked = true;
-        blockReason = item.type === 'noise' 
-          ? `Noise removed during Focus Sprint` 
-          : `Non-focus topic withheld for 45m`;
-      }
+const layoutSwitches = [...document.querySelectorAll('[data-hide]')];
+function renderLayout() {
+  const preview = document.querySelector('.layout-preview');
+  const canAnimate = !reducedMotion.matches && typeof preview.animate === 'function';
+  if (canAnimate) preview.getAnimations().forEach((animation) => animation.cancel());
+  const previousHeight = canAnimate ? preview.getBoundingClientRect().height : 0;
+  let hidden = 0;
+  for (const input of layoutSwitches) {
+    document.querySelector(`[data-layout-region="${input.dataset.hide}"]`).hidden = input.checked;
+    if (input.checked) hidden++;
+  }
+  document.querySelector('#layout-status').textContent = hidden === 3
+    ? 'All three distractions tucked away. Turn a hide switch off to compare.'
+    : hidden === 0 ? 'All three sections are visible. Turn a hide switch on to clear some space.'
+      : `${hidden} section${hidden === 1 ? '' : 's'} hidden in this preview.`;
+  if (canAnimate) {
+    const nextHeight = preview.getBoundingClientRect().height;
+    if (Math.abs(previousHeight - nextHeight) > 1) preview.animate([{ height: `${previousHeight}px` }, { height: `${nextHeight}px` }], { duration: 280, easing: 'ease-out' });
+    for (const region of preview.querySelectorAll('[data-layout-region]:not([hidden])')) {
+      region.getAnimations().forEach((animation) => animation.cancel());
+      region.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 220, easing: 'ease-out' });
     }
+  }
+}
+for (const input of layoutSwitches) input.addEventListener('change', renderLayout);
 
-    if (isBlocked) {
-      card.innerHTML = `
-        <div class="sim-video-thumb bg-gradient-to-br ${item.gradient} opacity-20">
-          <div class="text-xs font-mono text-slate-500">Thumbnail hidden</div>
-        </div>
-        <div class="p-4 flex-1 flex flex-col justify-center items-center text-center bg-black/60 border-t border-white/5">
-          <div class="w-6 h-6 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center text-xs mb-2">✕</div>
-          <p class="text-xs font-mono text-amber-300/80 mb-1">${blockReason}</p>
-          <span class="text-[10px] text-slate-500 font-mono">Restores when session ends</span>
-        </div>
-      `;
-      card.style.opacity = "0.5";
-    } else {
-      card.style.opacity = "1";
-      const isHighPriority = item.type === 'focus' && currentMode === 'focus';
-
-      card.innerHTML = `
-        <div class="sim-video-thumb bg-gradient-to-br ${item.gradient}">
-          <div class="absolute inset-0 flex items-center justify-center">
-            <div class="w-10 h-10 rounded-full bg-black/50 border border-white/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-          </div>
-          <span class="absolute bottom-2 right-2 text-[10px] font-mono bg-black/80 px-1.5 py-0.5 rounded text-white border border-white/10">${item.duration}</span>
-          ${isHighPriority ? '<span class="absolute top-2 left-2 text-[10px] font-mono bg-amber-500 text-black px-2 py-0.5 rounded-full font-bold">100% MATCH</span>' : ''}
-        </div>
-        <div class="p-4 flex-1 flex flex-col justify-between">
-          <div>
-            <h4 class="text-sm font-semibold text-white line-clamp-2 leading-snug mb-2">${item.title}</h4>
-            <p class="text-xs text-slate-400 font-light mb-1">${item.channel}</p>
-            <p class="text-[11px] text-slate-500 font-mono">${item.views}</p>
-          </div>
-          <div class="mt-3 pt-3 border-t border-white/5 flex flex-wrap gap-1">
-            ${item.topics.map(t => `<span class="text-[10px] font-mono text-slate-400 bg-white/5 px-1.5 py-0.5 rounded">${t}</span>`).join('')}
-          </div>
-        </div>
-      `;
+for (const details of document.querySelectorAll('.faq-list details')) {
+  const summary = details.querySelector('summary');
+  const answer = details.querySelector('.faq-answer');
+  let expanded = details.open;
+  let animation = null;
+  summary.addEventListener('click', (event) => {
+    event.preventDefault();
+    const startHeight = details.open ? answer.getBoundingClientRect().height : 0;
+    if (animation) animation.cancel();
+    expanded = !expanded;
+    if (reducedMotion.matches || typeof answer.animate !== 'function') {
+      answer.style.removeProperty('overflow');
+      animation = null;
+      details.open = expanded;
+      return;
     }
-
-    grid.appendChild(card);
+    details.open = true;
+    const endHeight = expanded ? answer.scrollHeight : 0;
+    answer.style.overflow = 'hidden';
+    animation = answer.animate([{ height: `${startHeight}px`, opacity: startHeight ? 1 : 0 }, { height: `${endHeight}px`, opacity: expanded ? 1 : 0 }], { duration: 280, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    animation.onfinish = () => {
+      details.open = expanded;
+      answer.style.removeProperty('overflow');
+      animation = null;
+    };
   });
 }
 
+const dialog = document.querySelector('#install-dialog');
+let dialogTrigger = null;
+let dialogClosing = false;
+function closeDialog() {
+  if (dialogClosing || !dialog.open) return;
+  if (reducedMotion.matches || typeof dialog.animate !== 'function') {
+    dialog.close();
+    return;
+  }
+  dialogClosing = true;
+  dialog.classList.add('is-closing');
+  const animation = dialog.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(8px)' }], { duration: 180, easing: 'ease-in' });
+  animation.onfinish = () => dialog.close();
+}
+for (const button of document.querySelectorAll('[data-install]')) button.addEventListener('click', () => {
+  dialogTrigger = button.closest('.mobile-menu') ? document.querySelector('.mobile-menu summary') : button;
+  document.querySelector('.mobile-menu').open = false;
+  dialog.showModal();
+  document.body.classList.add('dialog-open');
+});
+dialog.addEventListener('close', () => {
+  dialogClosing = false;
+  dialog.classList.remove('is-closing');
+  document.body.classList.remove('dialog-open');
+  if (dialogTrigger?.offsetParent !== null) dialogTrigger?.focus();
+  else document.querySelector('.mobile-menu summary').focus();
+});
+dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeDialog(); });
+dialog.querySelector('.dialog-close').addEventListener('click', (event) => { event.preventDefault(); closeDialog(); });
+dialog.addEventListener('click', (event) => {
+  if (event.target !== dialog) return;
+  const rect = dialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDialog();
+});
+for (const link of document.querySelectorAll('.mobile-menu a')) link.addEventListener('click', () => { document.querySelector('.mobile-menu').open = false; });
+
+renderFeed(false);
+renderLayout();
+renderTimer();

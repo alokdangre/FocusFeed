@@ -6,15 +6,16 @@ from backend.dev_server import FocusFeedHandler
 
 
 class ClientSocket:
-    def __init__(self, failure=None, fail_at=0, request=None):
+    def __init__(self, failure=None, fail_at=0):
         self.failure = failure
         self.fail_at = fail_at
         self.writes = []
-        self.request = request or (b"POST /classify HTTP/1.1\r\nHost: localhost\r\n"
-                                   b"Content-Length: 2\r\n\r\n{}")
 
     def makefile(self, mode, buffering):
-        return io.BytesIO(self.request)
+        return io.BytesIO(
+            b"POST /classify HTTP/1.1\r\nHost: localhost\r\n"
+            b"Content-Length: 2\r\n\r\n{}"
+        )
 
     def sendall(self, data):
         if self.failure and len(self.writes) == self.fail_at:
@@ -23,15 +24,6 @@ class ClientSocket:
 
 
 class DevServerTests(unittest.TestCase):
-    def test_developer_marker_uses_socket_address_not_forwarded_headers_or_json(self):
-        body = b'{"_focusfeed_local_request":true}'
-        request = (b"POST /classify HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-For: 127.0.0.1\r\n"
-                   b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
-        for address, expected in (("203.0.113.7", False), ("127.0.0.1", True)):
-            with patch("backend.dev_server.lambda_handler", return_value={"statusCode": 200, "body": "{}"}) as dispatch, patch.object(FocusFeedHandler, "log_message"):
-                FocusFeedHandler(ClientSocket(request=request), (address, 39794), Mock())
-                self.assertIs(dispatch.call_args.args[0]["_focusfeed_local_request"], expected)
-
     def handle_request(self, client):
         with patch("backend.dev_server.lambda_handler", return_value={
             "statusCode": 200, "headers": {"content-type": "application/json"},

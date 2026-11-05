@@ -10,7 +10,7 @@ function accepted(text, i) {
 }
 function setup(t, options = {}) {
   const h = dom((options.noHeader ? "" : header) + videoCard("one") + '<video id="playing"></video>');
-  h.load("settings.js", "preferences-controller.js", "display-settings.js", "popup/topic-input.js", "youtube-preferences.js");
+  h.load("settings.js", "preferences-controller.js", "popup/topic-input.js", "youtube-preferences.js");
   let state = h.context.FocusFeedSettings.migrate({}), failUpdate = false;
   const requests = [], listeners = new Set(), stored = { focusFeedChannelBlocksV1: [] };
   function changed(values) { listeners.forEach(fn => fn(values, "local")); }
@@ -74,7 +74,7 @@ test("header integration preserves native controls and cards and mounts only onc
   const h = setup(t), native = h.document.querySelector("#native-create"), card = h.document.querySelector("ytd-rich-item-renderer");
   const markup = card.outerHTML;
   const trigger = h.document.querySelector("#focusfeed-preferences-button");
-  assert.equal(trigger.parentNode.id, "buttons"); assert.match(trigger.textContent, /OwnFeed.*Set up/);
+  assert.equal(trigger.parentNode.id, "buttons"); assert.match(trigger.textContent, /FocusFeed.*Set up/);
   h.window.dispatchEvent(new h.window.Event("yt-navigate-finish"));
   assert.equal(h.document.querySelectorAll("#focusfeed-preferences-button").length, 1);
   assert.equal(h.document.querySelector("#native-create"), native); assert.equal(card.outerHTML, markup);
@@ -155,33 +155,6 @@ test("instant switches persist without validation and roll back on write failure
   assert.equal(shorts.checked, true); assert.equal(shorts.disabled, false); assert.match(h.feedback(), /Could not save/);
   assert.equal(h.requests.some(m => m.type === "OBJECTIVES_CLASSIFY_CLOUD"), false);
 });
-test("layout controls save locally, preserve child choices, sync across tabs and recover from failed writes", async t => {
-  const h = setup(t); h.ui.open(); h.enter("An unsaved topic");
-  const control = key => h.panel().querySelector('[data-display-preference="' + key + '"]');
-  async function toggle(key, checked) { const node = control(key); node.checked = checked; node.dispatchEvent(new h.window.Event("change")); await settle(); }
-  assert.equal(h.panel().querySelectorAll('[data-display-preference]').length, 23);
-  await toggle("hideRecommended", true); await toggle("hideVideoSidebar", true);
-  assert.equal(h.state.hideRecommended, true); assert.equal(control("hideRecommended").disabled, true);
-  await toggle("hideVideoSidebar", false);
-  assert.equal(control("hideRecommended").checked, true); assert.equal(control("hideRecommended").disabled, false);
-  h.remote({ type: "setDisplayPreference", key: "hideComments", enabled: true }); assert.equal(control("hideComments").checked, true);
-  h.failUpdate = true; await toggle("hideComments", false);
-  assert.equal(control("hideComments").checked, true); assert.equal(control("hideComments").disabled, false);
-  assert.match(h.feedback(), /Could not save/); assert.equal(h.input().value, "An unsaved topic");
-  assert.equal(h.requests.some(m => m.type === "OBJECTIVES_CLASSIFY_CLOUD"), false);
-});
-test("hiding the native header keeps settings reachable and pause returns the button to the header", async t => {
-  const h = setup(t); h.ui.open();
-  h.remote({ type: "setDisplayPreference", key: "hideTopHeader", enabled: true });
-  const trigger = h.document.querySelector("#focusfeed-preferences-button");
-  assert.equal(trigger.parentNode, h.document.body); assert.equal(trigger.hasAttribute("data-floating"), true);
-  h.ui.close(); trigger.click(); assert.equal(h.panel().hidden, false);
-  h.remote({ type: "setEnabled", enabled: false });
-  assert.equal(trigger.parentNode.id, "buttons"); assert.equal(trigger.hasAttribute("data-floating"), false);
-  h.remote({ type: "setEnabled", enabled: true }); assert.equal(trigger.parentNode, h.document.body);
-  h.remote({ type: "setDisplayPreference", key: "hideTopHeader", enabled: false });
-  assert.equal(trigger.parentNode.id, "buttons");
-});
 test("blocked channels use text labels, unblock the selected ID and review stays on YouTube", async t => {
   let reviewing = 0;
   const h = setup(t, { reviewHidden: () => { reviewing++; return true; } });
@@ -223,7 +196,7 @@ test("native popovers support light dismissal and narrow viewports stay bounded"
   h.window.HTMLElement.prototype.hidePopover = function () { hides++; };
   h.window.innerWidth = 320; h.window.innerHeight = 480;
   h.context.chrome = { storage: { onChanged: { addListener() {}, removeListener() {} }, local: { get: async defaults => defaults } } };
-  h.load("settings.js", "preferences-controller.js", "display-settings.js", "popup/topic-input.js", "youtube-preferences.js");
+  h.load("settings.js", "preferences-controller.js", "popup/topic-input.js", "youtube-preferences.js");
   const ui = h.context.FocusFeedYouTubePreferences.create(); t.after(() => ui.stop());
   ui.configure(h.context.FocusFeedSettings.migrate({})); ui.open();
   const panel = h.document.querySelector("#focusfeed-preferences");

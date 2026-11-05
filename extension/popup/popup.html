@@ -4,38 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>OwnFeed</title>
+  <title>FocusFeed</title>
   <link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="../display-settings.css">
 </head>
 <body>
   <div class="popup-shell">
     <header class="app-header">
-      <a class="brand" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="OwnFeed · Open YouTube">
-        <svg class="brand-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="10" fill="currentColor"/><circle cx="16" cy="16" r="7" fill="none" stroke="var(--surface)" stroke-width="3"/><circle cx="23" cy="23" r="2" fill="var(--surface)"/></svg>
-        <span>OwnFeed<span class="brand-caption">A little more intention.</span></span>
+      <a class="brand" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="FocusFeed · Open YouTube">
+        <svg class="brand-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="10" fill="currentColor"/><path d="M11 23V9h12M11 16h9" fill="none" stroke="var(--surface)" stroke-width="3" stroke-linecap="round"/><circle cx="23" cy="23" r="2" fill="var(--surface)"/></svg>
+        <span>FocusFeed<span class="brand-caption">A little more intention.</span></span>
       </a>
       <label class="switch power-switch" title="Turn filtering on or off">
-        <input id="enableToggle" type="checkbox" role="switch" aria-label="Enable OwnFeed"><span class="switch-track"></span>
+        <input id="enableToggle" type="checkbox" role="switch" aria-label="Enable FocusFeed"><span class="switch-track"></span>
       </label>
     </header>
 
     <main>
       <div class="status-line"><span id="statusDot" class="status-dot"></span><span id="statusText" role="status">Loading preferences…</span></div>
-      <section class="account-section" aria-label="OwnFeed account">
-        <strong>AI filtering</strong>
-        <p id="accountStatus" class="subtle-note" role="status">Checking account…</p>
-        <div class="account-actions">
-          <button class="button button-outline" id="accountSignIn" type="button" disabled>Sign in</button>
-          <button class="text-button" id="accountTestLocal" type="button" disabled>Test without sign-in</button>
-          <button class="text-button" id="accountRefresh" type="button">Refresh access</button>
-          <button class="text-button" id="accountSignOut" type="button" hidden>Sign out</button>
-          <button class="button button-outline" id="billingUpgrade" type="button" hidden>Upgrade to Pro ↗</button>
-          <button class="text-button" id="billingManage" type="button" hidden>Manage billing ↗</button>
-        </div>
-        <p id="billingStatus" class="subtle-note" role="status" hidden></p>
-        <p id="accountFeedback" class="feedback" role="status" hidden></p>
-      </section>
       <nav class="mode-switch" aria-label="Filtering mode">
         <button type="button" data-mode="general" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12M7 3v6M13 11v6"/></svg>General</button>
         <button type="button" data-mode="focus" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/></svg>Focus</button>
@@ -79,7 +64,6 @@
 
       <section class="preferences" aria-label="Feed settings">
         <label class="preference-row" for="hideShorts"><span><strong>Hide Shorts</strong><small>Fewer quick distractions.</small></span><span class="switch"><input type="checkbox" id="hideShorts" role="switch"><span class="switch-track"></span></span></label>
-        <div id="displaySettings"></div>
         <details class="settings-section" id="blockedChannels">
           <summary><span>Blocked channels</span><span class="count" id="channelCount">0</span><span class="chevron" aria-hidden="true">⌄</span></summary>
           <div class="channel-list" id="channelBlocks"></div>
@@ -111,7 +95,6 @@
   </div>
   <script src="../settings.js"></script>
   <script src="../preferences-controller.js"></script>
-  <script src="../display-settings.js"></script>
   <script src="../video-model.js"></script>
   <script src="../channel-policy.js"></script>
   <script src="../learning-policy.js"></script>

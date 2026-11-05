@@ -8,73 +8,6 @@
   var editor = FocusFeedTopicInput.create({ input: $("objectiveInput"), list: $("topicList"), onChange: edited });
 
   var request = FocusFeedPreferences.request;
-  var accountBusy = false, accountValue = null, billingValue = null, billingBusy = false, billingFeedback = "";
-  function renderBilling() {
-    var signedIn = accountValue && accountValue.mode === "required" && accountValue.userId;
-    var available = signedIn && billingValue && billingValue.available;
-    $("billingUpgrade").hidden = !available || !!accountValue.premium || !!billingValue.hasSubscription;
-    $("billingManage").hidden = !available || !billingValue.canManage;
-    $("billingUpgrade").disabled = accountBusy || billingBusy; $("billingManage").disabled = accountBusy || billingBusy;
-    $("billingUpgrade").textContent = billingValue && billingValue.mode === "test_mode" ? "Test checkout ↗" : "Upgrade to Pro ↗";
-    var message = billingFeedback || (available && billingValue.mode === "test_mode" ? "Test billing is enabled. No real payment will be collected." :
-      available && billingValue.cancelAtPeriodEnd ? "Renewal is cancelled. Your paid access lasts until the end of its period." : "");
-    $("billingStatus").textContent = message; $("billingStatus").hidden = !message;
-  }
-  function renderAccount(value) {
-    if (!value || !accountValue || value.userId !== accountValue.userId || value.endpoint !== accountValue.endpoint) { billingValue = null; billingFeedback = ""; }
-    accountValue = value;
-    var local = value && value.mode === "local", signedIn = value && value.userId && !local;
-    $("accountStatus").textContent = local ? "Local testing is active. No sign-in required." : !signedIn ? "Sign in to use AI filtering, or test with a local server. Layout controls are free." :
-      value.premium ? "Pro access is active." : "Signed in. Pro access is not active for this account.";
-    $("accountSignIn").hidden = !!local || !!signedIn; $("accountSignOut").hidden = !signedIn;
-    $("accountTestLocal").hidden = !!local;
-    $("accountTestLocal").disabled = accountBusy;
-    $("accountSignIn").disabled = accountBusy; $("accountSignOut").disabled = accountBusy; $("accountRefresh").disabled = accountBusy;
-    renderBilling();
-  }
-  async function billingStatus() {
-    if (!accountValue || !accountValue.userId || accountValue.mode !== "required" || billingBusy) return;
-    var identity = accountValue.userId, endpoint = accountValue.endpoint;
-    try {
-      var value = await request({ type: "FF_BILLING_STATUS" });
-      if (accountValue && accountValue.userId === identity && accountValue.endpoint === endpoint) billingValue = value;
-    } catch (_error) { billingValue = null; }
-    renderBilling();
-  }
-  async function billingAction(type) {
-    if (billingBusy || accountBusy) return;
-    billingBusy = true; billingFeedback = "Opening secure billing…"; renderBilling();
-    try {
-      var value = await request({ type: type });
-      billingFeedback = value.mode === "test_mode" ? "Test billing opened in a new tab. Return here to refresh access." :
-        "Billing opened in a new tab. Payment confirmation can take a few minutes; return here to refresh access.";
-    } catch (error) { billingFeedback = error.message; }
-    finally { billingBusy = false; renderBilling(); }
-  }
-  async function accountAction(type, refresh) {
-    if (accountBusy) return;
-    accountBusy = true;
-    ["accountSignIn", "accountSignOut", "accountRefresh", "accountTestLocal"].forEach(function (id) { $(id).disabled = true; });
-    try {
-      if (refresh && accountValue && accountValue.userId && billingValue && billingValue.available) await request({ type: "FF_BILLING_REFRESH" }).catch(function () {});
-      var value = await request({ type: type, refresh: !!refresh });
-      feedback("accountFeedback", value && value.remoteSignOutPending ? "Signed out on this device. The server could not confirm session revocation." : ""); accountBusy = false; renderAccount(value);
-      await billingStatus();
-    } catch (error) {
-      accountBusy = false; renderAccount(null); feedback("accountFeedback", error.message, true);
-    }
-  }
-  $("accountSignIn").addEventListener("click", function () { accountAction("FF_ACCOUNT_SIGN_IN"); });
-  $("accountTestLocal").addEventListener("click", function () { accountAction("FF_ACCOUNT_TEST_LOCAL"); });
-  $("accountSignOut").addEventListener("click", function () { accountAction("FF_ACCOUNT_SIGN_OUT"); });
-  $("accountRefresh").addEventListener("click", function () { accountAction("FF_ACCOUNT_STATUS", true); });
-  $("billingUpgrade").addEventListener("click", function () { billingAction("FF_BILLING_CHECKOUT"); });
-  $("billingManage").addEventListener("click", function () { billingAction("FF_BILLING_PORTAL"); });
-  var displaySettings = FocusFeedDisplaySettings.create({ prefix: "popup-display",
-    save: function (action) { return update(action); },
-    onError: function (error) { feedback("profileFeedback", error.message, true); }
-  });
-  $("displaySettings").appendChild(displaySettings.element);
   function feedback(id, message, error) {
     var node = $(id); node.textContent = message || ""; node.hidden = !message; node.dataset.error = String(!!error);
   }
@@ -144,7 +77,6 @@
     if (!settings) return;
     var active = FocusFeedSettings.focusActive(settings);
     $("enableToggle").checked = settings.enabled; $("hideShorts").checked = settings.hideShorts === true;
-    displaySettings.configure(settings);
     $("statusDot").dataset.active = String(settings.enabled);
     $("statusText").textContent = !settings.enabled ? "Filtering is paused" : active ? "Focus is active" : "General filtering is on";
     $("sessionCard").hidden = !active;
@@ -324,7 +256,6 @@
   });
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== "local") return;
-    if (changes.focusfeedAccountV1 && !accountBusy) renderAccount(changes.focusfeedAccountV1.newValue);
     if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) receive(changes.focusfeedSettingsV2.newValue);
     if (changes.focusFeedChannelBlocksV1) { blocks = changes.focusFeedChannelBlocksV1.newValue || []; renderChannels(); }
     if (changes.classifierEndpoint) { savedEndpoint = changes.classifierEndpoint.newValue || DEFAULT_ENDPOINT; $("classifierEndpoint").value = savedEndpoint; }
@@ -341,9 +272,8 @@
       // The editor is still empty: set the initial mode without overwriting its loaded draft.
       editor.set(drafts[mode].topics); $("sessionDuration").value = String(drafts[mode].duration);
       setMode(mode); renderChannels(); refreshFeedStatus(); await loadLearning();
-      accountAction("FF_ACCOUNT_STATUS");
     } catch (error) { feedback("profileFeedback", error.message, true); }
   }
-  setInterval(function () { render(); refreshFeedStatus(); accountAction("FF_ACCOUNT_STATUS"); }, 5000);
+  setInterval(function () { render(); refreshFeedStatus(); }, 5000);
   load();
 })();

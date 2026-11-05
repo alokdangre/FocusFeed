@@ -58,7 +58,7 @@
     $("objectiveRequest").textContent = "No request recorded yet.";
     if (!snapshot || (!snapshot.response && !snapshot.error)) {
       $("objectiveMeta").textContent = "No validation yet";
-      emptyRow(target, 5, "Validate an intent from the OwnFeed popup.");
+      emptyRow(target, 5, "Validate an intent from the FocusFeed popup.");
       return;
     }
     if (snapshot.error) {

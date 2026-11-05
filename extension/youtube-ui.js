@@ -13,7 +13,6 @@
     var prefs = null, configured = false, menuOwner = null, observedMenus = null, menuObserver = null;
     var resolvedChannels = new Map(), resolvingToken = null, failedLookupToken = null;
     var previews = root.FocusFeedPreviewController ? root.FocusFeedPreviewController.create() : null;
-    var display = root.FocusFeedYouTubeDisplay ? root.FocusFeedYouTubeDisplay.create() : null;
     var loading = root.FocusFeedLoadingUI ? root.FocusFeedLoadingUI.create() : null;
     var topicPicker = root.FocusFeedTopicPicker ? root.FocusFeedTopicPicker.create() : null, pickerRevision = null;
     var preferences = root.FocusFeedYouTubePreferences ? root.FocusFeedYouTubePreferences.create({
@@ -35,12 +34,11 @@
       });
     }
     function configure(state) {
-      if (topicPicker && topicPicker.isOpen() && (state.revision !== pickerRevision || !state.enabled || state.aiAccess === false || FocusFeedSettings.effective(state).mode !== "general")) topicPicker.close(false);
+      if (topicPicker && topicPicker.isOpen() && (state.revision !== pickerRevision || !state.enabled || FocusFeedSettings.effective(state).mode !== "general")) topicPicker.close(false);
       document.documentElement.removeAttribute("data-focusfeed-initializing");
       prefs = state;
-      if (display) display.configure(state);
       if (preferences) preferences.configure(state);
-      if (!state.enabled || state.aiAccess === false || !state.general || FocusFeedSettings.effective(state).mode !== "general") reviewHidden(false);
+      if (!state.enabled || !state.general || FocusFeedSettings.effective(state).mode !== "general") reviewHidden(false);
       configured = true;
       if (previews) previews.configure(state.enabled);
       if (home) home.configure(state);
@@ -57,7 +55,7 @@
     }
     function setRuntime(value) { runtime = value; }
     function reviewHidden(enabled) {
-      var active = enabled !== false && prefs && prefs.enabled && prefs.aiAccess !== false && FocusFeedSettings.effective(prefs).mode === "general";
+      var active = enabled !== false && prefs && prefs.enabled && FocusFeedSettings.effective(prefs).mode === "general";
       document.documentElement.toggleAttribute("data-focusfeed-review-hidden", active);
       if (reviewBanner) reviewBanner.remove(); reviewBanner = null;
       if (active) {
@@ -144,11 +142,11 @@
         if (lastPlayback === key && overlay && overlay.isConnected) return;
         clearOverlay(); card.dataset.focusfeedPlayback = "true"; lastPlayback = key;
         overlay = document.createElement("div"); overlay.className = "focusfeed-playback";
-        overlay.setAttribute("role", "region"); overlay.setAttribute("aria-label", "OwnFeed playback filter");
+        overlay.setAttribute("role", "region"); overlay.setAttribute("aria-label", "FocusFeed playback filter");
         var title = document.createElement("strong");
         title.textContent = reason === "shorts_block" ? "Shorts are hidden" : "This channel is blocked";
         var detail = document.createElement("p");
-        detail.textContent = "Manage blocked channels in OwnFeed to unblock it.";
+        detail.textContent = "Manage blocked channels in FocusFeed to unblock it.";
         overlay.append(title, detail);
         if (reason === "shorts_block") {
           detail.textContent = "Turn off Hide Shorts to watch Shorts.";
@@ -187,7 +185,6 @@
       menuOwner = null;
       if (home) home.suspend();
       if (!preserveCards) {
-        if (display) display.clear();
         if (previews) previews.configure(false);
         document.documentElement.removeAttribute("data-focusfeed-hide-shorts");
       }
@@ -265,7 +262,7 @@
       var menu = Array.from(document.querySelectorAll("ytd-menu-popup-renderer, yt-sheet-view-model [role='menu'], yt-sheet-view-model yt-list-view-model, yt-contextual-sheet-layout yt-list-view-model, yt-contextual-sheet-layout [role='menu']"))
         .find(function (el) { return el.getClientRects().length && !el.closest("[hidden], [aria-hidden='true']"); });
       if (!menu) return;
-      var signature = JSON.stringify([menuToken, choices, resolvingToken === menuToken, failedLookupToken === menuToken, prefs && prefs.revision, prefs && prefs.aiAccess,
+      var signature = JSON.stringify([menuToken, choices, resolvingToken === menuToken, failedLookupToken === menuToken, prefs && prefs.revision,
         document.documentElement.hasAttribute("data-focusfeed-review-hidden")]);
       if (target.collection || target.itemType === "collection") {
         var collectionRow = menu.querySelector(".focusfeed-collection-action");
@@ -344,7 +341,7 @@
       (menu.querySelector("#items") || menu).appendChild(button); topicActions(menu);
     }
     function topicActions(menu) {
-      if (!topicPicker || !prefs || !prefs.enabled || prefs.aiAccess === false || target.playback || typeof FocusFeedLearningPolicy === "undefined" || !FocusFeedLearningPolicy.validTarget(FocusFeedVideo.videoInput(target))) return;
+      if (!topicPicker || !prefs || !prefs.enabled || target.playback || typeof FocusFeedLearningPolicy === "undefined" || !FocusFeedLearningPolicy.validTarget(FocusFeedVideo.videoInput(target))) return;
       var profile = FocusFeedSettings.effective(prefs);
       if (profile.mode !== "general" || !FocusFeedSettings.valid(profile)) return;
       var captured = Object.assign({}, target), owner = menuOwner, token = menuToken, revision = prefs.revision;
@@ -358,7 +355,7 @@
       button.addEventListener("click", function (event) {
         event.preventDefault(); event.stopPropagation();
         var current = owner && resolveTarget(owner);
-        if (token !== menuToken || !prefs || prefs.aiAccess === false || revision !== prefs.revision || owner && (!owner.isConnected || !current || current.videoId !== captured.videoId)) {
+        if (token !== menuToken || !prefs || revision !== prefs.revision || owner && (!owner.isConnected || !current || current.videoId !== captured.videoId)) {
           notify("This video or topic changed. Reopen its menu."); return;
         }
         pickerRevision = revision;
@@ -374,7 +371,7 @@
     }
     async function saveTopicCorrection(menu, captured, owner, token, revision, restoring, objective) {
       var current = owner && resolveTarget(owner);
-      if (token !== menuToken || !prefs || !prefs.enabled || prefs.aiAccess === false || revision !== prefs.revision ||
+      if (token !== menuToken || !prefs || !prefs.enabled || revision !== prefs.revision ||
           restoring !== document.documentElement.hasAttribute("data-focusfeed-review-hidden") ||
           owner && (!owner.isConnected || !current || current.videoId !== captured.videoId) ||
           !FocusFeedSettings.effective(prefs).objectives.some(function (o) { return FocusFeedVideo.objectiveKey(o) === FocusFeedVideo.objectiveKey(objective); })) {
@@ -420,8 +417,6 @@
       } else if (runtime) runtime.tick();
     }, true);
     return { setRuntime: setRuntime, render: render, clear: clear, configure: configure,
-      scanDisplay: function () { if (display) display.scan(); },
-      displayHidden: function (card) { return !!(display && display.hides(card)); },
       activity: function (value) { if (loading) loading.activity(value); },
       scanHome: function (extract) { return configured && home && home.scan(extract, runtime); },
       manages: function (card) { return home && home.owns(card); },

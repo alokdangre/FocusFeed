@@ -38,29 +38,6 @@ test("General is automatic; local blocks still apply without topics or provider"
   h.prefs.focusFeedChannelBlocksV1 = []; await h.runtime.reload(); assert.equal(item.action, "show");
   h.runtime.stop();
 });
-test("hosted AI stays off for signed-out/free accounts while local policies and manual playback work", async t => {
-  const h = harness(); t.after(h.runtime.stop); h.prefs.classifierEndpoint = "https://api.focusfeed.example";
-  const card = h.add("one");
-  await h.runtime.reload(); assert.equal(card.action, "show"); assert.equal(card.reason, "account_required");
-  await sleep(350); assert.equal(h.calls.filter(message => message.type === "FF_AUTO_CLASSIFY").length, 0);
-  h.prefs.focusfeedAccountV1 = { endpoint: h.prefs.classifierEndpoint, mode: "required", userId: "free-account", premium: false, validUntil: 0 };
-  h.prefs.focusfeedSettingsV2.focusSession.active = true;
-  await h.runtime.reload(); assert.equal(card.action, "show");
-  h.prefs.focusFeedChannelBlocksV1 = [{ channelId: "@creator", scope: "global" }];
-  await h.runtime.reload(); assert.equal(card.reason, "channel_block");
-  h.prefs.focusFeedChannelBlocksV1 = []; card.video.playback = true;
-  await h.runtime.reload(); assert.equal(card.action, "show"); assert.equal(card.reason, "user_playback");
-});
-test("revoked or expired account access discards settled premium decisions and stops further AI work", async t => {
-  const h = harness(); t.after(h.runtime.stop); h.prefs.classifierEndpoint = "https://api.focusfeed.example";
-  h.prefs.focusfeedAccountV1 = { endpoint: h.prefs.classifierEndpoint, mode: "required", userId: "subscriber", premium: true, validUntil: Date.now() + 60000 };
-  const card = h.add("one"); await h.runtime.reload(); await sleep(350); assert.equal(card.action, "hide");
-  h.prefs.focusfeedAccountV1.premium = false; await h.runtime.reload(); assert.equal(card.action, "show");
-  await sleep(350); assert.equal(h.calls.filter(message => message.type === "FF_AUTO_CLASSIFY").length, 1);
-  h.prefs.focusfeedAccountV1.premium = true; await h.runtime.reload(); await sleep(350); assert.equal(card.action, "hide");
-  h.prefs.focusfeedAccountV1.validUntil = Date.now() - 1; h.runtime.tick(); await sleep(20);
-  assert.equal(card.action, "show"); assert.equal(card.reason, "account_required");
-});
 test("observed channel aliases apply locally while staying out of model metadata", async () => {
   const h = harness(); h.prefs.focusfeedSettingsV2.general.objectives = [];
   h.prefs.focusFeedChannelBlocksV1 = [{ channelId: "@creator", scope: "global" }];
@@ -137,8 +114,7 @@ test("topic edits refresh scores without blanking; endpoint and cache invalidati
   await h.runtime.reload(); await sleep(330);
   const changes = [
     { action: "hide", change() { h.prefs.focusfeedSettingsV2.general.objectives = [{ ...topic, text: "Changed actual topic" }]; } },
-    { action: "pending", change() { h.prefs.classifierEndpoint = "https://classifier.example";
-      h.prefs.focusfeedAccountV1 = { endpoint: "https://classifier.example", mode: "required", userId: "subscriber", premium: true, validUntil: Date.now() + 60000 }; } },
+    { action: "pending", change() { h.prefs.classifierEndpoint = "https://classifier.example"; } },
     { action: "pending", change() { h.prefs.focusfeedCacheEpochV1 = 123; } },
   ];
   for (const change of changes) {
@@ -214,7 +190,7 @@ test("manual playback keeps explicit channel and Shorts policies without dispatc
 test("hung transport is cancelled within its deadline and unchecked cards stay covered", async () => {
   const fs = require("node:fs"), vm = require("node:vm"), path = require("node:path");
   const context = vm.createContext({ console, Date, clearTimeout,
-    setTimeout: (fn, ms) => setTimeout(fn, ms === 680000 ? 10 : ms) });
+    setTimeout: (fn, ms) => setTimeout(fn, ms === 90000 ? 10 : ms) });
   ["video-model.js", "channel-policy.js", "settings.js", "auto-runtime.js"]
     .forEach(file => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context));
   let action, runtime;
@@ -369,22 +345,17 @@ test("unchanged checked videos stay settled across rescans, duplicate cards and 
   assert.equal(item.reason, "model"); assert.equal(duplicate.reason, "model");
 });
 test("cache expiry revalidates a shown card quietly without changing topics", async t => {
-  let finish, count = 0, expiresAt;
+  let finish, count = 0;
   const h = harness(async m => {
     count++;
-    expiresAt = Date.now() + 250;
     const response = { ok: true, data: { ok: true, data: {
       assessments: m.request.videos.map(v => assessment(v.videoId, "no_match")),
-      diagnostics: { cache: { byVideo: { checked: { source: "cache", expiresAt } } } }
+      diagnostics: { cache: { byVideo: { checked: { source: "cache", expiresAt: Date.now() + 120 } } } }
     } } };
     return count === 1 ? response : new Promise(resolve => { finish = () => resolve(response); });
   });
   t.after(() => { h.runtime.stop(); if (finish) finish(); });
-  const item = h.add("checked"); await h.runtime.reload();
-  const deadline = Date.now() + 2000;
-  while (item.reason !== "cache" && Date.now() < deadline) await sleep(10);
-  assert.equal(item.reason, "cache");
-  await sleep(Math.max(0, expiresAt - Date.now()) + 20);
+  const item = h.add("checked"); await h.runtime.reload(); await sleep(330); await sleep(150);
   h.scan(); assert.equal(item.action, "show"); assert.equal(item.reason, "background_refresh");
   await sleep(330); assert.equal(count, 2); assert.equal(item.reason, "background_refresh");
 });

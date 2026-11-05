@@ -32,23 +32,6 @@ test("Hide Shorts is an independent persisted preference and migrates without ch
   state = S.update(state, { type: "setHideShorts", enabled: false }); assert.equal(state.hideShorts, false);
 });
 
-test("display options migrate off, persist independently and reject unknown or non-boolean writes", () => {
-  let state = S.migrate({ activeProfile: general, hideShorts: true });
-  const original = JSON.stringify(state.general);
-  for (const option of S.DISPLAY_OPTIONS) {
-    assert.equal(state[option.key], false);
-    state = S.update(state, { type: "setDisplayPreference", key: option.key, enabled: true });
-  }
-  const restored = S.migrate({ focusfeedSettingsV2: JSON.parse(JSON.stringify(state)) });
-  assert.ok(S.DISPLAY_OPTIONS.every(option => restored[option.key]));
-  assert.equal(restored.hideShorts, true); assert.equal(JSON.stringify(restored.general), original);
-  const child = S.update(restored, { type: "setDisplayPreference", key: "hideVideoSidebar", enabled: false });
-  assert.equal(child.hideRecommended, true); assert.equal(child.hidePlaylist, true);
-  assert.throws(() => S.update(state, { type: "setDisplayPreference", key: "enabled", enabled: false }), /valid YouTube/);
-  assert.throws(() => S.update(state, { type: "setDisplayPreference", key: "__proto__", enabled: true }), /valid YouTube/);
-  assert.throws(() => S.update(state, { type: "setDisplayPreference", key: "hideHomeFeed", enabled: "true" }), /valid YouTube/);
-});
-
 test("validated direct preferences retain exact wording and do not require taxonomy IDs", () => {
   const objective = { id: "intent-review", text: "movie reviews", sourceText: "movie reviews", contentType: "topic",
     matchScope: "intent", validationVersion: "focusfeed-intent-v1" };

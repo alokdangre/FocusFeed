@@ -71,20 +71,6 @@ for (const pathname of ["/results", "/"]) test("correction hides immediately, le
   assert.equal(h.cards[0].dataset.focusfeedAutoHidden, undefined); assert.equal(h.cards[1].dataset.focusfeedAutoHidden, undefined);
   assert.equal(h.messages.filter(m => m.type === "FF_AUTO_CLASSIFY").length, requests, "Undo reuses the original raw scores");
 });
-
-test("losing Pro access closes review and removes topic actions while keeping manual channel controls", async t => {
-  const h = await setup(t); await h.open();
-  assert.ok(h.document.querySelector(".focusfeed-topic-action"));
-  h.contentMessages.forEach(fn => fn({ type: "FF_REVIEW_HIDDEN" }, {}, () => {}));
-  assert.equal(h.document.documentElement.hasAttribute("data-focusfeed-review-hidden"), true);
-  const before = h.messages.filter(message => message.type === "FF_AUTO_CLASSIFY").length;
-  await h.storage.set({ focusfeedAccountV1: { endpoint, mode: "required", userId: "expired", premium: false, validUntil: 0 } });
-  await sleep(150); await h.open();
-  assert.equal(h.document.documentElement.hasAttribute("data-focusfeed-review-hidden"), false);
-  assert.equal(h.document.querySelector(".focusfeed-topic-action"), null);
-  assert.ok(h.document.querySelector(".focusfeed-menu-action"));
-  assert.equal(h.messages.filter(message => message.type === "FF_AUTO_CLASSIFY").length, before);
-});
 test("review mode offers the reverse correction and restores a video despite its channel rule", async t => {
   const h = await setup(t); await h.open(); h.document.querySelector(".focusfeed-topic-action").click();
   h.document.querySelector(".focusfeed-topic-choice").click(); await tick(); await h.release();

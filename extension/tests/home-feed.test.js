@@ -34,14 +34,6 @@ test("General keeps native Home cards and continuation without custom UI or a pa
   assert.equal(first.parentNode, h.source); assert.equal(h.home.owns(first), false);
   assert.equal(h.messages.some(message => message.type === "FOCUSFEED_PAGE_GATE_CONFIG" && message.enabled), false);
 });
-test("Hide Home Feed prevents Focus discovery and resumes it when the option is turned off", async t => {
-  const state = focusState(); state.hideHomeFeed = true;
-  const h = setup(t, candidates(), state); h.scan(); await settle();
-  assert.equal(h.observed.length, 0); assert.equal(h.document.querySelector("dialog.focusfeed-discovery"), null);
-  assert.equal(h.messages.some(message => message.type === "FOCUSFEED_PAGE_GATE_CONFIG" && message.enabled), false);
-  h.home.configure({ ...state, hideHomeFeed: false }); h.scan(); await settle();
-  assert.ok(h.observed.length > 0);
-});
 test("Focus pauses after four low-yield batches and offers an encoded search without navigating", async t => {
   const h = setup(t, candidates(), focusState("DSA & graph tutorials")); hideAll(h);
   h.decisions.v0 = "show"; h.decisions.v13 = "show";

@@ -24,8 +24,8 @@
     trigger.id = "focusfeed-preferences-button"; trigger.dataset.focusfeedUi = "true";
     trigger.setAttribute("aria-haspopup", "dialog"); trigger.setAttribute("aria-expanded", "false");
     trigger.setAttribute("aria-controls", "focusfeed-preferences");
-    var mark = element("span", "focusfeed-header-mark", "O"); mark.setAttribute("aria-hidden", "true");
-    var name = element("span", "focusfeed-header-name", "OwnFeed"), status = element("span", "focusfeed-header-status", "…");
+    var mark = element("span", "focusfeed-header-mark", "F"); mark.setAttribute("aria-hidden", "true");
+    var name = element("span", "focusfeed-header-name", "FocusFeed"), status = element("span", "focusfeed-header-status", "…");
     trigger.append(mark, name, status);
     var panel = element("section", "focusfeed-preferences");
     panel.id = "focusfeed-preferences"; panel.dataset.focusfeedUi = "true"; panel.hidden = true;
@@ -35,9 +35,9 @@
     // Own dismissal so clicking the trigger cannot race native light-dismiss.
     if (nativePopover) panel.setAttribute("popover", "manual");
     var heading = element("header", "focusfeed-preferences-heading");
-    var title = element("h2", "", "OwnFeed"); title.id = "focusfeed-preferences-title";
+    var title = element("h2", "", "FocusFeed"); title.id = "focusfeed-preferences-title";
     var dismiss = button("×", "focusfeed-preferences-close", function () { close(true); });
-    dismiss.setAttribute("aria-label", "Close OwnFeed settings"); heading.append(title, dismiss);
+    dismiss.setAttribute("aria-label", "Close FocusFeed settings"); heading.append(title, dismiss);
     var message = element("p", "focusfeed-preferences-message"); message.hidden = true; message.setAttribute("role", "status");
     var retry = button("Retry loading", "focusfeed-preferences-link", load); retry.hidden = true;
     var power = element("input"); power.type = "checkbox"; power.id = "focusfeed-preferences-enabled"; power.setAttribute("role", "switch");
@@ -78,10 +78,6 @@
     var draftStatus = element("p", "focusfeed-preferences-note"); draftStatus.setAttribute("role", "status");
     var shorts = element("input"); shorts.type = "checkbox"; shorts.id = "focusfeed-preferences-shorts"; shorts.setAttribute("role", "switch");
     var shortsRow = switchRow("Hide Shorts", "Applies across YouTube", shorts);
-    var displaySettings = FocusFeedDisplaySettings.create({ prefix: "focusfeed-display",
-      save: function (action) { return request({ type: "FF_SETTINGS_UPDATE", action: action }); },
-      onSaved: configure, onError: function (error) { feedback(error.message, true); }
-    });
     var channels = element("details", "focusfeed-preferences-channels");
     var channelsSummary = element("summary", "", "Blocked channels");
     var channelsList = element("div", "focusfeed-preferences-channel-list"); channels.append(channelsSummary, channelsList);
@@ -93,12 +89,8 @@
       try { await request({ type: "FF_OPEN_PREFERENCES", mode: mode }); close(false); }
       catch (error) { feedback(error.message, true); }
     });
-    var accountLink = button("Account & Pro ↗", "focusfeed-preferences-link", async function () {
-      try { await request({ type: "FF_OPEN_PREFERENCES", mode: mode }); close(false); }
-      catch (error) { feedback(error.message, true); }
-    });
-    panel.append(heading, powerRow, accountLink, modes, fieldHeading, topicEditor, hint, fieldError, validation,
-      durationRow, session, actions, draftStatus, message, retry, shortsRow, displaySettings.element, channels, review, more);
+    panel.append(heading, powerRow, modes, fieldHeading, topicEditor, hint, fieldError, validation,
+      durationRow, session, actions, draftStatus, message, retry, shortsRow, channels, review, more);
     var editor = FocusFeedTopicInput.create({ input: input, list: topicList, onChange: edited });
     function switchRow(text, description, control) {
       var row = element("label", "focusfeed-preferences-switch"); row.htmlFor = control.id;
@@ -140,10 +132,10 @@
       var active = settings && FocusFeedSettings.focusActive(settings), enabled = settings && settings.enabled;
       var remaining = active && settings.focusSession.endsAt ? Math.max(0, Date.parse(settings.focusSession.endsAt) - Date.now()) : null;
       var timerLabel = remaining === null ? "Focus" : "Focus · " + Math.ceil(remaining / 60000) + " min";
-      var stateLabel = !settings ? "…" : !enabled ? "Paused" : settings.aiAccess === false ? "Free controls" : active ? timerLabel :
+      var stateLabel = !settings ? "…" : !enabled ? "Paused" : active ? timerLabel :
         FocusFeedSettings.valid(settings.general) ? "On" : "Set up";
       if (status.textContent !== stateLabel) status.textContent = stateLabel;
-      trigger.title = "OwnFeed · " + stateLabel + ". Open feed settings";
+      trigger.title = "FocusFeed · " + stateLabel + ". Open feed settings";
       trigger.setAttribute("aria-label", trigger.title);
       trigger.dataset.active = String(!!enabled);
       session.hidden = !active;
@@ -158,9 +150,8 @@
       power.checked = !!(settings && settings.enabled); shorts.checked = !!(settings && settings.hideShorts);
       saveButton.disabled = !settings || busy; sessionButton.disabled = !settings || busy;
       power.disabled = !settings; shorts.disabled = !settings;
-      if (settings) displaySettings.configure(settings);
       saveButton.textContent = busy ? "Checking topics…" : "Save changes";
-      review.disabled = !settings || !settings.enabled || settings.aiAccess === false || FocusFeedSettings.focusActive(settings);
+      review.disabled = !settings || !settings.enabled || FocusFeedSettings.focusActive(settings);
       renderClock(); renderDraft();
     }
     function configure(next) {
@@ -179,7 +170,7 @@
       }
       settings = next;
       if (refreshEditor) { editor.set(drafts[mode].topics); duration.value = String(drafts[mode].duration); }
-      retry.hidden = true; render(); mount();
+      retry.hidden = true; render();
       if (conflict && !busy) feedback("Saved topics changed in another tab. Your draft is preserved; Save changes will replace those topics.");
     }
     async function save(startFocus) {
@@ -280,12 +271,7 @@
     }
     function mount() {
       if (stopped || suspended) return false;
-      var floating = !!(settings && settings.enabled && settings.hideTopHeader);
-      trigger.toggleAttribute("data-floating", floating);
-      if (floating) {
-        var host = document.body || document.documentElement;
-        if (trigger.parentNode !== host) host.appendChild(trigger);
-      } else if (!trigger.isConnected || !trigger.closest("ytd-masthead")) {
+      if (!trigger.isConnected) {
         var actions = document.querySelector("ytd-masthead #end #buttons") || document.querySelector("ytd-masthead #end");
         if (!actions) { close(false); return false; }
         actions.prepend(trigger);
@@ -342,7 +328,7 @@
     render(); renderChannels(); start();
     return { configure: configure, open: open, close: close, stop: function () {
       if (stopped) return;
-      suspend(); stopped = true; blocksSerial++; displaySettings.stop();
+      suspend(); stopped = true; blocksSerial++;
       if (chrome.storage.onChanged.removeListener) chrome.storage.onChanged.removeListener(changed);
       listeners.forEach(function (remove) { remove(); }); trigger.remove(); panel.remove();
     } };

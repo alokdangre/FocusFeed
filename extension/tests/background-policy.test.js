@@ -141,10 +141,7 @@ test("worker corrections are local writes, reject stale topics and origins, and 
   assert.equal(h.data.focusfeedCorrectionsV1.items.length, 0);
 });
 test("failed creator resolution is exported as a resolution failure after the video correction succeeds", async () => {
-  const h = setup(async url => {
-    if (url.endsWith("/health")) return { ok: true, json: async () => ({ configured: true, provider: "typesafe-jev", model: "jev-1.13.0", promptVersion: "typesafe-jev-intent-video-match-2026-10-29.1", objectivePromptVersion: "typesafe-jev-intent-validation-2026-10-27.2", taxonomyVersion: "focusfeed-topics-v1" }) };
-    throw new Error("Creator lookup unavailable");
-  });
+  const h = setup(async () => { throw new Error("Creator lookup unavailable"); });
   const objective = { id: "korea", text: "K-dramas and Korea", contentType: "topic", matchScope: "intent", validationVersion: "focusfeed-intent-v1" };
   const saved = await h.dispatch({ type: "FF_SETTINGS_UPDATE", action: { type: "saveProfile", profile: { id: "general", mode: "general", version: 1, objectives: [objective] } } });
   const video = { videoId: "abcdefghijk", title: "Drama clip" };

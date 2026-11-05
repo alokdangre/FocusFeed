@@ -5,7 +5,7 @@
   async function request(message) {
     var response = await chrome.runtime.sendMessage(message);
     if (!response || !response.ok) throw new Error(response && response.error && response.error.message ||
-      "Could not reach OwnFeed. Reload the extension and YouTube, then try again.");
+      "Could not reach FocusFeed. Reload the extension and YouTube, then try again.");
     return response.data;
   }
   function texts(profile) {

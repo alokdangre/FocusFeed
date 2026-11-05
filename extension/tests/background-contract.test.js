@@ -45,7 +45,7 @@ function loadBackground(fetchImpl) {
 
 function dispatch(listener, message) {
   return new Promise((resolve, reject) => {
-    const keepChannelOpen = listener(message, { url: "chrome-extension://focusfeed/popup/popup.html" }, resolve);
+    const keepChannelOpen = listener(message, {}, resolve);
     assert.equal(keepChannelOpen, true);
     setTimeout(() => reject(new Error("background response timed out")), 1000);
   });

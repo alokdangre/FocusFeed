@@ -205,14 +205,10 @@ def api_error_message(body: Any, fallback: str) -> str:
 
 
 def call_typesafe(payload: dict[str, Any]) -> dict[str, Any]:
-    try:
-        from .controls import before_provider, record_usage
-    except ImportError:
-        from controls import before_provider, record_usage
     api_key = os.getenv("TYPESAFE_API_KEY", "").strip()
     if not api_key:
         raise TypeSafeConfigurationError(
-            "TYPESAFE_API_KEY is not configured on the OwnFeed classifier server."
+            "TYPESAFE_API_KEY is not configured on the FocusFeed classifier server."
         )
     endpoint = os.getenv("TYPESAFE_API_ENDPOINT", DEFAULT_API_ENDPOINT).strip()
     try:
@@ -221,8 +217,6 @@ def call_typesafe(payload: dict[str, Any]) -> dict[str, Any]:
         raise TypeSafeConfigurationError("TYPESAFE_TIMEOUT_SECONDS must be a positive number.") from exc
     if timeout <= 0:
         raise TypeSafeConfigurationError("TYPESAFE_TIMEOUT_SECONDS must be a positive number.")
-    if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
-        timeout = min(timeout, 90)
     request = Request(
         endpoint,
         data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
@@ -233,8 +227,6 @@ def call_typesafe(payload: dict[str, Any]) -> dict[str, Any]:
         },
         method="POST",
     )
-    reservation = before_provider(payload)
-    started = time.monotonic()
     try:
         with urlopen(request, timeout=timeout) as result:
             body = json.loads(result.read().decode("utf-8"))
@@ -255,7 +247,6 @@ def call_typesafe(payload: dict[str, Any]) -> dict[str, Any]:
         raise TypeSafeResponseError("TypeSafe returned a non-JSON response.") from exc
     if not isinstance(body, dict):
         raise TypeSafeResponseError("TypeSafe returned an invalid response object.")
-    record_usage(reservation, body, round((time.monotonic() - started) * 1000))
     return body
 
 
@@ -380,7 +371,7 @@ def assessment_reason(outcome: str) -> str:
         return "At least one direct Jev content-match probability met the match threshold."
     if outcome == "no_match":
         return "Every direct Jev content-match probability met the automatic-non-match threshold."
-    return "Jev's direct content-match probabilities were not decisive; OwnFeed applies the mode's uncertainty policy."
+    return "Jev's direct content-match probabilities were not decisive; FocusFeed applies the mode's uncertainty policy."
 
 
 def missing_assessment(video: VideoCandidate, request: ClassificationRequest) -> VideoAssessment:
@@ -406,7 +397,6 @@ def classify_videos(
     *,
     evaluator: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     clock: Callable[[], float] = time.perf_counter,
-    cache=None,
 ) -> ClassificationResponse:
     started = clock()
     payload = build_typesafe_request(request)
@@ -417,7 +407,7 @@ def classify_videos(
             result = evaluate_cached_video(payload, [video.video_id for video in request.videos], lambda outgoing: audited_call(outgoing, request.request_id), {
                 "prompt": VIDEO_PROMPT_VERSION, "taxonomy": TAXONOMY_VERSION,
                 "endpoint": os.getenv("TYPESAFE_API_ENDPOINT", DEFAULT_API_ENDPOINT).strip(),
-            }, cache=cache)
+            })
         except ValueError as exc:
             raise TypeSafeResponseError(str(exc)) from exc
     answers = result.get("answers")

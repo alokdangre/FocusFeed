@@ -34,7 +34,7 @@ async function setup(t, validate) {
       set(values, callback) { Object.assign(data, values); if (callback) callback(); return Promise.resolve(); }
     }, onChanged: { addListener(fn) { onChanged = fn; } } },
     tabs: { query(_options, callback) { if (callback) callback([]); else return Promise.resolve([]); }, create: async () => {} } };
-  h.load("preferences-controller.js", "display-settings.js", "popup/topic-input.js", "popup/popup.js"); await settle();
+  h.load("preferences-controller.js", "popup/topic-input.js", "popup/popup.js"); await settle();
   const input = h.document.getElementById("objectiveInput");
   const enter = text => { input.value = text; input.dispatchEvent(new h.window.Event("input")); };
   const save = () => h.document.getElementById("saveGoal").click();
@@ -51,16 +51,6 @@ test("comma and newline preferences are validated then saved distinctly in the u
   assert.deepEqual(Array.from(h.saved[0].objectives, o => o.text), Array.from(h.requests[0].objectives));
   assert.ok(h.saved[0].objectives.every(o => o.matchScope === "intent" && !o.taxonomyId));
   h.save(); await settle(); assert.equal(h.requests.length, 1, "unchanged validated preferences do not incur another validation");
-});
-test("popup layout controls save immediately without validating or replacing the topic draft", async t => {
-  const h = await setup(t); h.enter("Still drafting");
-  const control = h.document.querySelector('[data-display-preference="hideComments"]');
-  assert.equal(control.disabled, false); control.checked = true; control.dispatchEvent(new h.window.Event("change")); await settle();
-  assert.equal(control.checked, true); assert.equal(control.disabled, false);
-  assert.equal(h.requests.length, 0); assert.equal(h.saved.length, 0); assert.equal(h.input.value, "Still drafting");
-  const sidebar = h.document.querySelector('[data-display-preference="hideVideoSidebar"]');
-  sidebar.checked = true; sidebar.dispatchEvent(new h.window.Event("change")); await settle();
-  assert.equal(h.document.querySelector('[data-display-preference="hidePlaylist"]').disabled, true);
 });
 test("an unclear entry blocks saving the entire draft and displays its clarification", async t => {
   const h = await setup(t, request => [accepted(request.objectives[0], 0),

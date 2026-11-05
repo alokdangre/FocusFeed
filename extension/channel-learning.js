@@ -169,7 +169,7 @@
       await journal.update(trace, { status: "running", stage: "backend_contract", startedAt: startedAt });
       var endpoint = await options.endpoint(), contract = await options.contract(endpoint);
       await journal.update(trace, { endpoint: endpoint, classifier: { model: contract.model, promptVersion: contract.channelPromptVersion } });
-      if (contract.channelPromptVersion !== policy.PROMPT) throw new Error("Restart the OwnFeed API to enable channel learning.");
+      if (contract.channelPromptVersion !== policy.PROMPT) throw new Error("Restart the FocusFeed API to enable channel learning.");
       var namespace = JSON.stringify([endpoint, contract.model, contract.channelPromptVersion]);
       var prefs = await storage.get({ [policy.PROFILES]: [], [policy.CORRECTIONS]: policy.empty() });
       var confirmed = triggerId && prefs[policy.CORRECTIONS].items.find(function (c) { return c.id === triggerId; });

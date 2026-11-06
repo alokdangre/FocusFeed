@@ -1,0 +1,6 @@
+# Public website content is available to search and AI crawlers.
+# This includes Googlebot, Bingbot, OAI-SearchBot, Claude-SearchBot, and PerplexityBot.
+User-agent: *
+Allow: /
+
+Sitemap: https://ownfeed.tech/sitemap.xml

@@ -4,8 +4,130 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#dbeaf5">
-  <meta name="description" content="Keep the good part of YouTube. OwnFeed filters recommendations by your topics and lets you hide distractions, with an optional Focus timer.">
-  <title>OwnFeed — A little less noise. A little more you.</title>
+  <meta name="description" content="OwnFeed is a Chrome extension for YouTube. Hide Shorts, comments, and channels for free; explore AI topic filtering and Focus sessions in the developer preview.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <title>OwnFeed — YouTube Topic Filter &amp; Distraction Blocker</title>
+  <link rel="canonical" href="https://ownfeed.tech/">
+  <link rel="sitemap" type="application/xml" href="https://ownfeed.tech/sitemap.xml">
+  <link rel="alternate" type="text/markdown" title="OwnFeed product facts" href="https://ownfeed.tech/about.md">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="OwnFeed">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="https://ownfeed.tech/">
+  <meta property="og:title" content="OwnFeed — YouTube Topic Filter &amp; Distraction Blocker">
+  <meta property="og:description" content="A Chrome extension for a calmer YouTube. Free layout controls and channel blocking, with AI topic filtering and Focus sessions in developer preview.">
+  <meta property="og:image" content="https://ownfeed.tech/assets/cloudbreak.webp">
+  <meta property="og:image:width" content="1672">
+  <meta property="og:image:height" content="941">
+  <meta property="og:image:alt" content="Golden sunlight breaking through clouds, the OwnFeed website artwork">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="OwnFeed — YouTube Topic Filter &amp; Distraction Blocker">
+  <meta name="twitter:description" content="A Chrome extension for a calmer YouTube. Explore the developer preview, free layout controls, and topic filtering.">
+  <meta name="twitter:image" content="https://ownfeed.tech/assets/cloudbreak.webp">
+  <meta name="twitter:image:alt" content="Golden sunlight breaking through clouds, the OwnFeed website artwork">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://ownfeed.tech/#website",
+        "url": "https://ownfeed.tech/",
+        "name": "OwnFeed",
+        "inLanguage": "en",
+        "about": { "@id": "https://ownfeed.tech/#extension" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://ownfeed.tech/#extension",
+        "name": "OwnFeed",
+        "url": "https://ownfeed.tech/",
+        "description": "OwnFeed is a Chrome extension for YouTube. Free controls hide distracting layout elements and manually blocked channels. AI topic filtering and optional timed Focus sessions can be tested with a configured backend in the developer preview. Hosted Pro is coming soon.",
+        "applicationCategory": "ProductivityApplication",
+        "applicationSubCategory": "Browser extension",
+        "operatingSystem": "Desktop operating systems running Google Chrome",
+        "softwareRequirements": "Google Chrome; AI features also require a configured backend",
+        "creativeWorkStatus": "Developer preview",
+        "image": "https://ownfeed.tech/assets/cloudbreak.webp",
+        "featureList": [
+          "Hide YouTube Shorts, comments, recommendations, and other layout elements",
+          "Manually block YouTube channels without an account",
+          "General mode hides recommendations matching selected topics",
+          "Focus mode keeps matching recommendations for an optional timed session"
+        ],
+        "isAccessibleForFree": true,
+        "sameAs": "https://github.com/alokdangre/FocusFeed"
+      },
+      {
+        "@type": ["WebPage", "FAQPage"],
+        "@id": "https://ownfeed.tech/#webpage",
+        "url": "https://ownfeed.tech/",
+        "name": "OwnFeed — YouTube Topic Filter & Distraction Blocker",
+        "inLanguage": "en",
+        "isPartOf": { "@id": "https://ownfeed.tech/#website" },
+        "about": { "@id": "https://ownfeed.tech/#extension" },
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is OwnFeed?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "OwnFeed is a Chrome extension for YouTube that filters recommendations by your topics and lets you hide distracting parts of the page. It is an independent project, not affiliated with YouTube or Google. The interactive feed on this website is an illustration; it does not read or change your YouTube account."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do General and Focus modes differ?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "General hides recommendations matching the topics you want to skip. Focus keeps recommendations matching what you want to learn, with an optional timed session. AI topic filtering needs a configured backend in the developer preview; hosted Pro access is coming soon."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Will it block all movie content?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. A topic like “movie reviews” is meant to match reviews, not everything about movies. In the preview, hiding reviews keeps the video about the science behind Interstellar. You can also correct a missed video or unblock content."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an account?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Layout controls and manual channel blocking work without signing in. Hosted AI topic filtering is planned to require an account and active Pro access when available. For developer testing, you can connect to a locally configured backend without hosted sign-in; AI requests still use the configured provider."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "When can I install OwnFeed?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "OwnFeed is in development. Public extension downloads and a Chrome Web Store release are not available yet. You can try the illustrative website demo while the public release is being prepared."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How much does OwnFeed cost?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Layout controls and manual channel blocking are free and need no account. Hosted Pro is coming soon, with a planned price of $4.99 per month for AI topic filtering, timed Focus sessions, and filter feedback. This is a planned price that may change; checkout and paid subscriptions are not available in this preview."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I turn it off?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Pause filtering, change your topics, or end a Focus session whenever you like. Your preferences are yours to change."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/cloudbreak.webp" as="image" fetchpriority="high">
   <link rel="stylesheet" href="assets/fonts/instrument-serif.css">
@@ -20,8 +142,8 @@
     <header class="site-header container">
       <a class="brand" href="#" aria-label="OwnFeed home"><span class="brand-icon" aria-hidden="true">o.</span><span>OwnFeed</span></a>
       <nav class="desktop-nav" aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#your-feed">Your feed</a><a href="#pricing">Pricing</a><a href="#questions">Questions</a></nav>
-      <button class="button button-small header-cta" data-install>Get OwnFeed <span aria-hidden="true">↗</span></button>
-      <details class="mobile-menu"><summary>Menu <span aria-hidden="true">☰</span></summary><nav aria-label="Mobile navigation"><a href="#how-it-works">How it works</a><a href="#your-feed">Your feed</a><a href="#pricing">Pricing</a><a href="#questions">Questions</a><button data-install>Get OwnFeed ↗</button></nav></details>
+      <button class="button button-small header-cta" data-install>Coming soon <span aria-hidden="true">↗</span></button>
+      <details class="mobile-menu"><summary>Menu <span aria-hidden="true">☰</span></summary><nav aria-label="Mobile navigation"><a href="#how-it-works">How it works</a><a href="#your-feed">Your feed</a><a href="#pricing">Pricing</a><a href="#questions">Questions</a><button data-install>Coming soon ↗</button></nav></details>
     </header>
     <div class="hero-content container">
       <h1 id="hero-title">A little less noise.<br><em>A little more you.</em></h1>
@@ -35,7 +157,7 @@
     <section class="experience section container" id="your-feed" aria-labelledby="experience-title">
       <div class="section-heading">
         <div><p class="eyebrow">A feed with intention</p><h2 id="experience-title">Same YouTube.<br><em>A different feeling.</em></h2></div>
-        <p>Choose what stays in your world. Try the example below to see a noisy feed become your feed.</p>
+        <p>OwnFeed is a Chrome extension that filters YouTube recommendations by your topics and hides distracting layout elements. Try the illustrative feed below.</p>
       </div>
 
       <div class="browser-frame">
@@ -78,18 +200,29 @@
     <section class="pricing section container" id="pricing" aria-labelledby="pricing-title">
       <div class="pricing-heading"><p class="eyebrow">Pricing</p><h2 id="pricing-title">A little space for<br><em>every kind of focus.</em></h2><p>Start with the essentials. Go further with AI-powered filtering.</p></div>
       <div class="pricing-grid">
-        <article class="price-plan"><div><p class="plan-name">Free</p><h3>Make room for what matters.</h3><p class="plan-price"><span>$0</span> <span>no account needed</span></p><p class="plan-description">A calmer YouTube, with the controls to make it yours.</p><ul><li>Hide Shorts, comments, and other clutter</li><li>Block channels manually</li><li>Adjust your YouTube layout</li></ul></div><button class="plan-action plan-action-light" data-install>Get the developer preview <span aria-hidden="true">↗</span></button></article>
+        <article class="price-plan"><div><p class="plan-name">Free</p><h3>Make room for what matters.</h3><p class="plan-price"><span>$0</span> <span>no account needed</span></p><p class="plan-description">A calmer YouTube, with the controls to make it yours.</p><ul><li>Hide Shorts, comments, and other clutter</li><li>Block channels manually</li><li>Adjust your YouTube layout</li></ul></div><button class="plan-action plan-action-light" data-install>Coming soon <span aria-hidden="true">↗</span></button></article>
         <article class="price-plan price-plan-pro"><div><div class="plan-topline"><p class="plan-name">Pro</p><span class="plan-badge">Coming soon</span></div><h3>Find more of your focus.</h3><p class="plan-price"><span>$4.99</span> <span>/ month · planned</span></p><p class="plan-description">More intention, with hosted AI that understands your topics.</p><ul><li>Everything in Free</li><li>AI-powered topic filtering</li><li>Timed Focus sessions</li><li>Feedback to refine your filters</li></ul></div><a class="plan-action plan-action-dark" href="#questions">Learn about Pro <span aria-hidden="true">↗</span></a><p class="plan-note">Planned price; checkout is not available yet and pricing may change.</p></article>
       </div>
     </section>
 
-    <section class="questions section container" id="questions" aria-labelledby="questions-title"><div><p class="eyebrow">FAQ</p><h2 id="questions-title">A few things<br><em>you might wonder.</em></h2><p class="section-subtitle">Less friction. More clarity.</p></div><div class="faq-list"><details open><summary>What does OwnFeed change?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>OwnFeed filters recommendations by your topics and lets you hide distracting parts of YouTube. You stay in control of what you watch.</p></div></details><details><summary>Will it block all movie content?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>No. A topic like “movie reviews” is meant to match reviews, not everything about movies. In the preview, hiding reviews keeps the video about the science behind Interstellar. You can also correct a missed video or unblock content.</p></div></details><details><summary>Do I need an account?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>Layout controls and manual channel blocking work without signing in. Hosted AI topic filtering requires an account and active Pro access. The developer preview can also connect to a locally configured backend.</p></div></details><details><summary>Can I turn it off?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Pause filtering, change your topics, or end a Focus session whenever you like. Your preferences are yours to change.</p></div></details></div></section>
+    <section class="questions section container" id="questions" aria-labelledby="questions-title">
+      <div><p class="eyebrow">FAQ</p><h2 id="questions-title">A few things<br><em>you might wonder.</em></h2><p class="section-subtitle">Less friction. More clarity.</p></div>
+      <div class="faq-list">
+        <details id="what-is-ownfeed" open><summary>What is OwnFeed?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>OwnFeed is a Chrome extension for YouTube that filters recommendations by your topics and lets you hide distracting parts of the page. It is an independent project, not affiliated with YouTube or Google. The interactive feed on this website is an illustration; it does not read or change your YouTube account.</p></div></details>
+        <details id="modes"><summary>How do General and Focus modes differ?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>General hides recommendations matching the topics you want to skip. Focus keeps recommendations matching what you want to learn, with an optional timed session. AI topic filtering needs a configured backend in the developer preview; hosted Pro access is coming soon.</p></div></details>
+        <details id="topic-matching"><summary>Will it block all movie content?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>No. A topic like “movie reviews” is meant to match reviews, not everything about movies. In the preview, hiding reviews keeps the video about the science behind Interstellar. You can also correct a missed video or unblock content.</p></div></details>
+        <details id="accounts"><summary>Do I need an account?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>Layout controls and manual channel blocking work without signing in. Hosted AI topic filtering is planned to require an account and active Pro access when available. For developer testing, you can connect to a locally configured backend without hosted sign-in; AI requests still use the configured provider.</p></div></details>
+        <details id="installation"><summary>When can I install OwnFeed?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>OwnFeed is in development. Public extension downloads and a Chrome Web Store release are not available yet. You can try the illustrative website demo while the public release is being prepared.</p></div></details>
+        <details id="cost"><summary>How much does OwnFeed cost?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>Layout controls and manual channel blocking are free and need no account. Hosted Pro is coming soon, with a planned price of $4.99 per month for AI topic filtering, timed Focus sessions, and filter feedback. This is a planned price that may change; checkout and paid subscriptions are not available in this preview.</p></div></details>
+        <details id="pause-filtering"><summary>Can I turn it off?<span aria-hidden="true"></span></summary><div class="faq-answer"><p>Yes. Pause filtering, change your topics, or end a Focus session whenever you like. Your preferences are yours to change.</p></div></details>
+      </div>
+    </section>
 
   </main>
 
-  <div class="closing"><img src="assets/last-light.webp" width="1672" height="941" alt="" loading="lazy"><section class="closing-content container" aria-labelledby="closing-title"><h2 id="closing-title">Keep your curiosity.<br><em>Lose the rabbit holes.</em></h2><p>Make a little room for what matters.</p><button class="button" data-install>Get OwnFeed <span aria-hidden="true">↗</span></button><a class="source-link" href="https://github.com/alokdangre/FocusFeed" target="_blank" rel="noreferrer">Explore the source <span aria-hidden="true">↗</span></a></section><footer class="site-footer container"><a class="brand footer-brand" href="#">OwnFeed</a><p>A little more intention.</p><nav aria-label="Footer navigation"><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="https://github.com/alokdangre/FocusFeed" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav></footer></div>
+  <div class="closing"><img src="assets/last-light.webp" width="1672" height="941" alt="" loading="lazy"><section class="closing-content container" aria-labelledby="closing-title"><h2 id="closing-title">Keep your curiosity.<br><em>Lose the rabbit holes.</em></h2><p>Make a little room for what matters.</p><button class="button" data-install>Coming soon <span aria-hidden="true">↗</span></button><a class="source-link" href="https://github.com/alokdangre/FocusFeed" target="_blank" rel="noreferrer">Explore the source <span aria-hidden="true">↗</span></a></section><footer class="site-footer container"><a class="brand footer-brand" href="#">OwnFeed</a><p>A little more intention.</p><nav aria-label="Footer navigation"><a href="#how-it-works">How it works</a><a href="#pricing">Pricing</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="https://github.com/alokdangre/FocusFeed" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav></footer></div>
 
-  <dialog id="install-dialog" aria-labelledby="install-title" aria-describedby="install-description"><form method="dialog"><button class="dialog-close" aria-label="Close installation guide">×</button></form><span class="brand-icon" aria-hidden="true">o.</span><h2 id="install-title">A calmer feed<br><em>starts here.</em></h2><p id="install-description">OwnFeed is currently a developer preview.</p><ol class="install-steps"><li><strong>Download and unzip.</strong><span>Save the extension files somewhere you can keep them.</span></li><li><strong>Open <code>chrome://extensions</code>.</strong><span>Turn on Developer mode, then choose “Load unpacked”.</span></li><li><strong>Select the extracted folder.</strong><span>Reload YouTube and open OwnFeed to choose your settings.</span></li></ol><a class="button download-extension" href="assets/ownfeed-extension.zip" download>Download developer preview <span aria-hidden="true">↓</span></a><p class="install-note">Layout controls and manual channel blocks work without an account. AI topic filtering also needs a configured backend. <a href="https://github.com/alokdangre/FocusFeed#run-locally" target="_blank" rel="noreferrer">Read the setup guide ↗</a></p></dialog>
-  <noscript><p class="noscript-message">The example feed is shown with filtering enabled. Enable JavaScript to try the interactive controls, or <a href="assets/ownfeed-extension.zip" download>download the developer preview</a>.</p></noscript>
+  <dialog id="install-dialog" aria-labelledby="install-title" aria-describedby="install-description"><form method="dialog"><button class="dialog-close" aria-label="Close release information">×</button></form><span class="brand-icon" aria-hidden="true">o.</span><h2 id="install-title">A calmer feed<br><em>is on its way.</em></h2><p id="install-description">OwnFeed is coming soon. Public extension downloads are not available yet.</p><p class="install-note">You can explore the illustrative feed on this website while the public release is being prepared.</p></dialog>
+  <noscript><p class="noscript-message">The example feed is shown with filtering enabled. Enable JavaScript to try the interactive controls. OwnFeed is coming soon; public downloads are not available yet.</p></noscript>
 </body>
 </html>

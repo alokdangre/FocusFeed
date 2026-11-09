@@ -9,6 +9,9 @@
   // --- State ---
   var feedItemsReceived = 0;
   var liveFeed = null;
+  var contextInvalidated = false;
+  var shortsQueue = FocusFeedShortsQueue.create();
+  if (onShorts()) shortsQueue.beginVisit();
   var PREFERENCE_KEYS = ["classifierEndpoint", "focusfeedAccountV1", "focusfeedSettingsV2", "focusfeedCacheEpochV1", "focusFeedChannelBlocksV1", "focusfeedChannelProfilesV1", "focusfeedCorrectionsV1"];
   chrome.storage.onChanged.addListener(function (changes, areaName) {
     if (areaName === "local" && PREFERENCE_KEYS.some(function (key) { return !!changes[key]; }) && liveFeed) {
@@ -19,10 +22,24 @@
   });
 
   // --- Extract video data from YouTube API response ---
-  function extractVideoRenderers(obj, results) {
+  function extractVideoRenderers(obj, results, shortsContext) {
     if (!results) results = [];
     if (!obj || typeof obj !== "object") return results;
     collectCollections(obj);
+    // Player metadata can be nested inside a reel response. Sequence endpoints
+    // may supply IDs alone; keep those candidates without inventing titles.
+    if (obj.videoDetails) {
+      var details = obj.videoDetails;
+      results.push({ videoId: details.videoId || "", title: details.title || "", channel: details.author || "",
+        channelId: details.channelId || "", description: details.shortDescription || "", duration: "",
+        isLive: details.isLiveContent === true, isShort: shortsContext === true });
+    }
+    if (obj.reelWatchEndpoint && obj.reelWatchEndpoint.videoId) {
+      results.push({ videoId: obj.reelWatchEndpoint.videoId, isShort: true, title: "" });
+    }
+    if (typeof obj.playerResponse === "string") {
+      try { extractVideoRenderers(JSON.parse(obj.playerResponse), results, shortsContext); } catch (_) {}
+    }
 
     if (obj.videoRenderer) {
       var vr = obj.videoRenderer;
@@ -171,10 +188,10 @@
       var val = obj[key];
       if (Array.isArray(val)) {
         for (var j = 0; j < val.length; j++) {
-          extractVideoRenderers(val[j], results);
+          extractVideoRenderers(val[j], results, shortsContext);
         }
       } else if (typeof val === "object" && val !== null) {
-        extractVideoRenderers(val, results);
+        extractVideoRenderers(val, results, shortsContext);
       }
     }
 
@@ -237,6 +254,12 @@
   // --- Build a lookup map from intercepted data ---
   var videoDataMap = {};
   var collectionDataMap = new Map();
+  var shortsEndpoints = new Set();
+  function onShorts() { return /^\/shorts(?:\/|$)/.test(location.pathname); }
+  function addShortsCandidate(id) {
+    if (onShorts()) shortsQueue.beginVisit();
+    shortsQueue.offer(id);
+  }
   function collectionId(value) { return typeof value === "string" && /^[A-Za-z0-9_-]{2,60}$/.test(value) ? value : ""; }
   function collectCollections(obj) {
     if (!obj || typeof obj !== "object") return;
@@ -266,13 +289,14 @@
       creators: FocusFeedChannelPolicy.creators({ channelId: identity.channelId, channel: identity.channelLabel, creators: previous.creators || [] }) });
   }
 
-  function processInterceptedData(data) {
-    var videos = extractVideoRenderers(data);
-    if (data && data.videoDetails) {
-      var d = data.videoDetails;
-      videos.push({ videoId: d.videoId, title: d.title, channel: d.author, channelId: d.channelId,
-        description: d.shortDescription || "", duration: "", isLive: d.isLiveContent === true });
-    }
+  function processInterceptedData(data, endpoint) {
+    var playing = onShorts() && youtubeUI && youtubeUI.currentVideo();
+    if (playing && playing.video.videoId) addShortsCandidate(playing.video.videoId);
+    var reel = onShorts() && /\/reel\//.test(endpoint || "");
+    var initialShort = onShorts() && endpoint === "ytInitialPlayerResponse" && data && data.videoDetails &&
+      data.videoDetails.videoId === location.pathname.split("/shorts/")[1];
+    var videos = extractVideoRenderers(data, null, reel || initialShort);
+    if (reel) shortsEndpoints.add((endpoint || "").split("?")[0].split("/").pop());
     feedItemsReceived += videos.length;
 
     for (var i = 0; i < videos.length; i++) {
@@ -291,6 +315,7 @@
           isLive: video.isLive === true || previous.isLive === true,
           isPremiere: video.isPremiere === true || previous.isPremiere === true,
         });
+        if (onShorts() && videoDataMap[video.videoId].isShort && (reel || initialShort)) addShortsCandidate(video.videoId);
       }
     }
 
@@ -407,6 +432,33 @@
   }
 
   function scanCards() {
+    if (contextInvalidated) return;
+    if (onShorts() && liveFeed) {
+      var active = youtubeUI.currentVideo();
+      if (active && active.video.videoId) addShortsCandidate(active.video.videoId);
+      document.querySelectorAll("ytd-reel-video-renderer[video-id]").forEach(function (card) {
+        var id = card.getAttribute("video-id"), previous = videoDataMap[id] || {};
+        var title = card.querySelector("h1, h2"), link = card.querySelector('a[href*="/channel/"], a[href*="/@"]');
+        videoDataMap[id] = Object.assign({}, previous, { videoId: id, isShort: true,
+          title: previous.title || title && title.textContent.trim() || "",
+          channel: previous.channel || link && link.textContent.trim() || "",
+          channelId: previous.channelId || link && normalizeChannelIdentity(link.getAttribute("href")) || "" });
+        addShortsCandidate(id);
+      });
+      if (active && active.video.videoId) {
+        var known = videoDataMap[active.video.videoId] || {};
+        videoDataMap[active.video.videoId] = Object.assign({}, known, active.video);
+        addShortsCandidate(active.video.videoId);
+      }
+      var ids = shortsQueue.ids();
+      if (active && active.video.videoId && !shortsQueue.isRemoved(active.video.videoId)) ids = [active.video.videoId].concat(ids.filter(function (id) { return id !== active.video.videoId; }));
+      liveFeed.prefetch(ids.map(function (id) { return videoDataMap[id]; }).filter(Boolean));
+      ids = shortsQueue.ids();
+      var ready = ids.filter(function (id) { return FocusFeedVideo.hasMinimumModelMetadata(videoDataMap[id]); }).length;
+      var stats = JSON.stringify(Object.assign({ received: ids.length, withMetadata: ready, withoutMetadata: ids.length - ready,
+        endpoints: Array.from(shortsEndpoints) }, shortsQueue.stats(), liveFeed.snapshot(ids).shorts));
+      if (document.documentElement.getAttribute("data-focusfeed-shorts-queue") !== stats) document.documentElement.setAttribute("data-focusfeed-shorts-queue", stats);
+    }
     youtubeUI.scanDisplay();
     youtubeUI.scanHome(extractCardMetadata);
     // One surface list owns scanning and native-menu context alike.
@@ -420,6 +472,10 @@
   }
 
   function extractCardMetadata(card) {
+    // A Shorts shelf can sit inside a rich item. Its children own independent
+    // topic decisions; the first link must never stand in for the whole shelf.
+    if (card.tagName === "YTD-RICH-ITEM-RENDERER" &&
+        card.querySelector("ytd-rich-shelf-renderer, ytd-reel-shelf-renderer")) return;
     // Some player layouts nest a suggestion link in a video-wall tile. Only
     // the outer native tile owns visibility, so its clickable child cannot escape.
     if (card.matches(PLAYER_CARDS) && card.parentElement && card.parentElement.closest(PLAYER_CARDS)) return;
@@ -573,7 +629,7 @@
       event.data.type !== "FOCUSFEED_FEED_DATA"
     ) return;
 
-    processInterceptedData(event.data.data);
+    processInterceptedData(event.data.data, event.data.endpoint);
   });
 
   // --- Listen for messages from popup ---
@@ -594,12 +650,22 @@
   });
 
   // --- Init ---
-  var youtubeUI = FocusFeedYouTubeUI.create({ lookup: function (id) { return videoDataMap[id]; }, extract: extractCardMetadata,
+  var youtubeUI = FocusFeedYouTubeUI.create({ shortsQueue: shortsQueue, lookup: function (id) { return videoDataMap[id]; }, extract: extractCardMetadata,
     rememberChannel: rememberChannel, requestScan: requestScan });
-  liveFeed = FocusFeedAutoRuntime.create({ scan: scanCards, render: youtubeUI.render, clear: youtubeUI.clear, configure: youtubeUI.configure, activity: youtubeUI.activity });
+  liveFeed = FocusFeedAutoRuntime.create({ scan: scanCards, render: youtubeUI.render, clear: youtubeUI.clear,
+    configure: youtubeUI.configure, beginUpdate: youtubeUI.beginUpdate, updateFailed: youtubeUI.updateFailed,
+    excluded: function (id) { return shortsQueue.isRemoved(id); },
+    prepared: youtubeUI.prepared, transition: youtubeUI.transition, activity: youtubeUI.activity, invalidated: function () {
+      contextInvalidated = true;
+      metadataObserver.disconnect(); clearInterval(tickInterval); tickInterval = null;
+      clearTimeout(scanTimer); scanTimer = null;
+      document.documentElement.setAttribute("data-focusfeed-disconnected", "true");
+      youtubeUI.disconnected();
+    } });
   youtubeUI.setRuntime(liveFeed);
   var scanTimer = null;
   function requestScan() {
+    if (contextInvalidated) return;
     if (!scanTimer) scanTimer = setTimeout(function () { scanTimer = null; scanCards(); }, 100);
   }
   var metadataObserver = new MutationObserver(function (mutations) {
@@ -611,20 +677,31 @@
   var tickInterval = null;
   var accountCheckedAt = 0;
   function refreshAccount() {
+    if (contextInvalidated) return;
     if (Date.now() - accountCheckedAt < 30000) return;
     accountCheckedAt = Date.now();
-    chrome.runtime.sendMessage({ type: "FF_ACCOUNT_STATUS" }).catch(function () {});
+    Promise.resolve().then(function () { return chrome.runtime.sendMessage({ type: "FF_ACCOUNT_STATUS" }); }).catch(function (error) {
+      if (/extension context invalidated/i.test(error && error.message || "")) liveFeed.invalidate();
+    });
   }
   function startObservation() {
+    if (contextInvalidated) return;
     metadataObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true,
       attributes: true, attributeFilter: ["href", "title", "is-active", "video-id", "hidden", "aria-checked"] });
     if (!tickInterval) tickInterval = setInterval(function () { if (!document.hidden) { refreshAccount(); liveFeed.tick(); } }, 2000);
   }
   startObservation();
   refreshAccount();
-  window.addEventListener("yt-navigate-start", function () { liveFeed.navigate(true); });
-  window.addEventListener("yt-navigate-finish", function () { liveFeed.navigate(false); requestScan(); });
-  window.addEventListener("popstate", function () { liveFeed.navigate(false); requestScan(); });
+  var shortsVisit = onShorts();
+  window.addEventListener("yt-navigate-start", function () { liveFeed.navigate(true, shortsVisit); });
+  function finishNavigation() {
+    var currentShorts = onShorts();
+    liveFeed.navigate(false, shortsVisit && currentShorts);
+    if (!currentShorts) { shortsQueue.endVisit(); shortsEndpoints.clear(); document.documentElement.removeAttribute("data-focusfeed-shorts-queue"); }
+    shortsVisit = currentShorts; requestScan();
+  }
+  window.addEventListener("yt-navigate-finish", finishNavigation);
+  window.addEventListener("popstate", finishNavigation);
   window.addEventListener("scroll", requestScan, { passive: true });
   window.addEventListener("resize", requestScan, { passive: true });
   window.addEventListener("pagehide", function () {

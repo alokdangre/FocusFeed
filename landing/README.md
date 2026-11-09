@@ -1,5 +1,14 @@
 # OwnFeed — Cloudbreak landing page
 
+Release copy updated for the free 0.29.0 TypeSafe/Jev BYOK candidate: no OwnFeed
+account, hosted backend or subscription; provider usage charges apply. The local
+privacy/terms, FAQ, pricing and machine-readable facts now describe that scope.
+These changes were deployed on November 9, 2026; HTTP checks verified current
+BYOK text on the homepage, privacy, terms, about.md and llms.txt. See
+../docs/STORE_RELEASE.md for deployment evidence and remaining browser checks.
+The Coming soon action remains until an approved store link exists. Older
+verification and hosted-Pro notes below describe the previous website version.
+
 A self-contained landing page based on the selected Cloudbreak artwork. This directory contains the source for `https://ownfeed.tech/`.
 
 ## Preview
@@ -28,7 +37,7 @@ The feed, video titles, durations, and timer are illustrative. This site does no
 ## Files
 
 - `index.html`, `styles.css`, `script.js`: semantic, buildless page.
-- `privacy.html`, `terms.html`, `legal.css`: linked policy pages for the developer preview. They use the owner's personal email temporarily; the account deletion process, cancellation and refund terms need to be finalized before public launch.
+- `privacy.html`, `terms.html`, `legal.css`: linked policy pages for the free BYOK release. Public support uses GitHub; no personal email address is published.
 - `assets/cloudbreak.webp` and `assets/last-light.webp`: the selected generated hero and footer images, copied without regenerating them.
 - `assets/fonts/`: locally hosted Instrument Serif and DM Sans, with OFL licenses.
 - `assets/sources.json`: provenance for fonts, imagery, and the illustrative thumbnail photos.

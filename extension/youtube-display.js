@@ -30,18 +30,24 @@
     var state = null, marked = new Set(), autoplayChanges = new Map();
     function mark(node, next) { if (node) next.add(node); }
     function guide(next) {
-      if (!state.hideExploreTrending && !state.hideMoreFromYouTube && !state.hideSubscriptions) return;
+      if (!state.hideShorts && !state.hideExploreTrending && !state.hideMoreFromYouTube && !state.hideSubscriptions) return;
       var exploreSections = new Set();
       document.querySelectorAll(GUIDE_ITEM).forEach(function (entry) {
-        var link = entry.querySelector('a[href]');
+        var link = entry.querySelector('a#endpoint, a[href]');
         if (!link) return;
+        // The expanded guide can use a command-backed primary Shorts entry
+        // with a title but no href. Restrict the label fallback to that shape.
+        if (state.hideShorts && entry.hasAttribute("is-primary") && !link.hasAttribute("href") &&
+            (link.getAttribute("title") || "").trim().toLowerCase() === "shorts") mark(entry, next);
+        if (!link.hasAttribute("href")) return;
         var url; try { url = new URL(link.getAttribute("href"), location.origin); } catch (_) { return; }
         var path = url.pathname.replace(/\/$/, ""), local = url.hostname === location.hostname;
         var explore = state.hideExploreTrending && local && /^\/(feed\/(explore|trending)|gaming|podcasts|courses|playables|sports|news|learning|fashion|music)$/.test(path);
         var subscriptions = state.hideSubscriptions && local && /^\/feed\/(subscriptions|channels)$/.test(path);
+        var shorts = state.hideShorts && local && path === "/shorts";
         var services = state.hideMoreFromYouTube && (local && /^\/(premium|kids)$/.test(path) ||
           /^(music|studio|tv|kids)\.youtube\.com$/.test(url.hostname) || /^(www\.)?youtubekids\.com$/.test(url.hostname));
-        if (explore || subscriptions || services) mark(entry, next);
+        if (shorts || explore || subscriptions || services) mark(entry, next);
         if (explore) mark(entry.closest('ytd-guide-section-renderer'), exploreSections);
         if (subscriptions) mark(entry.closest('ytd-guide-collapsible-section-entry-renderer'), next);
       });

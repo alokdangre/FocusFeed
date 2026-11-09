@@ -11,6 +11,7 @@
     "/youtubei/v1/search",
     "/youtubei/v1/player",
     "/youtubei/v1/reel/reel_item_watch",
+    "/youtubei/v1/reel/reel_watch_sequence",
   ];
 
   var pageGate = FocusFeedPageGate.create(function (state) {

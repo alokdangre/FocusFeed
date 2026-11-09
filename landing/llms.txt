@@ -2,14 +2,14 @@
 
 > OwnFeed is an independent Chrome extension for YouTube that filters recommendations by user-selected topics and hides distracting layout elements.
 
-OwnFeed is in development. Public extension downloads and a Chrome Web Store release are not available yet. The website demo is illustrative and does not access a visitor's YouTube account. Free layout controls and manual channel blocking need no account. AI topic filtering needs a configured backend. Hosted Pro is coming soon; $4.99/month is planned and may change. Checkout and paid subscriptions are not available.
+OwnFeed is in development. Public extension downloads and a Chrome Web Store release are not available yet. The website demo is illustrative and does not access a visitor's YouTube account. Free layout controls and manual channel blocking need no account. AI topic filtering uses your own TypeSafe/Jev API key. OwnFeed is free; provider usage charges apply. No OwnFeed account or subscription is required.
 
 ## Product
 
 - [OwnFeed homepage](https://ownfeed.tech/): Product overview, illustrative demo, modes, pricing, and frequently asked questions.
 - [Product facts](https://ownfeed.tech/about.md): Plain Markdown description of features, availability, installation, account requirements, and data handling.
 - [Release availability](https://ownfeed.tech/#installation): Public downloads and the Chrome Web Store release are not available yet.
-- [Pricing](https://ownfeed.tech/#pricing): Free controls and planned hosted Pro access.
+- [Pricing](https://ownfeed.tech/#pricing): Free controls and TypeSafe BYOK topic filtering.
 
 ## Policies
 

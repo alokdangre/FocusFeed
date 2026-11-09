@@ -12,11 +12,35 @@
     var metrics = { requests: 0, cacheHits: 0, shared: 0, providerCalls: 0, providerQuestions: 0, inputTokens: 0, outputTokens: 0 };
     var displayed = new Map(), completed = new WeakMap(), facts = new Map();
     var judgmentKey = null, transportKey = null, activityScheduled = false;
+    var shortsBatches = [];
     var account = null, accountEndpoint = "http://127.0.0.1:3000";
+    var pendingPolicy = 0, updateSerial = 0, policyError = false;
+    function invalidate() {
+      if (stopped) return;
+      stopped = true; suspended = true; generation++; reloadSerial++;
+      clearTimeout(timer); clearTimeout(retryTimer); clearTimeout(expiryTimer);
+      timer = retryTimer = expiryTimer = null;
+      current.forEach(function (job) { clearTimeout(job.timeout); }); current.clear();
+      records.clear(); cards.clear(); displayed.clear();
+      setStatus("Reload YouTube to reconnect OwnFeed.");
+      if (adapter.invalidated) adapter.invalidated();
+    }
+    // Chrome may throw synchronously or reject a Promise after an extension reload.
+    // An invalidated page script cannot reconnect; stop it until the tab reloads.
+    async function extensionCall(operation) {
+      if (stopped) return null;
+      try { return await operation(); }
+      catch (error) {
+        if (/extension context invalidated/i.test(error && error.message || "")) { invalidate(); return null; }
+        throw error;
+      }
+    }
+    function send(message) { return extensionCall(function () { return api.runtime.sendMessage(message); }); }
     function aiAllowed() {
       var local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(?:\/|$)/.test(accountEndpoint);
       if (!account || account.endpoint !== accountEndpoint) return local;
       if (account.mode === "local") return local;
+      if (account.mode === "byok") return accountEndpoint === "https://api.typesafe.ai" && account.premium === true && account.validUntil > Date.now();
       return account.mode === "required" && account.premium === true && account.validUntil > Date.now();
     }
     var learning = typeof FocusFeedLearningPolicy !== "undefined" ? FocusFeedLearningPolicy : null;
@@ -53,13 +77,18 @@
       var token = { until: Date.now() + 680000, pending: true };
       investigations.set(key, token);
       if (investigations.size > 200) investigations.delete(investigations.keys().next().value);
-      api.runtime.sendMessage({ type: "FF_CHANNEL_LEARN", video: video, revision: state.revision }).catch(function () {}).finally(function () {
+      send({ type: "FF_CHANNEL_LEARN", video: video, revision: state.revision }).catch(function () {}).finally(function () {
         token.pending = false;
         if (!stopped && !suspended) rescan();
       });
       return true;
     }
     function render(card, video, action, reason) {
+      if (adapter.prepared && video.isShort) {
+        var saved = records.get(video.videoId);
+        adapter.prepared(video, action, reason, { expiresAt: saved && saved.expiresAt || Date.now() + 300000 });
+      }
+      if (!card) return;
       displayed.set(card, { video: video, action: action === "pending" ? null : action,
         route: reason || (action === "pending" ? "model_pending" : "unfiltered"), status: ["refreshing", "refresh_retrying"].includes(reason) ? "refreshing" :
           reason === "background_refresh" ? "rechecking" :
@@ -69,7 +98,7 @@
     }
     function cancel(drop, preserveCompleted) {
       generation++;
-      current.forEach(function (job) { api.runtime.sendMessage({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {}); });
+      current.forEach(function (job) { send({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {}); });
       current.clear();
       clearTimeout(timer); timer = null;
       clearTimeout(retryTimer); retryTimer = null;
@@ -78,12 +107,15 @@
     }
     function setStatus(value) { status = value; }
     async function reload(resetMetrics) {
-      if (resetMetrics === true) metrics = { requests: 0, cacheHits: 0, shared: 0, providerCalls: 0, providerQuestions: 0, inputTokens: 0, outputTokens: 0 };
+      if (stopped) return;
+      if (resetMetrics === true) { metrics = { requests: 0, cacheHits: 0, shared: 0, providerCalls: 0, providerQuestions: 0, inputTokens: 0, outputTokens: 0 }; shortsBatches = []; }
       var serial = ++reloadSerial;
-      var prefs = await api.storage.local.get(null);
+      var prefs = await extensionCall(function () { return api.storage.local.get(null); });
+      if (stopped || serial !== reloadSerial) return;
       if (!prefs.focusfeedSettingsV2) {
-        await api.runtime.sendMessage({ type: "FF_SETTINGS_GET" });
-        prefs = await api.storage.local.get(null);
+        await send({ type: "FF_SETTINGS_GET" });
+        if (stopped || serial !== reloadSerial) return;
+        prefs = await extensionCall(function () { return api.storage.local.get(null); });
       }
       if (stopped || serial !== reloadSerial) return;
       var next = FocusFeedSettings.migrate(prefs);
@@ -100,8 +132,10 @@
         prefs.focusfeedCacheEpochV1 || 0, account && account.userId || "local-developer", next.aiAccess]);
       if (nextKey !== judgmentKey || resetMetrics === true) { cancel(true, preserveCompleted); retryAt = 0; judgmentKey = nextKey; }
       else if (!next.enabled) cancel(false);
+      if (stopped) return;
       transportKey = nextTransport;
       state = next;
+      policyError = false;
       blocks = prefs.focusFeedChannelBlocksV1 || [];
       corrections = learning ? Object.assign(learning.empty(), prefs[learning.CORRECTIONS] || {}) : null;
       channelProfiles = learning ? prefs[learning.PROFILES] || [] : [];
@@ -113,12 +147,12 @@
       }
       setStatus(!state.enabled ? "Paused" : !next.aiAccess ? "AI filtering requires active Pro access · layout controls remain active" : FocusFeedSettings.valid(profile()) ?
         (mode === "focus" ? "Focus active" : "General active") : "Channel blocks active · confirm topics for AI filtering");
-      if (adapter.configure) adapter.configure(state);
+      if (adapter.configure) adapter.configure(state, { scope: judgmentKey, localPolicy: JSON.stringify([blocks, corrections, channelProfiles]) });
       if (!suspended) adapter.scan();
       reportActivity();
     }
     function observe(card, rawVideo) {
-      if (!state || stopped || suspended) return;
+      if (!state || stopped || suspended || pendingPolicy || policyError) return;
       var video = FocusFeedVideo.videoInput(rawVideo);
       // Keep verified identity alongside facts for this exact video ID. Player
       // tiles often expose only an author label, unlike their sidebar copy.
@@ -138,16 +172,17 @@
         facts.set(video.videoId, video);
         if (facts.size > 1000) facts.delete(facts.keys().next().value);
       }
-      cards.set(card, video);
+      if (card) cards.set(card, video);
       if (cards.size > 1000) cards.delete(cards.keys().next().value);
       if (!state.enabled) { render(card, video, "show"); return; }
       if (state.hideShorts && video.isShort) { render(card, video, "hide", "shorts_block"); return; }
+      if (video.isShort && adapter.excluded && adapter.excluded(video.videoId)) { render(card, video, "hide", "visit_removed"); return; }
       var block = FocusFeedChannelPolicy.matchingBlock(blocks, video, profile());
       if (block) { render(card, video, "hide", "channel_block"); return; }
       if (learning && learning.collectionBlock(corrections, video)) { render(card, video, "hide", "collection_block"); return; }
-      // Topic policy filters recommendations. Opening a video is an explicit choice,
-      // including direct links and autoplay; never start a second semantic playback gate.
-      if (rawVideo.playback) { render(card, video, "show", "user_playback"); return; }
+      // Shorts are a scrolling recommendation feed, including their active player.
+      // Regular Watch/live/clip playback remains the user's explicit choice.
+      if (rawVideo.playback && !video.isShort) { render(card, video, "show", "user_playback"); return; }
       if (!aiAllowed()) { render(card, video, "show", "account_required"); return; }
       if (rawVideo.collection && !video.collectionId) { render(card, video, FocusFeedVideo.uncertaintyAction(mode), "collection_unknown"); return; }
       if (!video.videoId || !FocusFeedSettings.valid(profile())) { render(card, video, "show"); return; }
@@ -158,7 +193,7 @@
         render(card, video, local.action, local.reason); return;
       }
       var fp = FocusFeedVideo.fingerprint(video) + (video.itemType === "collection" ? mode : "");
-      var previous = completed.get(card);
+      var previous = card && completed.get(card);
       if (previous && previous.videoId !== video.videoId) previous = null;
       if (previous && previous.scope !== judgmentKey && previous.fp === fp && previous.expiresAt > Date.now()) {
         // Removal is local policy over the surviving per-topic probabilities.
@@ -218,7 +253,7 @@
         records.delete(video.videoId); record = null;
       }
       if (record && record.status === "done") {
-        completed.set(card, { videoId: video.videoId, scope: judgmentKey, fp: fp, assessment: record.assessment, objectives: record.objectives, source: record.source, expiresAt: record.expiresAt });
+        if (card) completed.set(card, { videoId: video.videoId, scope: judgmentKey, fp: fp, assessment: record.assessment, objectives: record.objectives, source: record.source, expiresAt: record.expiresAt });
         render(card, video, decision(record.assessment, video), record.source || "model");
         if (record.assessment.outcome === "uncertain") investigate(video);
         return;
@@ -240,7 +275,7 @@
         if (previous) waiting(); else render(card, video, "pending", "metadata_pending");
         return;
       }
-      var rect = card.getBoundingClientRect();
+      var rect = card ? card.getBoundingClientRect() : { top: 0, bottom: 0 };
       var near = rect.bottom >= -300 && rect.top <= (root.innerHeight || 800) + 600;
       if (!near && !rawVideo.managed) { waiting(); return; }
       if (Date.now() < retryAt) { waiting("unavailable"); return; }
@@ -250,6 +285,7 @@
         record = { video: video, fp: fp, status: "queued", background: !!(previous && !topicsChanged(previous)), attempts: record ? record.attempts + 1 : 1, at: Date.now(), readyAt: monotonic() + 250, settleDeadline: monotonic() + 600, priority: rect.top < (root.innerHeight || 800) && rect.bottom > 0 ? 100 : 10 };
         records.set(video.videoId, record);
       }
+      if (card && record.status === "queued" && rect.top < (root.innerHeight || 800) && rect.bottom > 0) record.priority = 100;
       waiting();
       schedule();
     }
@@ -309,7 +345,7 @@
       adapter.scan();
     }
     async function pump() {
-      if (!capacity() || stopped || suspended || !state || !state.enabled || !aiAllowed()) return;
+      if (!capacity() || stopped || suspended || pendingPolicy || policyError || !state || !state.enabled || !aiAllowed()) return;
       var queued = Array.from(records.values()).filter(function (r) { return r.status === "queued"; });
       if (queued.length && monotonic() < admissionTime(queued)) { schedule(); return; }
       var batch = Array.from(records.values()).filter(function (r) { return r.status === "queued" && r.readyAt <= monotonic(); })
@@ -318,15 +354,17 @@
       var run = generation;
       var requestProfile = profile();
       var job = { id: "auto-" + Date.now() + "-" + (++serial), batch: batch, run: run, profile: requestProfile };
+      var shortIds = batch.filter(function (r) { return r.video.isShort; }).map(function (r) { return r.video.videoId; });
+      if (shortIds.length) { shortsBatches.push(shortIds); if (shortsBatches.length > 8) shortsBatches.shift(); }
       current.set(job.id, job);
       batch.forEach(function (r) { r.status = "inflight"; });
       reportActivity();
       var timeout;
       try {
         var response = await Promise.race([
-          api.runtime.sendMessage({ type: "FF_AUTO_CLASSIFY", revision: state.revision,
+          send({ type: "FF_AUTO_CLASSIFY", revision: state.revision,
             request: FocusFeedVideo.cloudRequest({ requestId: job.id, profile: requestProfile, videos: batch.map(function (r) { return r.video; }) }) }),
-          new Promise(function (_resolve, reject) { timeout = setTimeout(function () { reject(new Error("Classifier timed out")); }, 680000); })
+          new Promise(function (_resolve, reject) { job.timeout = timeout = setTimeout(function () { reject(new Error("Classifier timed out")); }, 680000); })
         ]);
         if (run !== generation || stopped) return;
         if (!response || !response.ok || !response.data || !response.data.ok) throw Object.assign(
@@ -362,7 +400,8 @@
         setStatus(mode === "focus" ? "Focus active" : "General active");
       } catch (error) {
         if (run !== generation || stopped) return;
-        api.runtime.sendMessage({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {});
+        send({ type: "FF_AUTO_CANCEL", requestId: job.id }).catch(function () {});
+        if (stopped) return;
         retryAt = 0;
         batch.forEach(function (r) { if (r.status === "inflight") {
           r.status = "error"; r.retryAt = r.attempts > retryDelays.length ? Infinity : monotonic() + retryDelays[r.attempts - 1];
@@ -388,13 +427,25 @@
       if (!record || record.status !== "error" || stopped || suspended || !state || !state.enabled) return false;
       records.delete(videoId); retryAt = 0; armRetry(); rescan(); schedule(); return true;
     }
-    function navigate(start) {
+    function navigate(start, preserveWork) {
+      if (stopped) return;
       suspended = start;
-      cancel(false); cards.clear(); displayed.clear(); adapter.clear(true);
+      // A Shorts route change advances the same loaded queue. Its requests and
+      // settled decisions remain useful; only leaving that feed cancels them.
+      if (preserveWork) {
+        if (adapter.transition) adapter.transition(start);
+        if (!start) reload().catch(function () { setStatus("Could not reload settings"); });
+        return;
+      }
+      cancel(false);
+      if (stopped) return;
+      cards.clear(); displayed.clear(); adapter.clear(true);
       reportActivity();
-      if (!start) reload();
+      if (!start) reload().catch(function () { setStatus("Could not reload settings"); });
     }
-    function snapshot() {
+    function snapshot(shortsIds) {
+      var selected = shortsIds && new Set(shortsIds);
+      var shortRecords = Array.from(records.values()).filter(function (r) { return r.video.isShort && (!selected || selected.has(r.video.videoId)); });
       var decisions = new Map();
       displayed.forEach(function (d, card) {
         if (!card.isConnected) return;
@@ -402,15 +453,44 @@
         decisions.set(d.video.videoId || d.video.channelId, Object.assign({}, d, r && d.route !== "channel_block" ? { assessment: r.assessment } : {}));
       });
       return { status: status, mode: mode, enabled: !!(state && state.enabled), metrics: Object.assign({}, metrics), records: Array.from(decisions.values()).slice(-100),
+        shorts: { queued: shortRecords.filter(function (r) { return r.status === "queued"; }).length,
+          checking: shortRecords.filter(function (r) { return r.status === "inflight"; }).length,
+          ready: shortRecords.filter(function (r) { return r.status === "done"; }).length,
+          batchSizes: shortsBatches.map(function (ids) { return ids.filter(function (id) { return !selected || selected.has(id); }).length; }).filter(Boolean) },
         hidden: Array.from(cards.keys()).filter(function (c) { return c.dataset.focusfeedAutoHidden === "true"; }).length };
     }
     function tick() {
-      if (state && state.aiAccess !== aiAllowed()) { reload(); return; }
-      if (state && profile().mode !== mode) { reload(); return; }
+      if (stopped) return;
+      if (state && (state.aiAccess !== aiAllowed() || profile().mode !== mode)) {
+        reload().catch(function () { setStatus("Could not reload settings"); }); return;
+      }
       if (!suspended && !stopped) rescan();
     }
-    return { observe: observe, reload: reload, navigate: navigate, tick: tick, snapshot: snapshot, progress: progress, retry: retry,
-      preferencesChanged: reload, stop: function () { stopped = true; cancel(true); clearTimeout(expiryTimer); cards.clear(); displayed.clear(); adapter.clear(); } };
+    function prefetch(videos) {
+      (videos || []).slice(0, 200).forEach(function (video) { observe(null, Object.assign({}, video, { managed: true })); });
+    }
+    async function preferencesChanged(resetMetrics) {
+      var update = ++updateSerial, read;
+      pendingPolicy = update;
+      try {
+        if (adapter.beginUpdate) adapter.beginUpdate();
+        read = reloadSerial + 1;
+        return await reload(resetMetrics);
+      } catch (error) {
+        if (!stopped && update === updateSerial && read === reloadSerial) {
+          policyError = true; cancel(false); setStatus("Could not update settings · retry the settings read");
+          if (!stopped && adapter.updateFailed) adapter.updateFailed(error);
+        }
+        throw error;
+      } finally {
+        if (pendingPolicy === update) {
+          pendingPolicy = 0;
+          if (!policyError && !stopped && !suspended) { rescan(); schedule(); }
+        }
+      }
+    }
+    return { observe: observe, prefetch: prefetch, reload: reload, navigate: navigate, tick: tick, snapshot: snapshot, progress: progress, retry: retry, invalidate: invalidate,
+      preferencesChanged: preferencesChanged, stop: function () { stopped = true; cancel(true); clearTimeout(expiryTimer); cards.clear(); displayed.clear(); adapter.clear(); } };
   }
   root.FocusFeedAutoRuntime = { create: create };
 })(globalThis);

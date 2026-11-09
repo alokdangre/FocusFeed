@@ -175,3 +175,29 @@ html[dark] .focusfeed-topic-picker { color-scheme: dark; }
 .focusfeed-playback strong { font-size: 22px; font-weight: 600; }
 .focusfeed-playback p { color: var(--focusfeed-secondary); margin: 0 0 4px; max-width: 52ch; }
 .focusfeed-playback a { display: inline-block; }
+/* Shorts are concealed by default, including before settings and the first scan.
+   Keep native dimensions/scrolling; only approved content becomes visible. */
+html[data-focusfeed-initializing] :is(ytd-shorts, ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer),
+html[data-focusfeed-initializing] :is(ytd-shorts, ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer) > *,
+html[data-focusfeed-initializing] :is(ytd-shorts, ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer) > * *,
+html[data-focusfeed-shorts-filtering] :is(ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer):not([data-focusfeed-shorts-allowed]),
+html[data-focusfeed-shorts-filtering] :is(ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer):not([data-focusfeed-shorts-allowed]) > *,
+html[data-focusfeed-shorts-filtering] :is(ytd-reel-video-renderer, #shorts-player, ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2, ytd-reel-item-renderer):not([data-focusfeed-shorts-allowed]) > * * { visibility: hidden !important; }
+.focusfeed-shorts-status { position: fixed; z-index: 210001; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 12px; max-width: calc(100vw - 48px);
+  box-sizing: border-box; background: var(--focusfeed-panel); color: var(--focusfeed-secondary); font: 14px/20px Roboto, Arial, sans-serif; }
+.focusfeed-shorts-status button { border: 0; border-radius: 20px; padding: 8px 14px; background: var(--focusfeed-chip);
+  color: var(--focusfeed-action); font: inherit; cursor: pointer; }
+.focusfeed-shorts-status button:focus-visible { outline: 2px solid var(--focusfeed-action); outline-offset: 2px; }
+/* Shorts can also use standard video cards instead of dedicated lockups. */
+html[data-focusfeed-shorts-filtering] :is(ytd-rich-item-renderer, ytd-video-renderer, yt-lockup-view-model):has(a[href*="/shorts/"]):not(:has(ytd-rich-shelf-renderer, ytd-reel-shelf-renderer)):not([data-focusfeed-shorts-allowed]),
+html[data-focusfeed-shorts-filtering] :is(ytd-rich-item-renderer, ytd-video-renderer, yt-lockup-view-model):has(a[href*="/shorts/"]):not(:has(ytd-rich-shelf-renderer, ytd-reel-shelf-renderer)):not([data-focusfeed-shorts-allowed]) * { visibility: hidden !important; }
+/* Hide Shorts conceals native content even when media and metadata are separate. */
+html[data-focusfeed-hide-shorts] :is(ytd-reel-video-renderer, #shorts-player) * { visibility: hidden !important; }
+html[data-focusfeed-hide-shorts] .focusfeed-playback,
+html[data-focusfeed-hide-shorts] .focusfeed-playback * { visibility: visible !important; }
+/* Removed IDs stay out of this visit. Keep the active/shared player mounted
+   until native navigation completes; collapse only inactive removed slots. */
+html[data-focusfeed-shorts-filtering] [data-focusfeed-shorts-removed],
+html[data-focusfeed-shorts-filtering] [data-focusfeed-shorts-removed] * { visibility: hidden !important; }
+html[data-focusfeed-shorts-filtering] [data-focusfeed-shorts-removed]:not([data-focusfeed-shorts-current]) { display: none !important; }

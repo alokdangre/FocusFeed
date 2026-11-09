@@ -9,6 +9,31 @@
 
   var request = FocusFeedPreferences.request;
   var accountBusy = false, accountValue = null, billingValue = null, billingBusy = false, billingFeedback = "";
+  var byokBusy = false;
+  function renderByok(value) {
+    var configured = value && value.keyConfigured;
+    $("byokStatus").textContent = configured ? "Your TypeSafe key is ready for this browser session." : "Add a key to enable topic filtering. Layout controls and manual blocks work without one.";
+    $("byokRemove").hidden = !configured;
+    $("byokSave").disabled = byokBusy; $("byokRemove").disabled = byokBusy;
+    $("hostedAccount").hidden = (savedEndpoint || DEFAULT_ENDPOINT) === "https://api.typesafe.ai";
+  }
+  async function byokAction(type) {
+    if (byokBusy) return;
+    byokBusy = true; $("byokSave").disabled = true; $("byokRemove").disabled = true;
+    var key = $("byokKey").value;
+    $("byokKey").value = "";
+    feedback("byokFeedback", type === "FF_BYOK_SAVE" ? "Checking your key with TypeSafe…" : "Removing your key…");
+    try {
+      var result = await request(type === "FF_BYOK_SAVE" ? { type: type, key: key } : { type: type });
+      if (type === "FF_BYOK_SAVE") { savedEndpoint = "https://api.typesafe.ai"; $("classifierEndpoint").value = savedEndpoint; }
+      renderByok(result); renderAccount(result);
+      feedback("byokFeedback", type === "FF_BYOK_SAVE" ? "Key checked. You can now save topics and filter your feed." : "Key removed. AI checks have stopped.");
+    } catch (error) { feedback("byokFeedback", error.message, true); }
+    finally { key = ""; byokBusy = false; $("byokSave").disabled = false; $("byokRemove").disabled = false; }
+  }
+  $("byokSave").addEventListener("click", function () { byokAction("FF_BYOK_SAVE"); });
+  $("byokRemove").addEventListener("click", function () { byokAction("FF_BYOK_REMOVE"); });
+  request({ type: "FF_BYOK_STATUS" }).then(renderByok).catch(function () { renderByok(null); });
   function renderBilling() {
     var signedIn = accountValue && accountValue.mode === "required" && accountValue.userId;
     var available = signedIn && billingValue && billingValue.available;
@@ -23,6 +48,7 @@
   function renderAccount(value) {
     if (!value || !accountValue || value.userId !== accountValue.userId || value.endpoint !== accountValue.endpoint) { billingValue = null; billingFeedback = ""; }
     accountValue = value;
+    $("hostedAccount").hidden = (savedEndpoint || DEFAULT_ENDPOINT) === "https://api.typesafe.ai";
     var local = value && value.mode === "local", signedIn = value && value.userId && !local;
     $("accountStatus").textContent = local ? "Local testing is active. No sign-in required." : !signedIn ? "Sign in to use AI filtering, or test with a local server. Layout controls are free." :
       value.premium ? "Pro access is active." : "Signed in. Pro access is not active for this account.";
@@ -327,7 +353,7 @@
     if (changes.focusfeedAccountV1 && !accountBusy) renderAccount(changes.focusfeedAccountV1.newValue);
     if (changes.focusfeedSettingsV2 && changes.focusfeedSettingsV2.newValue) receive(changes.focusfeedSettingsV2.newValue);
     if (changes.focusFeedChannelBlocksV1) { blocks = changes.focusFeedChannelBlocksV1.newValue || []; renderChannels(); }
-    if (changes.classifierEndpoint) { savedEndpoint = changes.classifierEndpoint.newValue || DEFAULT_ENDPOINT; $("classifierEndpoint").value = savedEndpoint; }
+    if (changes.classifierEndpoint) { savedEndpoint = changes.classifierEndpoint.newValue || DEFAULT_ENDPOINT; $("classifierEndpoint").value = savedEndpoint; $("hostedAccount").hidden = savedEndpoint === "https://api.typesafe.ai"; }
     if (changes.focusfeedChannelProfilesV1 || changes.focusfeedCorrectionsV1 || changes.classifierEndpoint || changes.focusfeedSettingsV2) loadLearning();
   });
   async function load() {

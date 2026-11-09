@@ -16,3 +16,6 @@ backend/.cache/
 
 # DOM-only extension test dependencies
 extension/node_modules/
+
+# Generated Chrome Web Store packages and release evidence
+dist/

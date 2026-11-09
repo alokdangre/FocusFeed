@@ -51,6 +51,15 @@ test("hosted AI stays off for signed-out/free accounts while local policies and 
   h.prefs.focusFeedChannelBlocksV1 = []; card.video.playback = true;
   await h.runtime.reload(); assert.equal(card.action, "show"); assert.equal(card.reason, "user_playback");
 });
+test("BYOK filtering requires a fresh TypeSafe session and stops when the key is removed", async t => {
+  const h = harness(); t.after(h.runtime.stop); h.prefs.classifierEndpoint = "https://api.typesafe.ai";
+  h.prefs.focusfeedAccountV1 = { endpoint: h.prefs.classifierEndpoint, mode: "byok", userId: "byok-session", premium: true, validUntil: Date.now() + 60000 };
+  const card = h.add("one"); await h.runtime.reload(); await sleep(350); assert.equal(card.action, "hide");
+  h.prefs.focusfeedAccountV1.premium = false; await h.runtime.reload(); assert.equal(card.action, "show");
+  await sleep(350); assert.equal(h.calls.filter(message => message.type === "FF_AUTO_CLASSIFY").length, 1);
+  h.prefs.focusfeedAccountV1.premium = true; h.prefs.classifierEndpoint = "https://other.example";
+  await h.runtime.reload(); assert.equal(card.action, "show"); assert.equal(card.reason, "account_required");
+});
 test("revoked or expired account access discards settled premium decisions and stops further AI work", async t => {
   const h = harness(); t.after(h.runtime.stop); h.prefs.classifierEndpoint = "https://api.focusfeed.example";
   h.prefs.focusfeedAccountV1 = { endpoint: h.prefs.classifierEndpoint, mode: "required", userId: "subscriber", premium: true, validUntil: Date.now() + 60000 };
@@ -208,6 +217,7 @@ test("manual playback keeps explicit channel and Shorts policies without dispatc
   h.prefs.focusfeedSettingsV2.hideShorts = true;
   await h.runtime.reload(); assert.equal(c.action, "hide"); assert.equal(c.reason, "shorts_block");
   h.prefs.focusfeedSettingsV2.hideShorts = false;
+  c.video.isShort = false;
   await h.runtime.reload(); assert.equal(c.action, "show");
   await sleep(330); assert.equal(h.calls.length, 0); h.runtime.stop();
 });
@@ -387,4 +397,42 @@ test("cache expiry revalidates a shown card quietly without changing topics", as
   await sleep(Math.max(0, expiresAt - Date.now()) + 20);
   h.scan(); assert.equal(item.action, "show"); assert.equal(item.reason, "background_refresh");
   await sleep(330); assert.equal(count, 2); assert.equal(item.reason, "background_refresh");
+});
+for (const rejected of [false, true]) test(`extension-context invalidation during settings reload stops stale work (rejected=${rejected})`, async t => {
+  let invalid = false, reads = 0, invalidations = 0, runtime;
+  const api = { storage: { local: { get() {
+    reads++;
+    if (invalid) {
+      const error = new Error("Extension context invalidated.");
+      if (rejected) return Promise.reject(error);
+      throw error;
+    }
+    return Promise.resolve({ focusfeedSettingsV2: state() });
+  } } }, runtime: { sendMessage: async () => ({ ok: true }) } };
+  runtime = FocusFeedAutoRuntime.create({ scan() {}, render() {}, clear() {}, invalidated() { invalidations++; } }, api);
+  t.after(runtime.stop);
+  await runtime.reload(); invalid = true;
+  await assert.doesNotReject(() => runtime.reload());
+  assert.match(runtime.snapshot().status, /Reload YouTube/);
+  const before = reads;
+  runtime.navigate(true); runtime.navigate(false); runtime.tick(); await runtime.reload();
+  await sleep(20);
+  assert.equal(reads, before, "invalidated scripts stop calling extension storage");
+  assert.equal(invalidations, 1);
+});
+for (const trigger of ["navigation", "reload"]) test(`extension-context invalidation during synchronous cancellation is contained (${trigger})`, async t => {
+  let invalid = false, finish, runtime, invalidations = 0;
+  const api = { storage: { local: { get: async () => ({ focusfeedSettingsV2: state() }) } }, runtime: { sendMessage(message) {
+    if (invalid) throw new Error("Extension context invalidated.");
+    if (message.type === "FF_AUTO_CANCEL") return Promise.resolve({ ok: true });
+    return new Promise(resolve => { finish = () => resolve({ ok: false }); });
+  } } };
+  const card = { isConnected: true, dataset: {}, getBoundingClientRect: () => ({ top: 10, bottom: 200 }) };
+  runtime = FocusFeedAutoRuntime.create({ scan() { runtime.observe(card, { videoId: "context1234", title: "A video" }); }, render() {}, clear() {}, invalidated() { invalidations++; } }, api);
+  t.after(() => { invalid = false; runtime.stop(); if (finish) finish(); });
+  await runtime.reload(); await sleep(330); invalid = true;
+  if (trigger === "navigation") assert.doesNotThrow(() => runtime.navigate(true));
+  else await assert.doesNotReject(() => runtime.reload(true));
+  await sleep(20);
+  assert.match(runtime.snapshot().status, /Reload YouTube/); assert.equal(invalidations, 1);
 });

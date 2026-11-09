@@ -9,10 +9,11 @@ async function main() {
   const listeners = {};
   const fetches = [];
   const xhrSends = [];
+  const posted = [];
   const window = {
     location: { href: "https://www.youtube.com/", pathname: "/" },
     addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
-    postMessage() {},
+    postMessage(data) { posted.push(data); },
     fetch: async (...args) => { fetches.push(args); return new Response(JSON.stringify({ok:true}), {status:200}); },
   };
   class XHR {
@@ -52,6 +53,12 @@ async function main() {
   message({type:"FOCUSFEED_PAGE_GATE_CONFIG",enabled:true});
   await window.fetch("/youtubei/v1/browse",{method:"POST",body});
   assert.equal(fetches.length,6,"watch-page browse calls must not wait on Home gate");
+  await window.fetch("/youtubei/v1/reel/reel_watch_sequence", {method:"POST",body});
+  await tick(); await tick();
+  assert.ok(posted.some(event => event.type === "FOCUSFEED_FEED_DATA" && event.endpoint.endsWith("/reel_watch_sequence") && event.source === "fetch"));
+  const sequence = new XHR(); sequence.open("POST", "/youtubei/v1/reel/reel_watch_sequence");
+  sequence.responseText = JSON.stringify({entries:[]}); sequence.send(body); sequence.dispatchEvent({type:"load"});
+  assert.ok(posted.some(event => event.type === "FOCUSFEED_FEED_DATA" && event.endpoint.endsWith("/reel_watch_sequence") && event.source === "xhr"));
   console.log("pagination transport passed: actual fetch, Request, XHR, abort, navigation, non-Home isolation");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -4,6 +4,21 @@ A Chrome extension that filters YouTube recommendations using your own topics.
 General removes matching content; Focus keeps matching content for an optional timed
 session. Topics such as “movie reviews” stay specific instead of becoming “all movies”.
 
+## Free BYOK store release (0.29.0)
+
+The first store release is free and uses each user's own TypeSafe/Jev API key.
+No OwnFeed account, hosted backend, or payment is required. TypeSafe bills any
+provider usage to the user's account. Keys stay in Chrome's trusted session
+storage and must be entered again after Chrome restarts or OwnFeed reloads/updates.
+
+Build the store candidate with `python tools/package_extension.py`. It writes
+`dist/ownfeed-0.29.0.zip`, defaults to direct TypeSafe access and narrows the
+permissions. Unzip that candidate into a separate folder to test the store
+configuration; the source `extension/` retains local/custom-server development.
+Follow [release gates](docs/STORE_RELEASE.md) and [listing copy](docs/STORE_LISTING.md).
+The later hosted account/Pro implementation described below is separate from
+this free BYOK release.
+
 ## Run locally
 
 Follow [backend setup](backend/README.md#local-setup), then start the API:

@@ -2,7 +2,7 @@
 
 "use strict";
 
-if (typeof importScripts === "function") importScripts("settings.js", "channel-policy.js", "video-model.js", "request-broker.js", "score-cache.js", "learning-policy.js", "channel-evidence.js", "channel-investigations.js", "channel-learning.js", "account-client.js", "job-client.js");
+if (typeof importScripts === "function") importScripts("settings.js", "channel-policy.js", "video-model.js", "request-broker.js", "score-cache.js", "learning-policy.js", "channel-evidence.js", "channel-investigations.js", "channel-learning.js", "account-client.js", "job-client.js", "byok-contract.js", "byok-client.js");
 
 var DEFAULT_CLASSIFIER_ENDPOINT = "http://127.0.0.1:3000";
 var HEALTH_TIMEOUT_MS = 8000;
@@ -43,6 +43,7 @@ function classifierEndpoint() {
 
 async function requestOnce(path, options, timeoutMs, externalSignal, selectedEndpoint) {
   var endpoint = selectedEndpoint || await classifierEndpoint();
+  if (byokClient && endpoint === FocusFeedByok.ENDPOINT) return byokClient.request(path, options, externalSignal);
   var controller = new AbortController();
   var timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
   var cancel = function () { controller.abort(); };
@@ -295,10 +296,7 @@ var channelLearning = typeof FocusFeedChannelLearning !== "undefined" ? FocusFee
 }) : null;
 var admissions = new Map();
 var billingGeneration = 0;
-var accountClient = typeof FocusFeedAccountClient !== "undefined" ? FocusFeedAccountClient.create({
-  endpoint: classifierEndpoint, health: contractFor, fetch: function (url, init) { return fetch(url, init); },
-  selectEndpoint: function (endpoint) { return chrome.storage.local.set({ classifierEndpoint: endpoint }); },
-  onBoundary: async function () {
+async function invalidateAiState() {
     billingGeneration++;
     if (jobClient) await jobClient.clear();
     if (autoBroker) autoBroker.cancelAll();
@@ -307,8 +305,33 @@ var accountClient = typeof FocusFeedAccountClient !== "undefined" ? FocusFeedAcc
     var invalidation = { focusfeedCacheEpochV1: Date.now() };
     if (channelLearning) await channelLearning.clear(invalidation);
     else await chrome.storage.local.set(invalidation);
-  }
+    contracts.clear();
+}
+var accountClient = typeof FocusFeedAccountClient !== "undefined" ? FocusFeedAccountClient.create({
+  endpoint: classifierEndpoint, health: contractFor, fetch: function (url, init) { return fetch(url, init); },
+  selectEndpoint: function (endpoint) { return chrome.storage.local.set({ classifierEndpoint: endpoint }); },
+  onBoundary: invalidateAiState
 }) : null;
+var byokClient = typeof FocusFeedByok !== "undefined" ? FocusFeedByok.create({
+  session: chrome.storage.session, local: chrome.storage.local,
+  fetch: function (url, init) { return fetch(url, init); }, onBoundary: invalidateAiState
+}) : null;
+if (byokClient && accountClient) {
+  var hostedAccountClient = accountClient;
+  accountClient = Object.assign({}, hostedAccountClient, {
+    status: async function (refresh) { return await classifierEndpoint() === FocusFeedByok.ENDPOINT ? byokClient.status() : hostedAccountClient.status(refresh); },
+    premium: async function () { return await classifierEndpoint() === FocusFeedByok.ENDPOINT ? byokClient.premium() : hostedAccountClient.premium(); },
+    signOut: async function () { return await classifierEndpoint() === FocusFeedByok.ENDPOINT ? byokClient.remove() : hostedAccountClient.signOut(); }
+  });
+}
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (!message || !["FF_BYOK_STATUS", "FF_BYOK_SAVE", "FF_BYOK_REMOVE"].includes(message.type)) return false;
+  if (!byokClient || !sender || !sender.url || !sender.url.startsWith(chrome.runtime.getURL(""))) return false;
+  var operation = message.type === "FF_BYOK_SAVE" ? byokClient.save(message.key) : message.type === "FF_BYOK_REMOVE" ? byokClient.remove() : byokClient.status(false);
+  Promise.resolve(operation).then(function (data) { sendResponse({ ok: true, data: data }); })
+    .catch(function (error) { sendResponse({ ok: false, error: serializeError(error) }); });
+  return true;
+});
 async function testWithoutSignIn() {
   var current = await classifierEndpoint();
   var endpoint = FocusFeedAccountClient.localEndpoint(current) ? current : DEFAULT_CLASSIFIER_ENDPOINT;

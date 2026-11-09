@@ -72,6 +72,11 @@
     durationRow.append(durationLabel, presets, element("p", "focusfeed-preferences-note", "Set 0 for a session without a timer."));
     var session = element("p", "focusfeed-preferences-session"); session.hidden = true;
     var actions = element("div", "focusfeed-preferences-actions");
+    var disclosure = element("p", "focusfeed-preferences-note", "BYOK filtering sends your topics and relevant YouTube video/channel text directly to TypeSafe using your key. Provider usage charges apply. Custom servers may have separate access requirements. ");
+    disclosure.id = "focusfeed-preferences-disclosure";
+    var privacy = element("a", "focusfeed-preferences-link", "Privacy details ↗");
+    privacy.href = "https://ownfeed.tech/privacy.html"; privacy.target = "_blank"; privacy.rel = "noreferrer";
+    disclosure.appendChild(privacy);
     var saveButton = button("Save changes", "focusfeed-preferences-primary", function () { save(false); });
     var sessionButton = button("Start Focus", "focusfeed-preferences-primary", toggleSession); sessionButton.hidden = true;
     actions.append(saveButton, sessionButton);
@@ -93,12 +98,12 @@
       try { await request({ type: "FF_OPEN_PREFERENCES", mode: mode }); close(false); }
       catch (error) { feedback(error.message, true); }
     });
-    var accountLink = button("Account & Pro ↗", "focusfeed-preferences-link", async function () {
+    var accountLink = button("API key & connection ↗", "focusfeed-preferences-link", async function () {
       try { await request({ type: "FF_OPEN_PREFERENCES", mode: mode }); close(false); }
       catch (error) { feedback(error.message, true); }
     });
     panel.append(heading, powerRow, accountLink, modes, fieldHeading, topicEditor, hint, fieldError, validation,
-      durationRow, session, actions, draftStatus, message, retry, shortsRow, displaySettings.element, channels, review, more);
+      durationRow, session, disclosure, actions, draftStatus, message, retry, shortsRow, displaySettings.element, channels, review, more);
     var editor = FocusFeedTopicInput.create({ input: input, list: topicList, onChange: edited });
     function switchRow(text, description, control) {
       var row = element("label", "focusfeed-preferences-switch"); row.htmlFor = control.id;

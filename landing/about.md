@@ -16,11 +16,11 @@ Layout controls can hide Shorts, comments, recommendations, and other page eleme
 
 In General mode, OwnFeed hides recommendations matching topics the user wants to skip. In Focus mode, it keeps recommendations matching a chosen objective, with an optional timed session. Topics preserve the user's intent: “movie reviews” is intended to match reviews rather than all movie-related content. Users can change topics, correct missed videos, unblock content, pause filtering, or end a Focus session.
 
-AI filtering requires a configured backend in the developer preview. Local developer testing can run without hosted sign-in, but AI requests still go to the configured provider. Hosted AI filtering is planned to require an account and active Pro access when available.
+AI filtering uses your own TypeSafe/Jev API key with access to jev-1.13.0. Requests go directly from the extension background worker to TypeSafe. No OwnFeed account, hosted backend, or subscription is needed. The key is kept in trusted browser session storage and must be entered again after Chrome restarts or OwnFeed reloads or updates.
 
 ## Pricing
 
-Layout controls and manual channel blocking are free. Hosted Pro is coming soon. Its planned price is $4.99 per month and may change. The planned Pro features include AI topic filtering, timed Focus sessions, and feedback to refine filters. Checkout and paid subscriptions are not available in the current preview.
+OwnFeed is free, including topic filtering, Focus sessions, and feedback controls. TypeSafe bills provider usage to your own account. OwnFeed does not collect subscription payments.
 
 ## Installation availability
 
@@ -28,7 +28,7 @@ Public downloads are not available yet. You can try the illustrative website dem
 
 ## Data handling
 
-Preferences are kept in the browser profile. Optional AI filtering sends chosen topics and relevant video or channel text to the configured backend and TypeSafe provider. A local backend does not make AI classification offline. See the [Privacy Policy](https://ownfeed.tech/privacy) for details and the [Terms of Service](https://ownfeed.tech/terms) for preview limitations.
+Preferences are kept in the browser profile. Optional AI filtering sends chosen topics and relevant video or channel text directly to TypeSafe using your own API key. The key is not sent to an OwnFeed-operated server. AI classification requires an internet connection. See the [Privacy Policy](https://ownfeed.tech/privacy) for details and the [Terms of Service](https://ownfeed.tech/terms) for preview limitations.
 
 ## Source
 

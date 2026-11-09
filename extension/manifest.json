@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
   "name": "OwnFeed",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "description": "Always-on YouTube topic filtering and channel blocking, with an optional Focus timer.",
+  "homepage_url": "https://ownfeed.tech/",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "permissions": [
     "storage",
-    "identity",
-    "activeTab"
+    "identity"
   ],
   "host_permissions": [
     "http://127.0.0.1/*",
     "http://localhost/*",
+    "https://api.typesafe.ai/*",
     "*://*.youtube.com/*"
   ],
   "background": {
@@ -47,6 +54,8 @@
         "popup/topic-input.js",
         "youtube-preferences.js",
         "youtube-display.js",
+        "shorts-queue.js",
+        "shorts-feed.js",
         "youtube-ui.js",
         "content.js"
       ],
@@ -61,6 +70,11 @@
     }
   ],
   "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    },
     "default_popup": "popup/popup.html",
     "default_title": "OwnFeed"
   },

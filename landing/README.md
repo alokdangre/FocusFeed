@@ -1,12 +1,12 @@
 # OwnFeed — Cloudbreak landing page
 
-Release copy updated for the free 0.29.0 TypeSafe/Jev BYOK candidate: no OwnFeed
+Release copy updated for the free 0.29.1 TypeSafe/Jev BYOK candidate: no OwnFeed
 account, hosted backend or subscription; provider usage charges apply. The local
 privacy/terms, FAQ, pricing and machine-readable facts now describe that scope.
 These changes were deployed on November 9, 2026; HTTP checks verified current
 BYOK text on the homepage, privacy, terms, about.md and llms.txt. See
 ../docs/STORE_RELEASE.md for deployment evidence and remaining browser checks.
-The Coming soon action remains until an approved store link exists. Older
+The installation dialog downloads the current ZIP and explains manual Chrome installation. A store install link will be added after a separate approved submission. Older
 verification and hosted-Pro notes below describe the previous website version.
 
 A self-contained landing page based on the selected Cloudbreak artwork. This directory contains the source for `https://ownfeed.tech/`.
@@ -30,7 +30,7 @@ Then visit http://localhost:4174.
 5. Local preview controls for hiding Shorts, comments, and recommendations.
 6. Free and planned Pro pricing, followed by a disclosure FAQ.
 7. Last Light ocean sunset closing section with the footer blended into the image.
-8. Accessible coming-soon dialog; public extension downloads are not available.
+8. Accessible installation dialog with a versioned extension ZIP and manual Chrome installation steps.
 
 The feed, video titles, durations, and timer are illustrative. This site does not read a visitor's YouTube feed, run the classifier, or change extension settings. The $4.99/month Pro figure is marked as planned, taken from the older local landing page; the billing product and actual price are not yet configured. Checkout is not available.
 
@@ -41,7 +41,7 @@ The feed, video titles, durations, and timer are illustrative. This site does no
 - `assets/cloudbreak.webp` and `assets/last-light.webp`: the selected generated hero and footer images, copied without regenerating them.
 - `assets/fonts/`: locally hosted Instrument Serif and DM Sans, with OFL licenses.
 - `assets/sources.json`: provenance for fonts, imagery, and the illustrative thumbnail photos.
-- Extension ZIP archives are excluded from the website source assets and deployment. Installation availability is described in the FAQ without a public download.
+- The build invokes the explicit extension runtime allowlist to publish one versioned ZIP and its SHA256 under downloads/. Backend files, keys, tests, and local design references remain excluded.
 - `DESIGN.md`: design tokens, structure, and intentional adjustments to the generated concepts.
 - `design/`: four generated section concepts, kept locally as visual references. Do not stage, commit, or publish them without an explicit request.
 - `VERIFICATION.md`: functional and visual verification notes.

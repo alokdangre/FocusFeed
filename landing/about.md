@@ -6,7 +6,7 @@ Website: https://ownfeed.tech/
 
 ## Availability
 
-OwnFeed is in development. Public extension downloads and a Chrome Web Store release are not available yet. The website contains an illustrative interactive demo, not a connection to a visitor's actual YouTube feed. Filtering can make mistakes, and YouTube changes can affect compatibility.
+OwnFeed is available as a manual installation for desktop Chrome: download the ZIP from the website, extract it, and use Load unpacked in Developer mode at chrome://extensions. The website contains an illustrative interactive demo, not a connection to a visitor's actual YouTube feed. Filtering can make mistakes, and YouTube changes can affect compatibility.
 
 ## Free controls
 
@@ -24,7 +24,7 @@ OwnFeed is free, including topic filtering, Focus sessions, and feedback control
 
 ## Installation availability
 
-Public downloads are not available yet. You can try the illustrative website demo while the public release is being prepared.
+Download https://ownfeed.tech/downloads/ownfeed-0.29.1.zip, unzip it into a folder, enable Developer mode at chrome://extensions and choose Load unpacked. Select the extracted folder, enter your TypeSafe key in OwnFeed, and refresh YouTube. No local server is needed.
 
 ## Data handling
 

@@ -171,10 +171,17 @@
         if (typeof key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(key.trim())) throw fail("invalid_api_key", "Paste a valid TypeSafe API key without spaces.");
         key = key.trim();
         var checkedGeneration = generation;
-        var models = await send("/v1/models", key);
+        // The live catalog can list only aliases while accepting pinned versions.
+        // Verify the model we actually use instead of treating catalog membership
+        // as authorization. This deliberately makes one small billable request.
+        var check = await send("/v1/systemone", key, { model: FocusFeedByokContract.model,
+          state: "OwnFeed API key verification.", questions: { ownfeed_key_check: {
+            type: "noul", instructions: "Does the state describe an API key verification?"
+          } } });
         if (checkedGeneration !== generation) throw fail("cancelled", "Your key changed. Retry this check.");
-        if (!models || !Array.isArray(models.models) || !models.models.some(function (m) { return m && m.name === FocusFeedByokContract.model; }))
-          throw fail("byok_model_unavailable", "Your TypeSafe account does not list " + FocusFeedByokContract.model + ". Check model access before using OwnFeed.");
+        if (!check || check.model !== FocusFeedByokContract.model)
+          throw fail("invalid_provider_response", "TypeSafe did not return the expected model for the key check. Try again.");
+        probability(check.answers && check.answers.ownfeed_key_check);
         invalidate(); var current = generation;
         try {
           await session.remove(KEY); await options.onBoundary();

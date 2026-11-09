@@ -26,6 +26,8 @@ youtube-display.css popup/popup.html popup/popup.js popup/popup.css
 popup/topic-input.js observability/observability.html observability/observability.js
 observability/observability.css icons/icon-16.png icons/icon-32.png
 icons/icon-48.png icons/icon-128.png
+popup/fonts/dm-sans-400.ttf popup/fonts/dm-sans-500.ttf popup/fonts/dm-sans-600.ttf
+popup/fonts/instrument-serif.ttf popup/fonts/DM-Sans-OFL.txt popup/fonts/Instrument-Serif-OFL.txt
 """.split()
 LOCAL = "http://127.0.0.1:3000"
 
@@ -59,6 +61,14 @@ def source_files(source):
                 resolved = (source / name).parent.joinpath(asset).resolve()
                 if not resolved.is_relative_to(source):
                     raise ValueError(f"HTML reference escapes extension: {asset}")
+                references.append(resolved.relative_to(source).as_posix())
+        if name.endswith(".css"):
+            for asset in re.findall(r'url\(["\']?([^"\')]+)["\']?\)', data.decode()):
+                if asset.startswith("data:"):
+                    continue
+                resolved = (source / name).parent.joinpath(asset).resolve()
+                if not resolved.is_relative_to(source):
+                    raise ValueError(f"CSS reference escapes extension: {asset}")
                 references.append(resolved.relative_to(source).as_posix())
     for name in references:
         if name not in result:

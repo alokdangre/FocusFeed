@@ -24,7 +24,7 @@ OwnFeed is free, including topic filtering, Focus sessions, and feedback control
 
 ## Installation availability
 
-Download https://ownfeed.tech/downloads/ownfeed-0.29.1.zip, unzip it into a folder, enable Developer mode at chrome://extensions and choose Load unpacked. Select the extracted folder, enter your TypeSafe key in OwnFeed, and refresh YouTube. No local server is needed.
+Download https://ownfeed.tech/downloads/ownfeed-0.29.2.zip, unzip it into a folder, enable Developer mode at chrome://extensions and choose Load unpacked. Select the extracted folder, enter your TypeSafe key in OwnFeed, and refresh YouTube. No local server is needed.
 
 ## Data handling
 

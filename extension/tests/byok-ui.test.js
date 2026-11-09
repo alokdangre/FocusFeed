@@ -2,11 +2,11 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
 const { dom } = require("./dom-harness");
 const settle = () => new Promise(setImmediate);
-async function setup(t, save) {
+async function setup(t, save, configured = false) {
   const h = dom(fs.readFileSync(path.join(__dirname, "../popup/popup.html"), "utf8")); t.after(h.cleanup);
   h.load("settings.js");
   const state = h.context.FocusFeedSettings.migrate({}), data = { classifierEndpoint: "https://api.typesafe.ai" };
-  const summary = { mode: "byok", endpoint: data.classifierEndpoint, premium: false, keyConfigured: false };
+  const summary = { mode: "byok", endpoint: data.classifierEndpoint, premium: configured, keyConfigured: configured };
   h.context.chrome = { runtime: { getURL: p => "chrome-extension://ownfeed/" + p, sendMessage(message, callback) {
     const result = (async () => {
       if (message.type === "FF_SETTINGS_GET") return { ok: true, data: state };
@@ -41,4 +41,14 @@ test("a rejected key leaves the password empty and a retry available", async t =
   assert.equal(h.document.getElementById("byokKey").value, "");
   assert.equal(h.document.getElementById("byokSave").disabled, false);
   assert.match(h.document.getElementById("byokFeedback").textContent, /TypeSafe rejected/);
+});
+test("updating an already connected key collapses setup after a successful check", async t => {
+  const h = await setup(t, () => ({ ok: true, data: { keyConfigured: true, mode: "byok", premium: true } }), true);
+  const section = h.document.getElementById("byokSection");
+  assert.equal(section.open, false);
+  section.open = true;
+  h.document.getElementById("byokKey").value = "replacement-key";
+  h.document.getElementById("byokSave").click(); await settle(); await settle();
+  assert.equal(section.open, false);
+  assert.equal(h.document.getElementById("byokConnectionLabel").textContent, "Connected");
 });

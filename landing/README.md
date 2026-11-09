@@ -1,6 +1,6 @@
 # OwnFeed — Cloudbreak landing page
 
-Release copy updated for the free 0.29.1 TypeSafe/Jev BYOK candidate: no OwnFeed
+Release copy updated for the free 0.29.2 TypeSafe/Jev BYOK candidate: no OwnFeed
 account, hosted backend or subscription; provider usage charges apply. The local
 privacy/terms, FAQ, pricing and machine-readable facts now describe that scope.
 These changes were deployed on November 9, 2026; HTTP checks verified current

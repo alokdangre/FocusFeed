@@ -22,9 +22,10 @@
 
     <main>
       <div class="status-line"><span id="statusDot" class="status-dot"></span><span id="statusText" role="status">Loading preferences…</span></div>
-      <section class="account-section" aria-labelledby="byokTitle">
-        <strong id="byokTitle">Your TypeSafe key</strong>
-        <p class="subtle-note">OwnFeed is free. Topic filtering uses your TypeSafe/Jev account and its usage charges. Your topics and relevant YouTube video/channel text go directly to TypeSafe.</p>
+      <details class="key-section" id="byokSection" open>
+        <summary id="byokSummary"><strong id="byokTitle">TypeSafe</strong><span class="key-connection"><span class="connection-dot" aria-hidden="true"></span><span id="byokConnectionLabel">Add your key</span></span><svg class="disclosure-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></summary>
+        <div class="key-body">
+        <p class="subtle-note key-intro">Connect your own key to filter by topic. OwnFeed is free; TypeSafe usage is billed to your account.</p>
         <label class="small-label" for="byokKey">TypeSafe API key</label>
         <input class="endpoint-input" id="byokKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key" aria-describedby="byokStorageNote">
         <p class="subtle-note" id="byokStorageNote">Kept only for this browser session, outside YouTube page scripts. Re-enter after restarting Chrome or updating OwnFeed. Save & check makes one small billable AI test. Monitor usage and balance in your TypeSafe account.</p>
@@ -35,7 +36,8 @@
         </div>
         <p class="subtle-note" id="byokStatus" role="status">Add a key to enable topic filtering. Layout controls and manual blocks work without one.</p>
         <p class="feedback" id="byokFeedback" role="status" hidden></p>
-      </section>
+        </div>
+      </details>
       <section class="account-section" id="hostedAccount" aria-label="OwnFeed account">
         <strong>AI filtering</strong>
         <p id="accountStatus" class="subtle-note" role="status">Checking account…</p>
@@ -57,11 +59,11 @@
 
       <section class="intent-section" aria-labelledby="modeTitle">
         <h1 id="modeTitle">A quieter feed.</h1>
-        <p class="intro" id="modeDescription">Less of what distracts you. More room for everything else.</p>
+        <p class="intro" id="modeDescription">Choose what makes it into your feed.</p>
         <div class="field-heading"><label for="objectiveInput" id="objectiveLabel">Keep out of your feed</label><span id="topicCount" aria-live="polite">0 / 8</span></div>
         <div class="topic-editor" id="topicEditor">
           <div class="topic-list" id="topicList" aria-label="Your topics"></div>
-          <input id="objectiveInput" type="text" autocomplete="off" spellcheck="true" aria-describedby="objectiveHint topicError" placeholder="Try movie reviews…">
+          <input id="objectiveInput" type="text" autocomplete="off" spellcheck="true" aria-describedby="objectiveHint topicError" placeholder="Add a topic…">
         </div>
         <div class="input-helper"><span id="objectiveHint">Add a topic, then press <kbd>Enter</kbd> or <kbd>,</kbd></span><span id="draftState">Not saved yet</span></div>
         <p id="topicError" class="field-error" role="status" hidden></p>
@@ -83,7 +85,7 @@
           <svg viewBox="0 0 20 20" width="24" height="24" aria-hidden="true"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/></svg>
           <progress id="sessionProgress" max="1" value="1" aria-label="Focus time remaining"></progress>
         </div>
-        <p class="subtle-note" id="aiDisclosure">BYOK filtering sends your topics and relevant YouTube video/channel text directly to TypeSafe using your key. Provider usage charges apply. Custom servers may have separate access requirements. <a href="https://ownfeed.tech/privacy.html" target="_blank" rel="noreferrer">Privacy details ↗</a></p>
+        <p class="subtle-note" id="aiDisclosure">Your topics and YouTube video/channel text go to TypeSafe. Provider usage charges apply. <a href="https://ownfeed.tech/privacy.html" target="_blank" rel="noreferrer">Privacy ↗</a></p>
         <div class="goal-actions">
           <button class="button button-primary" id="saveGoal" type="button">Save preferences</button>
           <button class="button button-primary" id="toggleSession" type="button" hidden>Start Focus</button>

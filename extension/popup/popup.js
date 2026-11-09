@@ -9,9 +9,13 @@
 
   var request = FocusFeedPreferences.request;
   var accountBusy = false, accountValue = null, billingValue = null, billingBusy = false, billingFeedback = "";
-  var byokBusy = false;
+  var byokBusy = false, byokConfigured = null;
   function renderByok(value) {
     var configured = value && value.keyConfigured;
+    $("byokConnectionLabel").textContent = configured ? "Connected" : "Add your key";
+    $("byokSection").dataset.connected = String(!!configured);
+    if (value && (byokConfigured === null || byokConfigured !== !!configured)) $("byokSection").open = !configured;
+    if (value) byokConfigured = !!configured;
     $("byokStatus").textContent = configured ? "Your TypeSafe key is ready for this browser session." : "Add a key to enable topic filtering. Layout controls and manual blocks work without one.";
     $("byokRemove").hidden = !configured;
     $("byokSave").disabled = byokBusy; $("byokRemove").disabled = byokBusy;
@@ -27,8 +31,10 @@
       var result = await request(type === "FF_BYOK_SAVE" ? { type: type, key: key } : { type: type });
       if (type === "FF_BYOK_SAVE") { savedEndpoint = "https://api.typesafe.ai"; $("classifierEndpoint").value = savedEndpoint; }
       renderByok(result); renderAccount(result);
+      if (type === "FF_BYOK_SAVE") $("byokSection").open = false;
+      if (!$("byokSection").open) $("byokSummary").focus();
       feedback("byokFeedback", type === "FF_BYOK_SAVE" ? "Key checked. You can now save topics and filter your feed." : "Key removed. AI checks have stopped.");
-    } catch (error) { feedback("byokFeedback", error.message, true); }
+    } catch (error) { $("byokSection").open = true; feedback("byokFeedback", error.message, true); }
     finally { key = ""; byokBusy = false; $("byokSave").disabled = false; $("byokRemove").disabled = false; }
   }
   $("byokSave").addEventListener("click", function () { byokAction("FF_BYOK_SAVE"); });
@@ -142,8 +148,9 @@
       var profile = settings[mode], same = JSON.stringify(topics) === JSON.stringify(texts(profile)) &&
         Number($("sessionDuration").value) === Number(profile.sessionDurationMinutes);
       $("draftState").textContent = busy ? "Checking…" : same && FocusFeedSettings.valid(profile) ? "Saved" : topics.length ? "Unsaved changes" : "Not saved yet";
-      $("profileVersion").textContent = profile.objectives.some(function (o) { return o.matchScope !== "intent"; })
-        ? "Save once to upgrade this profile to your exact wording." : "Your topics stay in your words.";
+      var needsUpgrade = profile.objectives.some(function (o) { return o.matchScope !== "intent"; });
+      $("profileVersion").textContent = needsUpgrade ? "Save once to upgrade this profile to your exact wording." : "";
+      $("profileVersion").hidden = !needsUpgrade;
     }
     document.querySelectorAll("[data-minutes]").forEach(function (button) {
       button.setAttribute("aria-pressed", String(button.dataset.minutes === $("sessionDuration").value));
@@ -155,12 +162,14 @@
     $("validationResults").hidden = true; feedback("profileFeedback", "");
     var focus = mode === "focus";
     $("modeTitle").textContent = focus ? "One thing at a time." : "A quieter feed.";
-    $("modeDescription").textContent = focus ? "Choose a direction. Keep only the videos that fit." : "Less of what distracts you. More room for everything else.";
+    $("modeDescription").textContent = focus ? "Make room for what you want to learn." : "Choose what makes it into your feed.";
     $("objectiveLabel").textContent = focus ? "What are you focusing on?" : "Keep out of your feed";
     $("durationSection").hidden = !focus;
     document.querySelectorAll("[data-mode]").forEach(function (button) { button.setAttribute("aria-pressed", String(button.dataset.mode === mode)); });
     $("topicSuggestions").replaceChildren();
-    (focus ? ["DSA tutorials", "Learning Spanish", "Guitar lessons"] : ["Movie reviews", "Gaming streams", "Celebrity gossip"]).forEach(function (topic) {
+    (focus ? ["DSA tutorials", "Learning Spanish", "Guitar lessons"] : ["Movie reviews", "Gaming streams", "Celebrity gossip", "Sports highlights"]).filter(function (topic) {
+      return !editor.values().some(function (value) { return value.toLowerCase() === topic.toLowerCase(); });
+    }).slice(0, 2).forEach(function (topic) {
       var button = document.createElement("button"); button.type = "button"; button.textContent = topic;
       button.addEventListener("click", function () { editor.add(topic); }); $("topicSuggestions").appendChild(button);
     });

@@ -1,73 +1,88 @@
 # OwnFeed
 
-A Chrome extension that filters YouTube recommendations using your own topics.
-General removes matching content; Focus keeps matching content for an optional timed
-session. Topics such as “movie reviews” stay specific instead of becoming “all movies”.
+Your feed. Your rules.
 
-## Free BYOK store release (0.29.2)
+OwnFeed is a Chrome extension for controlling YouTube recommendations and page
+clutter. General mode hides recommendations matching your chosen topics; Focus
+mode keeps matching recommendations, with an optional timer. Your wording stays
+specific: movie reviews does not mean all movie content.
 
-The first store release is free and uses each user's own TypeSafe/Jev API key.
-No OwnFeed account, hosted backend, or payment is required. TypeSafe bills any
-provider usage to the user's account. Keys stay in Chrome's trusted session
-storage and must be entered again after Chrome restarts or OwnFeed reloads/updates.
+[Website](https://ownfeed.tech/) · [Privacy](https://ownfeed.tech/privacy) ·
+[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
-Build the store candidate with `python tools/package_extension.py`. It writes
-`dist/ownfeed-0.29.2.zip`, defaults to direct TypeSafe access and narrows the
-permissions. Unzip that candidate into a separate folder to test the store
-configuration; the source `extension/` retains local/custom-server development.
-Follow [release gates](docs/STORE_RELEASE.md) and [listing copy](docs/STORE_LISTING.md).
-The later hosted account/Pro implementation described below is separate from
-this free BYOK release.
+## Install the free BYOK extension
 
-## Run locally
+The current candidate is 0.29.2. No OwnFeed account, subscription or backend is
+required. Layout controls and manual channel blocks work without AI. Topic
+filtering uses your own TypeSafe/Jev key; TypeSafe charges provider usage to you.
 
-Follow [backend setup](backend/README.md#local-setup), then start the API:
+1. Get the ZIP from [ownfeed.tech](https://ownfeed.tech/) or build it below.
+2. Extract it to a folder you will keep on your computer.
+3. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**
+   and select the extracted folder containing manifest.json.
+4. Open OwnFeed from the toolbar. Enter your TypeSafe key and select
+   **Save & check key**. This performs one small billable AI check.
+5. Reload YouTube tabs. Choose topics in General or start a Focus session.
 
-```bash
-bash backend/run_local.sh --local
+The key is kept in Chrome's trusted session storage and sent only to TypeSafe.
+Re-enter it after Chrome restarts or OwnFeed reloads/updates. AI requests include
+your topics and relevant YouTube video/channel text. Never include keys in
+screenshots, reports or commits. See the privacy policy for details.
+
+This is a manually installed release candidate. Chrome Web Store approval is
+not claimed. YouTube changes can affect compatibility, and AI can make mistakes.
+OwnFeed changes what is visible in your browser, not YouTube's underlying model.
+
+## Build from source
+
+Requires Python 3.11+; Windows can use `py -3` instead of `python`:
+
+```sh
+python tools/package_extension.py --check
+python tools/package_extension.py
 ```
 
-Open `chrome://extensions`, enable Developer mode and load `extension/` unpacked.
-Reload existing YouTube tabs after installing or updating the extension. Select
-**Test without sign-in** in the extension popup to connect to the local test server.
-It shows “Local testing is active” when ready; no account or subscription is needed.
-Then select
-**OwnFeed** beside YouTube's header actions, add comma/Enter-separated topic tags
-and save. In Focus, choose a duration and select Start Focus. The panel also provides
-pause/resume, Hide Shorts, channel unblocking and review of filtered videos.
-Expand **YouTube layout** in either settings panel for Home, sidebar, chat,
-playlist, fundraiser, end screens, comments, Mixes, shopping, video information,
-header, search clutter and navigation controls, plus autoplay and annotations.
-Each switch saves immediately, works in both modes and needs no classifier.
-New layout options start off; pausing filtering restores hidden sections.
-Hiding the header leaves a floating OwnFeed button for changing settings.
-Hosted AI requires sign-in and active server-side Pro access. Account controls are
-in the extension popup; free layout controls and manual blocks work signed out.
-See [Stage 1 account setup](docs/ACCOUNTS_AND_ACCESS.md) for Cognito, durable storage,
-operator-only beta grants, and the live verification steps still required.
-See [Stage 2 usage and jobs](docs/USAGE_AND_JOBS.md) for spending caps, dynamic
-operator settings, operational analytics, and service-worker recovery.
-The [Dodo billing integration](docs/DODO_BILLING.md) adds hosted Pro checkout,
-customer billing management, verified webhooks and periodic reconciliation.
-It stays disabled until merchant configuration and live validation are complete.
-Connection & more settings opens the extension preferences for the API address,
-diagnostics and advanced tools. The browser popup remains available as a fallback.
+Extract `dist/ownfeed-0.29.2.zip` and load it unpacked. That package uses the
+production TypeSafe endpoint and minimal permissions. The raw `extension/`
+directory retains local/custom-server development defaults and extra development
+permissions; use the packaged build to evaluate the release configuration.
 
-## Development
+## Development and verification
 
-The extension uses plain JavaScript and CSS; it has no production build step.
-Node dependencies are only used for DOM-based tests:
+Requires Node.js 22.18+ for extension tests:
 
-```bash
+```sh
 npm ci --prefix extension
 npm test --prefix extension
-backend/.venv/bin/pip install -r backend/requirements-dev.txt
-backend/.venv/bin/python -m unittest discover -s backend/tests
+python -m unittest discover -s tools -p 'test_*.py'
 ```
 
-See [architecture](docs/ARCHITECTURE.md), [topic validation and Focus discovery](docs/INTENT_AND_FOCUS.md),
-the [manual YouTube checklist](docs/YOUTUBE_LIVE_TEST.md), and the [page diagnostic capture](docs/YOUTUBE_DIAGNOSTICS.md). Automated DOM tests do
-not verify Chrome layout or compatibility with the current live YouTube UI.
+The November 10 audit found two full-suite process timeouts; see
+[release evidence](docs/STORE_RELEASE.md). Passing DOM tests does not establish
+current Chrome/YouTube compatibility. Use the [live checklist](docs/YOUTUBE_LIVE_TEST.md)
+for filtering, navigation and Shorts.
 
-The backend is a local development service. The [deployment notes](backend/README.md#sam-blueprint)
-describe what remains before exposing it publicly.
+The extension is plain JavaScript and CSS; Node dependencies are only for tests.
+The optional [Python backend](backend/README.md) supports a separate development
+and hosted-account architecture. It is not needed for the free BYOK release.
+Historical account/Pro/Dodo documents describe that optional architecture; those
+controls are absent from the current popup. Never deploy local guest mode publicly.
+
+See [architecture](docs/ARCHITECTURE.md), [topic intent](docs/INTENT_AND_FOCUS.md)
+and [website setup](landing/README.md). Website deployment uses the maintainer's
+Cloudflare configuration; forks must configure their own domains and credentials.
+
+## Support and contributions
+
+Use
+[GitHub Issues](https://github.com/alokdangre/FocusFeed/issues) for bugs and feature
+requests. Security and private-data reports follow [SECURITY.md](SECURITY.md).
+Do not post API keys or unredacted diagnostics. Contributions are welcome; read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+
+## License
+
+OwnFeed's original code and documentation are MIT licensed, copyright Alok Dangre.
+See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md) for font,
+photo, dependency and generated-artwork terms. No Google or YouTube affiliation
+or endorsement is implied.

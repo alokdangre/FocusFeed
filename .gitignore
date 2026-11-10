@@ -19,3 +19,20 @@ extension/node_modules/
 
 # Generated Chrome Web Store packages and release evidence
 dist/
+
+# Private credentials and local machine state (keep documented examples)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.aws/
+.codex/
+*.local.json
+
+# Local reports, captures, and generated design references
+private/
+artifacts/
+landing/design/

@@ -20,10 +20,10 @@ async function setup(t, save, configured = false) {
   h.load("preferences-controller.js", "display-settings.js", "popup/topic-input.js", "popup/popup.js");
   await settle(); await settle(); return h;
 }
-test("BYOK popup clears the password before waiting, hides hosted billing, and reports success", async t => {
+test("BYOK popup clears the password before waiting, has no hosted account controls, and reports success", async t => {
   let release, received;
   const h = await setup(t, message => { received = message; return new Promise(resolve => { release = resolve; }); });
-  assert.equal(h.document.getElementById("hostedAccount").hidden, true);
+  assert.equal(h.document.getElementById("hostedAccount"), null);
   const field = h.document.getElementById("byokKey"), save = h.document.getElementById("byokSave");
   field.value = "test-private-key"; save.click();
   assert.equal(field.value, ""); assert.equal(save.disabled, true); await settle();

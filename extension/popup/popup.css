@@ -42,10 +42,8 @@ main { min-height:0; flex:1; padding:0 22px 18px; overflow-y:auto; }
 .key-section[open] .disclosure-chevron { transform:rotate(180deg); }
 .key-body { padding:0 0 15px; }
 .key-intro { margin:0 0 12px !important; }
-.account-section { padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid var(--line); }
-.account-section > strong { font-size:12px; font-weight:600; }
-.account-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:12px; }
-.account-actions .button { min-height:35px; padding:7px 12px; font-size:11px; }
+.key-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:12px; }
+.key-actions .button { min-height:35px; padding:7px 12px; font-size:11px; }
 .mode-switch { display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px; border:1px solid var(--line); border-radius:10px; background:transparent; }
 .mode-switch button { min-height:32px; border:0; border-radius:7px; background:transparent; color:var(--muted); font-size:12px; font-weight:500; transition:background-color 160ms,color 160ms; }
 .mode-switch button[aria-pressed="true"] { color:var(--accent-ink); background:var(--accent); }

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = """
-manifest.json background.js settings.js channel-policy.js video-model.js
+LICENSE manifest.json background.js settings.js channel-policy.js video-model.js
 request-broker.js score-cache.js learning-policy.js channel-evidence.js
 channel-investigations.js channel-learning.js account-client.js job-client.js
 byok-contract.js byok-client.js
@@ -97,13 +97,9 @@ def release_files(source):
     for name, constant in (("background.js", "DEFAULT_CLASSIFIER_ENDPOINT"), ("popup/popup.js", "DEFAULT_ENDPOINT")):
         code = result[name].decode()
         code = replace_once(code, f'var {constant} = "{LOCAL}";', f"var {constant} = {json.dumps(endpoint)};", name)
-        if name == "popup/popup.js":
-            code = replace_once(code, '$("accountTestLocal").hidden = !!local;', '$("accountTestLocal").hidden = true;', name)
         result[name] = code.encode()
     name = "popup/popup.html"
     html = result[name].decode()
-    html = replace_once(html, 'id="accountTestLocal" type="button" disabled', 'id="accountTestLocal" type="button" disabled hidden', name)
-    html = replace_once(html, 'id="hostedAccount" aria-label=', 'id="hostedAccount" hidden aria-label=', name)
     html = replace_once(html, f'placeholder="{LOCAL}"', f'value="{endpoint}" disabled aria-label="OwnFeed service address"', name)
     result[name] = html.encode()
     return result

@@ -29,7 +29,7 @@
         <label class="small-label" for="byokKey">TypeSafe API key</label>
         <input class="endpoint-input" id="byokKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your API key" aria-describedby="byokStorageNote">
         <p class="subtle-note" id="byokStorageNote">Kept only for this browser session, outside YouTube page scripts. Re-enter after restarting Chrome or updating OwnFeed. Save & check makes one small billable AI test. Monitor usage and balance in your TypeSafe account.</p>
-        <div class="account-actions">
+        <div class="key-actions">
           <button class="button button-outline" id="byokSave" type="button">Save & check key</button>
           <button class="text-button" id="byokRemove" type="button" hidden>Remove key</button>
           <a class="text-button" href="https://typesafe.ai/" target="_blank" rel="noreferrer">Get a TypeSafe key ↗</a>
@@ -38,20 +38,6 @@
         <p class="feedback" id="byokFeedback" role="status" hidden></p>
         </div>
       </details>
-      <section class="account-section" id="hostedAccount" aria-label="OwnFeed account">
-        <strong>AI filtering</strong>
-        <p id="accountStatus" class="subtle-note" role="status">Checking account…</p>
-        <div class="account-actions">
-          <button class="button button-outline" id="accountSignIn" type="button" disabled>Sign in</button>
-          <button class="text-button" id="accountTestLocal" type="button" disabled>Test without sign-in</button>
-          <button class="text-button" id="accountRefresh" type="button">Refresh access</button>
-          <button class="text-button" id="accountSignOut" type="button" hidden>Sign out</button>
-          <button class="button button-outline" id="billingUpgrade" type="button" hidden>Upgrade to Pro ↗</button>
-          <button class="text-button" id="billingManage" type="button" hidden>Manage billing ↗</button>
-        </div>
-        <p id="billingStatus" class="subtle-note" role="status" hidden></p>
-        <p id="accountFeedback" class="feedback" role="status" hidden></p>
-      </section>
       <nav class="mode-switch" aria-label="Filtering mode">
         <button type="button" data-mode="general" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12M7 3v6M13 11v6"/></svg>General</button>
         <button type="button" data-mode="focus" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7"/><circle cx="10" cy="10" r="3"/></svg>Focus</button>

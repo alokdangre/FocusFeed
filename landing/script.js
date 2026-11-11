@@ -175,40 +175,6 @@ for (const details of document.querySelectorAll('.faq-list details')) {
   });
 }
 
-const dialog = document.querySelector('#install-dialog');
-let dialogTrigger = null;
-let dialogClosing = false;
-function closeDialog() {
-  if (dialogClosing || !dialog.open) return;
-  if (reducedMotion.matches || typeof dialog.animate !== 'function') {
-    dialog.close();
-    return;
-  }
-  dialogClosing = true;
-  dialog.classList.add('is-closing');
-  const animation = dialog.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(8px)' }], { duration: 180, easing: 'ease-in' });
-  animation.onfinish = () => dialog.close();
-}
-for (const button of document.querySelectorAll('[data-install]')) button.addEventListener('click', () => {
-  dialogTrigger = button.closest('.mobile-menu') ? document.querySelector('.mobile-menu summary') : button;
-  document.querySelector('.mobile-menu').open = false;
-  dialog.showModal();
-  document.body.classList.add('dialog-open');
-});
-dialog.addEventListener('close', () => {
-  dialogClosing = false;
-  dialog.classList.remove('is-closing');
-  document.body.classList.remove('dialog-open');
-  if (dialogTrigger?.offsetParent !== null) dialogTrigger?.focus();
-  else document.querySelector('.mobile-menu summary').focus();
-});
-dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeDialog(); });
-dialog.querySelector('.dialog-close').addEventListener('click', (event) => { event.preventDefault(); closeDialog(); });
-dialog.addEventListener('click', (event) => {
-  if (event.target !== dialog) return;
-  const rect = dialog.getBoundingClientRect();
-  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeDialog();
-});
 for (const link of document.querySelectorAll('.mobile-menu a')) link.addEventListener('click', () => { document.querySelector('.mobile-menu').open = false; });
 
 renderFeed(false);

@@ -1,24 +1,12 @@
-# Contributing to OwnFeed
+# Contributing
 
-OwnFeed is a plain JavaScript Manifest V3 extension. The current release is free
-and calls TypeSafe directly using the user's own key. No OwnFeed backend or
-subscription is needed. Start with the [README](README.md).
+Open an issue before substantial changes. Keep pull requests focused: describe
+the problem, resulting behavior and relevant verification. Include light/dark
+screenshots for UI changes, with keys and personal information removed.
 
-## Before changing code
+## Setup and checks
 
-Search existing issues. For a substantial behavior or design change, open an
-issue explaining the problem and proposed behavior before implementing it.
-Keep changes focused. Preserve exact topic intent: movie reviews does not mean
-all movie content. Filtering should remain reversible and usable without AI
-for layout controls and manual channel blocks.
-
-Never include API keys, .env files, personal browsing data, reviewer credentials,
-Cloudflare/AWS credentials or unredacted diagnostic exports in issues or PRs.
-Report vulnerabilities using [SECURITY.md](SECURITY.md).
-
-## Local checks
-
-Requires Node.js 22.18+ and Python 3.11+:
+Use Node.js 22.18+ and Python 3.11+:
 
 ```sh
 npm ci --prefix extension
@@ -27,24 +15,26 @@ python -m unittest discover -s tools -p 'test_*.py'
 python tools/package_extension.py --check
 ```
 
-The full extension suite currently has unresolved process timeouts in
-`auto-runtime.test.js` and `shorts-filtering.test.js` (November 10, 2026 audit).
-Do not describe an interrupted or timed-out run as passing. Run affected files
-individually while investigating; see docs/STORE_RELEASE.md for current evidence.
+If a test process times out, report it rather than treating it as a pass.
+The previous suite run had timeouts in auto-runtime.test.js and
+shorts-filtering.test.js; include results from affected tests in your PR.
 
-If changing AI questions, follow tools/export_byok_contract.py and the backend
-setup to regenerate byok-contract.js; check it matches before proposing a PR.
-Live provider checks cost credits and are opt-in; automated tests must use mocks.
+For AI question changes, use the backend setup and tools/export_byok_contract.py
+to regenerate extension/byok-contract.js. Automated tests use mocks; live provider
+checks are opt-in and consume credits.
 
-For UI changes, include light/dark screenshots with private data removed. For
-filtering changes, include appropriate tests and results from the
-[live checklist](docs/YOUTUBE_LIVE_TEST.md). DOM fixtures do not establish
-compatibility with current YouTube. Load the generated ZIP unpacked to test
-store permissions, rather than the development extension directory.
+## Manual verification
 
-## Pull requests
+Load the generated ZIP unpacked in Chrome. Check General and Focus topics,
+start/end the Focus timer, edit topics while browsing, and test Home, Watch,
+Search, Shorts and back navigation. Verify Shorts remain filtered when scrolling
+both directions. Check pausing, key removal and provider failures. Local DOM
+tests do not establish compatibility with current YouTube.
 
-Describe the trigger, before/after behavior, relevant tests, and remaining limits.
-Do not include node_modules, generated packages, private reports, or generated
-design-reference images. Contributions are licensed under the project's MIT
-license, except separately licensed third-party content; see THIRD_PARTY_NOTICES.md.
+Preserve exact topic intent: movie reviews does not mean all movie content.
+Layout controls and manual channel blocking must remain usable without AI.
+
+Do not commit credentials, dependency trees, generated packages, browsing data,
+internal notes or design references. Follow SECURITY.md for vulnerabilities.
+Contributions use the project's MIT license, with third-party exceptions listed
+in THIRD_PARTY_NOTICES.md.

@@ -6,7 +6,7 @@ Website: https://ownfeed.tech/
 
 ## Availability
 
-OwnFeed is available as a manual installation for desktop Chrome: download the ZIP from the website, extract it, and use Load unpacked in Developer mode at chrome://extensions. The website contains an illustrative interactive demo, not a connection to a visitor's actual YouTube feed. Filtering can make mistakes, and YouTube changes can affect compatibility.
+OwnFeed is available from the Chrome Web Store: https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg. The website contains an illustrative interactive demo, not a connection to a visitor's actual YouTube feed. Filtering can make mistakes, and YouTube changes can affect compatibility.
 
 ## Free controls
 
@@ -24,11 +24,11 @@ OwnFeed is free, including topic filtering, Focus sessions, and feedback control
 
 ## Installation availability
 
-Download https://ownfeed.tech/downloads/ownfeed-0.29.2.zip, unzip it into a folder, enable Developer mode at chrome://extensions and choose Load unpacked. Select the extracted folder, enter your TypeSafe key in OwnFeed, and refresh YouTube. No local server is needed.
+Install from https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg using Add to Chrome. Then open OwnFeed, enter your TypeSafe key for AI filtering, and refresh YouTube. No Developer mode or local server is needed.
 
 ## Data handling
 
-Preferences are kept in the browser profile. Optional AI filtering sends chosen topics and relevant video or channel text directly to TypeSafe using your own API key. The key is not sent to an OwnFeed-operated server. AI classification requires an internet connection. See the [Privacy Policy](https://ownfeed.tech/privacy) for details and the [Terms of Service](https://ownfeed.tech/terms) for preview limitations.
+Preferences are kept in the browser profile. Optional AI filtering sends chosen topics and relevant video or channel text directly to TypeSafe using your own API key. The key is not sent to an OwnFeed-operated server. AI classification requires an internet connection. See the [Privacy Policy](https://ownfeed.tech/privacy) for details and the [Terms of Service](https://ownfeed.tech/terms) for availability and usage terms.
 
 ## Source
 

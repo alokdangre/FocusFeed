@@ -2,20 +2,20 @@
 
 > OwnFeed is an independent Chrome extension for YouTube that filters recommendations by user-selected topics and hides distracting layout elements.
 
-OwnFeed is available as a manual Chrome installation: download the ZIP, unzip it, and load the folder through Developer mode at chrome://extensions. The website demo is illustrative and does not access a visitor's YouTube account. Free layout controls and manual channel blocking need no account. AI topic filtering uses your own TypeSafe/Jev API key. OwnFeed is free; provider usage charges apply. No OwnFeed account or subscription is required.
+OwnFeed is available from the Chrome Web Store: https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg. The website demo is illustrative and does not access a visitor's YouTube account. Free layout controls and manual channel blocking need no account. AI topic filtering uses your own TypeSafe/Jev API key. OwnFeed is free; provider usage charges apply. No OwnFeed account or subscription is required.
 
 ## Product
 
 - [OwnFeed homepage](https://ownfeed.tech/): Product overview, illustrative demo, modes, pricing, and frequently asked questions.
 - [Product facts](https://ownfeed.tech/about.md): Plain Markdown description of features, availability, installation, account requirements, and data handling.
-- [Release availability](https://ownfeed.tech/#installation): Manual installation steps and a working extension ZIP download.
+- [Install OwnFeed](https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg): Official Chrome Web Store listing.
 - [Pricing](https://ownfeed.tech/#pricing): Free controls and TypeSafe BYOK topic filtering.
 
 ## Policies
 
-- [Privacy Policy](https://ownfeed.tech/privacy): Browser storage, optional AI provider requests, and preview limitations.
-- [Terms of Service](https://ownfeed.tech/terms): Preview status, availability, and planned billing.
+- [Privacy Policy](https://ownfeed.tech/privacy): Browser storage, optional AI provider requests, and user choices.
+- [Terms of Service](https://ownfeed.tech/terms): Availability, provider charges, and usage terms.
 
 ## Source and setup
 
-- [Source repository and local setup](https://github.com/alokdangre/FocusFeed#run-locally): The source repository retains its historical FocusFeed name; the product is called OwnFeed.
+- [Source repository and local setup](https://github.com/alokdangre/FocusFeed#build-from-source): The source repository retains its historical FocusFeed name; the product is called OwnFeed.

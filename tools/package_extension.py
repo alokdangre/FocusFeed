@@ -138,7 +138,7 @@ def main():
                    "requiredLiveChecks": ["Live Chrome/YouTube BYOK tests", "Real TypeSafe key/model access",
                                           "Current public policies and website copy", "Real screenshots and reviewer access"]}
         destination.with_suffix(".release.json").write_text(json.dumps(receipt, indent=2) + "\n")
-        print(f"Candidate: {destination}\nSHA256: {digest}\nNOT submission approval. Complete docs/STORE_RELEASE.md.")
+        print(f"Candidate: {destination}\nSHA256: {digest}\nTest the generated ZIP in Chrome before distributing a new version.")
     except (OSError, ValueError, KeyError) as exc:
         parser.exit(1, f"Release check failed: {exc}\n")
 

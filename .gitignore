@@ -36,3 +36,23 @@ dist/
 private/
 artifacts/
 landing/design/
+
+# Local agent configuration, planning notes, and release records
+.agents/
+skills-lock.json
+CONTEXT.md
+PRODUCT.md
+DESIGN.md
+docs/
+landing/DESIGN.md
+landing/SEO.md
+landing/VERIFICATION.md
+tools/package_open_source.py
+
+# Design explorations, evaluations, screenshots, and archived uploads
+hero-explorations/
+eval_reports/
+screeshots/
+screenshots/
+ownfeed-site-upload.zip
+landing/assets/*-extension.zip

@@ -18,6 +18,7 @@ import xml.etree.ElementTree as ET
 SOURCE = Path(__file__).resolve().parents[1]
 SITE = Path(os.environ.get("OWNFEED_SITE_DIR", SOURCE))
 ORIGIN = "https://ownfeed.tech"
+STORE = "https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg"
 PAGES = {"index.html": "/", "privacy.html": "/privacy", "terms.html": "/terms"}
 
 
@@ -112,11 +113,11 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertIn("installation", page.ids)
         app = next(item for item in graph if item["@type"] == "SoftwareApplication")
-        self.assertEqual(app["creativeWorkStatus"], "Developer preview")
-        self.assertNotIn("offers", app)  # Planned Pro pricing is not a purchasable offer.
+        self.assertEqual(app["creativeWorkStatus"], "Published")
+        self.assertNotIn("offers", app)  # Provider usage is billed independently.
         self.assertNotIn("aggregateRating", app)
         self.assertNotIn("downloadUrl", app)
-        self.assertNotIn("installUrl", app)
+        self.assertEqual(app["installUrl"], STORE)
 
     def test_no_extension_archives_are_published(self):
         self.assertEqual(list((SITE / "assets").rglob("*.zip")), [])
@@ -143,7 +144,7 @@ class DiscoveryTests(unittest.TestCase):
                     self.assertTrue(robots.can_fetch(agent, ORIGIN + path))
 
     def test_build_preserves_discovery_files_and_mime_rules(self):
-        for filename in ["robots.txt", "sitemap.xml", "llms.txt", "about.md", "_headers"]:
+        for filename in ["robots.txt", "sitemap.xml", "llms.txt", "about.md", "_headers", "_redirects"]:
             with self.subTest(filename=filename):
                 self.assertEqual((SOURCE / ".site-public" / filename).read_bytes(),
                                  (SOURCE / filename).read_bytes())

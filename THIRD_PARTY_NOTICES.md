@@ -5,8 +5,6 @@ That license does not replace the terms of the following third-party materials.
 
 - **DM Sans and Instrument Serif:** SIL Open Font License 1.1. Original notices
   are retained in landing/assets/fonts/*-OFL.txt and extension/popup/fonts/*-OFL.txt.
-- **TypeSafe agent skill:** MIT, copyright TypeSafe AI. Its license is retained
-  in .agents/skills/typesafe-ai/LICENSE.
 - **Illustrative photographs:** landing/assets/bread.jpg, cinema.jpg, guitar.jpg
   and space.jpg originate from Unsplash. Original source URLs are recorded in
   landing/assets/sources.json. These images remain under the Unsplash License,

@@ -2,7 +2,6 @@
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; scroll-padding-top:30px; }
 body { margin:0; }
-body.dialog-open { overflow:hidden; }
 button,input,a,summary { -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
 button,input { font:inherit; }
 button { color:inherit; cursor:pointer; }
@@ -154,7 +153,7 @@ h2 { font-size:clamp(48px,5.1vw,70px); line-height:1.03; letter-spacing:-1.8px; 
 .price-plan ul { list-style:none; padding:22px 0 0; margin:0 0 29px; border-top:1px solid #dbe7f0; }
 .price-plan li { position:relative; padding-left:23px; margin:0 0 13px; color:#496479; font-size:12px; line-height:1.5; }
 .price-plan li::before { content:'✓'; position:absolute; left:0; color:#6d9abb; font-weight:600; }
-.plan-action { width:100%; display:flex; align-items:center; justify-content:center; gap:12px; min-height:48px; padding:12px 18px; border-radius:100px; font-size:12px; font-weight:500; transition:background-color 200ms ease, transform 200ms ease; }
+.plan-action { text-decoration:none; text-align:center; width:100%; display:flex; align-items:center; justify-content:center; gap:12px; min-height:48px; padding:12px 18px; border-radius:100px; font-size:12px; font-weight:500; transition:background-color 200ms ease, transform 200ms ease; }
 .plan-action:hover { transform:translateY(-2px); }
 .plan-action-light { background:#edf5fa; color:var(--ink); }
 .plan-action-light:hover { background:#e0edf5; }
@@ -185,22 +184,6 @@ h2 { font-size:clamp(48px,5.1vw,70px); line-height:1.03; letter-spacing:-1.8px; 
 .site-footer > p { font-size:11px; color:#ffffffde; margin:0; }
 .site-footer nav { display:flex; gap:24px; flex-wrap:wrap; font-size:11px; color:#fff; }
 .site-footer nav a { text-decoration:underline; text-underline-offset:5px; }
-dialog { width:min(510px,calc(100% - 32px)); padding:37px; color:var(--ink); background:var(--paper); border:1px solid #d6e4ee; border-radius:18px; max-height:calc(100svh - 40px); box-shadow:0 25px 100px #183c5d33; }
-dialog[open] { animation:dialog-enter 240ms cubic-bezier(.22, 1, .36, 1) both; }
-dialog::backdrop { background:#16344c5e; backdrop-filter:blur(5px); transition:background 180ms ease, backdrop-filter 180ms ease; }
-dialog.is-closing::backdrop { background:transparent; backdrop-filter:blur(0); }
-@keyframes dialog-enter { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-.dialog-close { position:absolute; top:16px; right:18px; width:34px; height:34px; border-radius:50%; background:#e7f0f6; color:#41627c; font-size:23px; }
-dialog h2 { font-size:51px; margin-top:23px; }
-#install-description { font-size:13px; line-height:1.7; margin:18px 0 23px; color:var(--muted); }
-.install-steps { padding-left:20px; margin:0 0 25px; }
-.install-steps li { padding-left:6px; margin-bottom:17px; font-size:12px; }
-.install-steps strong { display:block; font-weight:500; margin-bottom:5px; }
-.install-steps span { color:var(--muted); font-size:11px; line-height:1.6; display:block; }
-.install-steps code { font:11px var(--sans); background:#e6eff6; padding:2px 4px; border-radius:3px; }
-.download-extension { width:100%; font-size:12px; }
-.install-note { font-size:10px; line-height:1.8; color:var(--muted); margin:18px 0 0; }
-.install-note a { text-decoration:underline; text-underline-offset:3px; }
 .noscript-message { padding:15px; font-size:13px; text-align:center; }
 .noscript-message a { text-decoration:underline; }
 @media (min-width:1500px) { .hero { height:960px; min-height:960px; } .hero-content { padding-top:65px; } }
@@ -246,8 +229,8 @@ dialog h2 { font-size:51px; margin-top:23px; }
   .mobile-menu summary > span { font-size:14px; }
   .mobile-menu nav { position:absolute; top:44px; right:0; width:210px; border:1px solid #d6e3ed; padding:10px; border-radius:12px; background:#f8fbfcf5; box-shadow:0 15px 30px #203f5517; backdrop-filter:blur(12px); }
   .mobile-menu[open] nav { animation:menu-enter 200ms cubic-bezier(.22, 1, .36, 1) both; transform-origin:top right; }
-  .mobile-menu nav a,.mobile-menu nav button { display:block; font-size:13px; padding:12px; width:100%; background:transparent; text-align:left; border-radius:6px; }
-  .mobile-menu nav a:hover,.mobile-menu nav button:hover { background:#e4eef5; }
+  .mobile-menu nav a,.mobile-menu nav a[data-store-install] { display:block; font-size:13px; padding:12px; width:100%; background:transparent; text-align:left; border-radius:6px; }
+  .mobile-menu nav a:hover,.mobile-menu nav a[data-store-install]:hover { background:#e4eef5; }
   .hero-content { padding-top:75px; }
   h1 { font-size:clamp(52px,9.9vw,69px); line-height:1.03; letter-spacing:-1.5px; margin-bottom:26px; }
   .hero-description { font-size:14px; line-height:1.7; max-width:340px; margin-inline:auto; }
@@ -340,8 +323,6 @@ dialog h2 { font-size:51px; margin-top:23px; }
   .footer-brand { font-size:27px; }
   .site-footer > p { font-size:10px; margin-left:auto; }
   .site-footer nav { width:100%; justify-content:flex-start; gap:12px 22px; font-size:11px; }
-  dialog { padding:28px 24px; }
-  dialog h2 { font-size:47px; }
 }
 @keyframes menu-enter { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width:360px) {

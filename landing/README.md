@@ -1,58 +1,41 @@
-# OwnFeed — Cloudbreak landing page
+# OwnFeed website
 
-Release copy updated for the free 0.29.2 TypeSafe/Jev BYOK candidate: no OwnFeed
-account, hosted backend or subscription; provider usage charges apply. The local
-privacy/terms, FAQ, pricing and machine-readable facts now describe that scope.
-These changes were deployed on November 9, 2026; HTTP checks verified current
-BYOK text on the homepage, privacy, terms, about.md and llms.txt. See
-../docs/STORE_RELEASE.md for deployment evidence and remaining browser checks.
-The installation dialog downloads the current ZIP and explains manual Chrome installation. A store install link will be added after a separate approved submission. Older
-verification and hosted-Pro notes below describe the previous website version.
-
-A self-contained landing page based on the selected Cloudbreak artwork. This directory contains the source for `https://ownfeed.tech/`.
+Static HTML, CSS and JavaScript for https://ownfeed.tech. Install links point to
+the official Chrome Web Store listing. The interactive feed is an illustrative
+demo; it does not access a visitor's YouTube account.
 
 ## Preview
-
-Open `index.html` directly in a browser. All runtime images and fonts are local, and no installation or build is required. For HTTP preview, run from the repository root:
 
 ```sh
 python -m http.server 4174 --bind 127.0.0.1 --directory landing
 ```
 
-Then visit http://localhost:4174.
+Open http://localhost:4174. Runtime images and fonts are local.
 
-## Structure and behavior
+## Build and test
 
-1. Full-width Cloudbreak hero with editorial typography and the first action leading to the demo.
-2. Interactive before/after feed: enable or disable two example hidden topics. “Movie reviews” does not remove the science video about Interstellar.
-3. Three short explanation steps.
-4. General and Focus panels with a working 25-minute local timer, pause/resume/end, and an example feed that follows the selected mode.
-5. Local preview controls for hiding Shorts, comments, and recommendations.
-6. Free and planned Pro pricing, followed by a disclosure FAQ.
-7. Last Light ocean sunset closing section with the footer blended into the image.
-8. Accessible installation dialog with a versioned extension ZIP and manual Chrome installation steps.
+From this directory, using Node.js 22.18+:
 
-The feed, video titles, durations, and timer are illustrative. This site does not read a visitor's YouTube feed, run the classifier, or change extension settings. The $4.99/month Pro figure is marked as planned, taken from the older local landing page; the billing product and actual price are not yet configured. Checkout is not available.
+```sh
+npm ci
+npm run build
+python -m unittest discover -s tests
+```
 
-## Files
+The build copies an explicit static-file allowlist into .site-public/ and creates
+Cloudflare Build Output. It does not publish extension ZIPs or repository files.
+Discovery tests check structured data, canonical URLs, store availability and
+crawler files. They also work against the built output via OWNFEED_SITE_DIR.
 
-- `index.html`, `styles.css`, `script.js`: semantic, buildless page.
-- `privacy.html`, `terms.html`, `legal.css`: linked policy pages for the free BYOK release. Public support uses GitHub; no personal email address is published.
-- `assets/cloudbreak.webp` and `assets/last-light.webp`: the selected generated hero and footer images, copied without regenerating them.
-- `assets/fonts/`: locally hosted Instrument Serif and DM Sans, with OFL licenses.
-- `assets/sources.json`: provenance for fonts, imagery, and the illustrative thumbnail photos.
-- The build invokes the explicit extension runtime allowlist to publish one versioned ZIP and its SHA256 under downloads/. Backend files, keys, tests, and local design references remain excluded.
-- `DESIGN.md`: design tokens, structure, and intentional adjustments to the generated concepts.
-- `design/`: four generated section concepts, kept locally as visual references. Do not stage, commit, or publish them without an explicit request.
-- `VERIFICATION.md`: functional and visual verification notes.
-- `robots.txt`, `sitemap.xml`, `llms.txt`, `about.md`, `_headers`: crawler discovery, product facts, and content-type rules. See `SEO.md` for verification and launch steps.
+## Deploy
 
-## Verification boundary
+```sh
+npm run deploy
+```
 
-The initial website was tested locally in headless Chromium at desktop, tablet, and phone sizes on 2026-11-02. The 2026-11-04 footer, pricing, and motion updates have DOM interaction checks but still need visual browser review. Neither check verifies the extension on live YouTube, authenticated provider calls, or payments. On 2026-11-05, the SEO changes and removal of public extension downloads were deployed and checked over HTTP on both public domains. See `SEO.md` for evidence and remaining search-console steps.
+This uses Cloudflare's cf CLI and the existing cloudflare.config.ts. Authentication
+and permission to deploy the configured Worker are required. Forks must configure
+their own Worker and domains. For Workers Builds, use landing as the root,
+`npm run build` as the build command and `npm run deploy` as the deploy command.
 
-## Cloudflare Workers build
-
-Run `npm ci` and `npm run build` with Node.js 24.22.2. The build copies an explicit list of website assets into `.site-public/`, then generates Cloudflare Build Output, including the crawler files. `npm run deploy` deploys that output to the existing `old-credit-48dd` Worker. This Worker serves `ownfeed.tech` and `www.ownfeed.tech`; the configuration retains both custom domains.
-
-For Workers Builds, use `landing` as the root directory, `npm run build` as the build command, `npm run deploy` as the deploy command, and set `NODE_VERSION` to `24.22.2`. Only connect production builds after this directory and its runtime assets are present in the selected GitHub branch.
+Image/font provenance is recorded in assets/sources.json; retain the font licenses.

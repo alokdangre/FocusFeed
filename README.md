@@ -1,55 +1,40 @@
 # OwnFeed
 
-Your feed. Your rules.
+Choose what appears on YouTube. Hide topics in General mode, keep selected
+interests in Focus mode, block channels, and turn off distracting page elements.
+A topic like “movie reviews” stays specific instead of becoming “all movies”.
 
-OwnFeed is a Chrome extension for controlling YouTube recommendations and page
-clutter. General mode hides recommendations matching your chosen topics; Focus
-mode keeps matching recommendations, with an optional timer. Your wording stays
-specific: movie reviews does not mean all movie content.
+[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/ownfeed/hibmnchhhcdgajolcmodedpmfcjjbmbg) ·
+[Website](https://ownfeed.tech/) · [Privacy](https://ownfeed.tech/privacy)
 
-[Website](https://ownfeed.tech/) · [Privacy](https://ownfeed.tech/privacy) ·
-[Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+## Get started
 
-## Install the free BYOK extension
+Install OwnFeed, open its toolbar popup, and choose your settings. Layout controls
+and manual channel blocks work immediately. For AI topic filtering, enter your
+own TypeSafe/Jev API key and select **Save & check key**, then refresh YouTube.
 
-The current candidate is 0.29.2. No OwnFeed account, subscription or backend is
-required. Layout controls and manual channel blocks work without AI. Topic
-filtering uses your own TypeSafe/Jev key; TypeSafe charges provider usage to you.
-
-1. Get the ZIP from [ownfeed.tech](https://ownfeed.tech/) or build it below.
-2. Extract it to a folder you will keep on your computer.
-3. Open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**
-   and select the extracted folder containing manifest.json.
-4. Open OwnFeed from the toolbar. Enter your TypeSafe key and select
-   **Save & check key**. This performs one small billable AI check.
-5. Reload YouTube tabs. Choose topics in General or start a Focus session.
-
-The key is kept in Chrome's trusted session storage and sent only to TypeSafe.
-Re-enter it after Chrome restarts or OwnFeed reloads/updates. AI requests include
-your topics and relevant YouTube video/channel text. Never include keys in
-screenshots, reports or commits. See the privacy policy for details.
-
-This is a manually installed release candidate. Chrome Web Store approval is
-not claimed. YouTube changes can affect compatibility, and AI can make mistakes.
-OwnFeed changes what is visible in your browser, not YouTube's underlying model.
+OwnFeed is free. TypeSafe bills AI usage to your provider account; the key check
+also makes one small billable request. No OwnFeed account or backend is required.
+The key stays in Chrome's trusted session storage and must be re-entered after
+Chrome restarts or the extension reloads/updates. Relevant topic and video/channel
+text goes directly to TypeSafe. See the privacy policy for details.
 
 ## Build from source
 
-Requires Python 3.11+; Windows can use `py -3` instead of `python`:
+Requires Python 3.11+ (`py -3` on Windows):
 
 ```sh
 python tools/package_extension.py --check
 python tools/package_extension.py
 ```
 
-Extract `dist/ownfeed-0.29.2.zip` and load it unpacked. That package uses the
-production TypeSafe endpoint and minimal permissions. The raw `extension/`
-directory retains local/custom-server development defaults and extra development
-permissions; use the packaged build to evaluate the release configuration.
+Extract the ZIP in `dist/`, open `chrome://extensions`, enable Developer mode,
+and load the extracted folder. Use this package to test the release configuration;
+the raw `extension/` directory retains local-server development defaults.
 
-## Development and verification
+## Development
 
-Requires Node.js 22.18+ for extension tests:
+The extension is plain JavaScript and CSS. Node.js 22.18+ is used for DOM tests:
 
 ```sh
 npm ci --prefix extension
@@ -57,32 +42,25 @@ npm test --prefix extension
 python -m unittest discover -s tools -p 'test_*.py'
 ```
 
-The November 10 audit found two full-suite process timeouts; see
-[release evidence](docs/STORE_RELEASE.md). Passing DOM tests does not establish
-current Chrome/YouTube compatibility. Use the [live checklist](docs/YOUTUBE_LIVE_TEST.md)
-for filtering, navigation and Shorts.
+- `extension/` — extension source and tests.
+- `landing/` — ownfeed.tech website; see its [README](landing/README.md).
+- `backend/` — optional development API and canonical AI prompts; see its [README](backend/README.md).
+- `tools/` — packaging, icon generation, diagnostics and prompt export.
 
-The extension is plain JavaScript and CSS; Node dependencies are only for tests.
-The optional [Python backend](backend/README.md) supports a separate development
-and hosted-account architecture. It is not needed for the free BYOK release.
-Historical account/Pro/Dodo documents describe that optional architecture; those
-controls are absent from the current popup. Never deploy local guest mode publicly.
+The store extension calls TypeSafe directly. The optional backend is only needed
+for backend development or regenerating the shared AI prompt contract.
 
-See [architecture](docs/ARCHITECTURE.md), [topic intent](docs/INTENT_AND_FOCUS.md)
-and [website setup](landing/README.md). Website deployment uses the maintainer's
-Cloudflare configuration; forks must configure their own domains and credentials.
+## Contributing and support
 
-## Support and contributions
-
-Use
-[GitHub Issues](https://github.com/alokdangre/FocusFeed/issues) for bugs and feature
-requests. Security and private-data reports follow [SECURITY.md](SECURITY.md).
-Do not post API keys or unredacted diagnostics. Contributions are welcome; read
-[CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
+Open an [issue](https://github.com/alokdangre/FocusFeed/issues) for bugs or feature
+requests. Read [CONTRIBUTING.md](CONTRIBUTING.md) before making changes and
+[SECURITY.md](SECURITY.md) for private vulnerability reports. Never post API keys
+or unredacted diagnostics.
 
 ## License
 
-OwnFeed's original code and documentation are MIT licensed, copyright Alok Dangre.
-See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md) for font,
-photo, dependency and generated-artwork terms. No Google or YouTube affiliation
-or endorsement is implied.
+[MIT](LICENSE). Fonts, photos and other third-party materials retain their own
+terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+OwnFeed is independent of Google and YouTube. AI filtering can make mistakes,
+and YouTube changes can affect compatibility.
